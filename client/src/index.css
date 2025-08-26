@@ -1,0 +1,265 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import './styles/buylock-design-system.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* BuyLock Brand Color System */
+  /* Primary Brand Colors */
+  --buylock-orange: hsl(11, 100%, 51%); /* #FF4705 - Bright Orange */
+  --buylock-cyan: hsl(192, 100%, 50%); /* #00CFFF - Vibrant Cyan */
+  
+  /* Supporting Neutral Colors */
+  --buylock-charcoal: hsl(0, 0%, 11.76%); /* #1E1E1E - Dark Charcoal */
+  --buylock-gray: hsl(0, 0%, 95.69%); /* #F4F4F4 - Soft Gray */
+  --buylock-white: hsl(0, 0%, 100%); /* #FFFFFF - White */
+  
+  /* Secondary Accent Colors */
+  --buylock-navy: hsl(205, 100%, 18.43%); /* #003F5C - Muted Navy */
+  --buylock-beige: hsl(39, 100%, 95.29%); /* #FFF4E6 - Warm Beige */
+
+  /* Updated system colors using BuyLock palette */
+  --background: var(--buylock-white);
+  --foreground: var(--buylock-charcoal);
+  --card: var(--buylock-gray);
+  --card-foreground: var(--buylock-charcoal);
+  --popover: var(--buylock-white);
+  --popover-foreground: var(--buylock-charcoal);
+  --primary: var(--buylock-orange);
+  --primary-foreground: var(--buylock-white);
+  --secondary: var(--buylock-cyan);
+  --secondary-foreground: var(--buylock-charcoal);
+  --muted: var(--buylock-gray);
+  --muted-foreground: hsl(0, 0%, 40%);
+  --accent: var(--buylock-beige);
+  --accent-foreground: var(--buylock-charcoal);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: var(--buylock-white);
+  --border: hsl(0, 0%, 90%);
+  --input: var(--buylock-gray);
+  --ring: var(--buylock-orange);
+  
+  /* Chart colors using brand palette */
+  --chart-1: var(--buylock-orange);
+  --chart-2: var(--buylock-cyan);
+  --chart-3: var(--buylock-navy);
+  --chart-4: hsl(142, 71%, 45%);
+  --chart-5: hsl(346, 77%, 50%);
+  
+  /* Sidebar colors */
+  --sidebar: var(--buylock-gray);
+  --sidebar-foreground: var(--buylock-charcoal);
+  --sidebar-primary: var(--buylock-orange);
+  --sidebar-primary-foreground: var(--buylock-white);
+  --sidebar-accent: var(--buylock-beige);
+  --sidebar-accent-foreground: var(--buylock-charcoal);
+  --sidebar-border: hsl(0, 0%, 85%);
+  --sidebar-ring: var(--buylock-orange);
+  
+  /* Typography */
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  
+  /* Layout */
+  --radius: 0.75rem;
+  --spacing: 0.25rem;
+  
+  /* Shadows with brand colors */
+  --shadow-2xs: 0px 1px 2px 0px hsl(11, 100%, 51% / 0.05);
+  --shadow-xs: 0px 1px 2px 0px hsl(11, 100%, 51% / 0.05);
+  --shadow-sm: 0px 1px 3px 0px hsl(11, 100%, 51% / 0.1), 0px 1px 2px 0px hsl(11, 100%, 51% / 0.06);
+  --shadow: 0px 1px 3px 0px hsl(11, 100%, 51% / 0.1), 0px 1px 2px 0px hsl(11, 100%, 51% / 0.06);
+  --shadow-md: 0px 4px 6px -1px hsl(11, 100%, 51% / 0.1), 0px 2px 4px -1px hsl(11, 100%, 51% / 0.06);
+  --shadow-lg: 0px 10px 15px -3px hsl(11, 100%, 51% / 0.1), 0px 4px 6px -2px hsl(11, 100%, 51% / 0.05);
+  --shadow-xl: 0px 20px 25px -5px hsl(11, 100%, 51% / 0.1), 0px 10px 10px -5px hsl(11, 100%, 51% / 0.04);
+  --shadow-2xl: 0px 25px 50px -12px hsl(11, 100%, 51% / 0.25);
+  --tracking-normal: 0em;
+  
+  /* Legacy variables for backward compatibility */
+  --buylock-primary: var(--buylock-orange);
+  --buylock-secondary: var(--buylock-cyan);
+}
+
+.dark {
+  /* Dark mode using BuyLock brand colors */
+  --background: var(--buylock-charcoal);
+  --foreground: var(--buylock-white);
+  --card: hsl(0, 0%, 8%);
+  --card-foreground: var(--buylock-white);
+  --popover: var(--buylock-charcoal);
+  --popover-foreground: var(--buylock-white);
+  --primary: var(--buylock-orange);
+  --primary-foreground: var(--buylock-white);
+  --secondary: var(--buylock-cyan);
+  --secondary-foreground: var(--buylock-charcoal);
+  --muted: hsl(0, 0%, 15%);
+  --muted-foreground: hsl(0, 0%, 70%);
+  --accent: var(--buylock-navy);
+  --accent-foreground: var(--buylock-white);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: var(--buylock-white);
+  --border: hsl(0, 0%, 20%);
+  --input: hsl(0, 0%, 15%);
+  --ring: var(--buylock-orange);
+  
+  /* Chart colors for dark mode */
+  --chart-1: var(--buylock-orange);
+  --chart-2: var(--buylock-cyan);
+  --chart-3: var(--buylock-beige);
+  --chart-4: hsl(142, 71%, 45%);
+  --chart-5: hsl(346, 77%, 50%);
+  
+  /* Sidebar dark mode */
+  --sidebar: hsl(0, 0%, 8%);
+  --sidebar-foreground: var(--buylock-white);
+  --sidebar-primary: var(--buylock-orange);
+  --sidebar-primary-foreground: var(--buylock-white);
+  --sidebar-accent: var(--buylock-navy);
+  --sidebar-accent-foreground: var(--buylock-white);
+  --sidebar-border: hsl(0, 0%, 20%);
+  --sidebar-ring: var(--buylock-orange);
+  
+  /* Typography */
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  
+  /* Layout */
+  --radius: 0.75rem;
+  
+  /* Dark mode shadows */
+  --shadow-2xs: 0px 1px 2px 0px hsl(0, 0%, 0% / 0.15);
+  --shadow-xs: 0px 1px 2px 0px hsl(0, 0%, 0% / 0.15);
+  --shadow-sm: 0px 1px 3px 0px hsl(0, 0%, 0% / 0.2), 0px 1px 2px 0px hsl(0, 0%, 0% / 0.12);
+  --shadow: 0px 1px 3px 0px hsl(0, 0%, 0% / 0.2), 0px 1px 2px 0px hsl(0, 0%, 0% / 0.12);
+  --shadow-md: 0px 4px 6px -1px hsl(0, 0%, 0% / 0.2), 0px 2px 4px -1px hsl(0, 0%, 0% / 0.12);
+  --shadow-lg: 0px 10px 15px -3px hsl(0, 0%, 0% / 0.2), 0px 4px 6px -2px hsl(0, 0%, 0% / 0.1);
+  --shadow-xl: 0px 20px 25px -5px hsl(0, 0%, 0% / 0.2), 0px 10px 10px -5px hsl(0, 0%, 0% / 0.08);
+  --shadow-2xl: 0px 25px 50px -12px hsl(0, 0%, 0% / 0.35);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+/* BuyLock Brand Color Utility Classes */
+
+/* Primary Brand Colors */
+.text-buylock-orange { color: var(--buylock-orange); }
+.bg-buylock-orange { background-color: var(--buylock-orange); }
+.border-buylock-orange { border-color: var(--buylock-orange); }
+
+.text-buylock-cyan { color: var(--buylock-cyan); }
+.bg-buylock-cyan { background-color: var(--buylock-cyan); }
+.border-buylock-cyan { border-color: var(--buylock-cyan); }
+
+/* Supporting Neutral Colors */
+.text-buylock-charcoal { color: var(--buylock-charcoal); }
+.bg-buylock-charcoal { background-color: var(--buylock-charcoal); }
+.border-buylock-charcoal { border-color: var(--buylock-charcoal); }
+
+.text-buylock-gray { color: var(--buylock-gray); }
+.bg-buylock-gray { background-color: var(--buylock-gray); }
+.border-buylock-gray { border-color: var(--buylock-gray); }
+
+.text-buylock-white { color: var(--buylock-white); }
+.bg-buylock-white { background-color: var(--buylock-white); }
+.border-buylock-white { border-color: var(--buylock-white); }
+
+/* Secondary Accent Colors */
+.text-buylock-navy { color: var(--buylock-navy); }
+.bg-buylock-navy { background-color: var(--buylock-navy); }
+.border-buylock-navy { border-color: var(--buylock-navy); }
+
+.text-buylock-beige { color: var(--buylock-beige); }
+.bg-buylock-beige { background-color: var(--buylock-beige); }
+.border-buylock-beige { border-color: var(--buylock-beige); }
+
+/* Alpha/Opacity Variants */
+.bg-buylock-orange\/10 { background-color: hsl(11, 100%, 51% / 0.1); }
+.bg-buylock-orange\/20 { background-color: hsl(11, 100%, 51% / 0.2); }
+.bg-buylock-orange\/30 { background-color: hsl(11, 100%, 51% / 0.3); }
+
+.bg-buylock-cyan\/10 { background-color: hsl(192, 100%, 50% / 0.1); }
+.bg-buylock-cyan\/20 { background-color: hsl(192, 100%, 50% / 0.2); }
+.bg-buylock-cyan\/30 { background-color: hsl(192, 100%, 50% / 0.3); }
+
+.bg-buylock-navy\/10 { background-color: hsl(205, 100%, 18% / 0.1); }
+.bg-buylock-navy\/20 { background-color: hsl(205, 100%, 18% / 0.2); }
+
+/* Hover States */
+.hover\:bg-buylock-orange\/90:hover { background-color: hsl(11, 100%, 51% / 0.9); }
+.hover\:bg-buylock-cyan\/90:hover { background-color: hsl(192, 100%, 50% / 0.9); }
+.hover\:text-buylock-orange:hover { color: var(--buylock-orange); }
+.hover\:text-buylock-cyan:hover { color: var(--buylock-cyan); }
+
+/* Focus States */
+.focus\:ring-buylock-orange:focus { --tw-ring-color: var(--buylock-orange); }
+.focus\:ring-buylock-cyan:focus { --tw-ring-color: var(--buylock-cyan); }
+
+/* Group Hover States */
+.group-hover\:border-buylock-orange:hover { border-color: var(--buylock-orange); }
+.group-hover\:text-buylock-orange:hover { color: var(--buylock-orange); }
+.group-hover\:border-buylock-cyan:hover { border-color: var(--buylock-cyan); }
+.group-hover\:text-buylock-cyan:hover { color: var(--buylock-cyan); }
+
+/* Legacy support for existing classes */
+.buylock-primary { color: var(--buylock-orange); }
+.bg-buylock-primary { background-color: var(--buylock-orange); }
+.border-buylock-primary { border-color: var(--buylock-orange); }
+.buylock-secondary { color: var(--buylock-cyan); }
+.bg-buylock-secondary { background-color: var(--buylock-cyan); }
+.bg-buylock-secondary\/20 { background-color: hsl(192, 100%, 50% / 0.2); }
+.hover\:bg-buylock-primary\/90:hover { background-color: hsl(11, 100%, 51% / 0.9); }
+.hover\:text-buylock-primary:hover { color: var(--buylock-orange); }
+.focus\:ring-buylock-primary:focus { --tw-ring-color: var(--buylock-orange); }
+.group-hover\:border-buylock-primary:hover { border-color: var(--buylock-orange); }
+.group-hover\:text-buylock-primary:hover { color: var(--buylock-orange); }
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Gradient backgrounds using BuyLock brand colors */
+.bg-gradient-buylock {
+  background: linear-gradient(135deg, var(--buylock-orange), var(--buylock-cyan));
+}
+
+.bg-gradient-buylock-subtle {
+  background: linear-gradient(135deg, var(--buylock-orange), hsl(11, 100%, 55%));
+}
+
+.bg-gradient-buylock-navy {
+  background: linear-gradient(135deg, var(--buylock-navy), var(--buylock-orange));
+}
+
+.bg-gradient-buylock-light {
+  background: linear-gradient(135deg, var(--buylock-beige), var(--buylock-white));
+}
+
+/* Smooth transitions */
+.transition-all {
+  transition: all 0.3s ease;
+}
+
+/* Custom scrollbar */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

@@ -1,0 +1,60 @@
+hecking pending payment status: BL_1755154238534_f6r65s1f3
+injected.js:253  POST https://ae3f4bd4-6904-45d2-9971-6337f5a4a7d2-00-3aa2812tcxcjk.picard.replit.dev/api/payments/verify 400 (Bad Request)
+window.fetch @ Network.js:219
+apply @ injected.js:253
+apiRequest @ queryClient.ts:15
+mutationFn @ cart.tsx:265
+fn @ @tanstack_react-query.js?v=b792f5c5:1189
+run @ @tanstack_react-query.js?v=b792f5c5:494
+start @ @tanstack_react-query.js?v=b792f5c5:536
+execute @ @tanstack_react-query.js?v=b792f5c5:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=b792f5c5:2630
+(anonymous) @ @tanstack_react-query.js?v=b792f5c5:3295
+checkPendingPayments @ cart.tsx:342
+(anonymous) @ cart.tsx:348
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=5d70eea2:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=5d70eea2:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=5d70eea2:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=5d70eea2:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=5d70eea2:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=5d70eea2:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=5d70eea2:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=5d70eea2:19416
+commitRoot @ chunk-RPCDYKBN.js?v=5d70eea2:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=5d70eea2:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=5d70eea2:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=5d70eea2:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=b792f5c5:555
+flush @ @tanstack_react-query.js?v=b792f5c5:569
+batch @ @tanstack_react-query.js?v=b792f5c5:587
+dispatch_fn @ @tanstack_react-query.js?v=b792f5c5:996
+setData @ @tanstack_react-query.js?v=b792f5c5:696
+onSuccess @ @tanstack_react-query.js?v=b792f5c5:897
+resolve @ @tanstack_react-query.js?v=b792f5c5:456
+Promise.then
+run @ @tanstack_react-query.js?v=b792f5c5:498
+start @ @tanstack_react-query.js?v=b792f5c5:536
+fetch @ @tanstack_react-query.js?v=b792f5c5:926
+executeFetch_fn @ @tanstack_react-query.js?v=b792f5c5:2211
+onSubscribe @ @tanstack_react-query.js?v=b792f5c5:1898
+subscribe @ @tanstack_react-query.js?v=b792f5c5:24
+(anonymous) @ @tanstack_react-query.js?v=b792f5c5:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=5d70eea2:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=5d70eea2:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=5d70eea2:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=5d70eea2:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=5d70eea2:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=5d70eea2:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=5d70eea2:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=5d70eea2:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=5d70eea2:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=5d70eea2:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=5d70eea2:19432
+commitRoot @ chunk-RPCDYKBN.js?v=5d70eea2:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=5d70eea2:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=5d70eea2:18718
+workLoop @ chunk-RPCDYKBN.js?v=5d70eea2:197
+flushWork @ chunk-RPCDYKBN.js?v=5d70eea2:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=5d70eea2:384Understand this error

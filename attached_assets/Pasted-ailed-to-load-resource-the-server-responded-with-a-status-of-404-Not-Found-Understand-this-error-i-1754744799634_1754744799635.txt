@@ -1,0 +1,60 @@
+ailed to load resource: the server responded with a status of 404 (Not Found)Understand this error
+injected.js:253  GET https://ae3f4bd4-6904-45d2-9971-6337f5a4a7d2-00-3aa2812tcxcjk.picard.replit.dev/api/products/featured=true&limit=5 404 (Not Found)
+window.fetch @ Network.js:219
+apply @ injected.js:253
+(anonymous) @ queryClient.ts:32
+fetchFn @ @tanstack_react-query.js?v=0c9860ae:840
+run @ @tanstack_react-query.js?v=0c9860ae:494
+start @ @tanstack_react-query.js?v=0c9860ae:536
+fetch @ @tanstack_react-query.js?v=0c9860ae:926
+executeFetch_fn @ @tanstack_react-query.js?v=0c9860ae:2211
+onSubscribe @ @tanstack_react-query.js?v=0c9860ae:1898
+subscribe @ @tanstack_react-query.js?v=0c9860ae:24
+(anonymous) @ @tanstack_react-query.js?v=0c9860ae:3022
+subscribeToStore @ chunk-WERSD76P.js?v=0c9860ae:11984
+commitHookEffectListMount @ chunk-WERSD76P.js?v=0c9860ae:16915
+commitPassiveMountOnFiber @ chunk-WERSD76P.js?v=0c9860ae:18156
+commitPassiveMountEffects_complete @ chunk-WERSD76P.js?v=0c9860ae:18129
+commitPassiveMountEffects_begin @ chunk-WERSD76P.js?v=0c9860ae:18119
+commitPassiveMountEffects @ chunk-WERSD76P.js?v=0c9860ae:18109
+flushPassiveEffectsImpl @ chunk-WERSD76P.js?v=0c9860ae:19490
+flushPassiveEffects @ chunk-WERSD76P.js?v=0c9860ae:19447
+commitRootImpl @ chunk-WERSD76P.js?v=0c9860ae:19416
+commitRoot @ chunk-WERSD76P.js?v=0c9860ae:19277
+performSyncWorkOnRoot @ chunk-WERSD76P.js?v=0c9860ae:18895
+flushSyncCallbacks @ chunk-WERSD76P.js?v=0c9860ae:9119
+(anonymous) @ chunk-WERSD76P.js?v=0c9860ae:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=0c9860ae:555
+flush @ @tanstack_react-query.js?v=0c9860ae:569
+batch @ @tanstack_react-query.js?v=0c9860ae:587
+dispatch_fn @ @tanstack_react-query.js?v=0c9860ae:996
+setData @ @tanstack_react-query.js?v=0c9860ae:696
+onSuccess @ @tanstack_react-query.js?v=0c9860ae:897
+resolve @ @tanstack_react-query.js?v=0c9860ae:456
+Promise.then
+run @ @tanstack_react-query.js?v=0c9860ae:498
+start @ @tanstack_react-query.js?v=0c9860ae:536
+fetch @ @tanstack_react-query.js?v=0c9860ae:926
+executeFetch_fn @ @tanstack_react-query.js?v=0c9860ae:2211
+onSubscribe @ @tanstack_react-query.js?v=0c9860ae:1898
+subscribe @ @tanstack_react-query.js?v=0c9860ae:24
+(anonymous) @ @tanstack_react-query.js?v=0c9860ae:3022
+subscribeToStore @ chunk-WERSD76P.js?v=0c9860ae:11984
+commitHookEffectListMount @ chunk-WERSD76P.js?v=0c9860ae:16915
+commitPassiveMountOnFiber @ chunk-WERSD76P.js?v=0c9860ae:18156
+commitPassiveMountEffects_complete @ chunk-WERSD76P.js?v=0c9860ae:18129
+commitPassiveMountEffects_begin @ chunk-WERSD76P.js?v=0c9860ae:18119
+commitPassiveMountEffects @ chunk-WERSD76P.js?v=0c9860ae:18109
+flushPassiveEffectsImpl @ chunk-WERSD76P.js?v=0c9860ae:19490
+flushPassiveEffects @ chunk-WERSD76P.js?v=0c9860ae:19447
+performSyncWorkOnRoot @ chunk-WERSD76P.js?v=0c9860ae:18868
+flushSyncCallbacks @ chunk-WERSD76P.js?v=0c9860ae:9119
+commitRootImpl @ chunk-WERSD76P.js?v=0c9860ae:19432
+commitRoot @ chunk-WERSD76P.js?v=0c9860ae:19277
+finishConcurrentRender @ chunk-WERSD76P.js?v=0c9860ae:18805
+performConcurrentWorkOnRoot @ chunk-WERSD76P.js?v=0c9860ae:18718
+workLoop @ chunk-WERSD76P.js?v=0c9860ae:197
+flushWork @ chunk-WERSD76P.js?v=0c9860ae:176
+performWorkUntilDeadline @ chunk-WERSD76P.js?v=0c9860ae:384Understand this error
+injected.js:253  GET https://ae3f4bd4-6904-45d2-9971-6337f5a4a7d2-00-3aa2812tcxcjk.picard.replit.dev/api/services/featured=true&limit=3 404 (Not Found)

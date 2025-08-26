@@ -1,0 +1,920 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuyLock Platform - Multi-Portal Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                fontFamily: {
+                    'sans': ['Inter', 'system-ui', 'sans-serif']
+                },
+                colors: {
+                    'brand-primary': '#FF4605',
+                    'brand-secondary': '#ACDF8',
+                    'brand-light': '#FFF5F2',
+                    'neutral-50': '#F8F9FA',
+                    'neutral-600': '#6C757D',
+                    'neutral-800': '#343A40',
+                },
+                animation: {
+                    'fade-in': 'fadeIn 0.3s ease-in-out',
+                    'slide-up': 'slideUp 0.4s ease-out',
+                    'pulse-soft': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                }
+            }
+        }
+    };
+    </script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .smooth-hover { transition: all 0.2s ease-in-out; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="font-sans bg-neutral-50 text-neutral-800">
+    <!-- Portal Navigation Tabs -->
+    <div class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex space-x-8 overflow-x-auto">
+                <button onclick="switchPortal('customer')" class="portal-tab active whitespace-nowrap py-4 px-1 border-b-2 border-brand-primary text-brand-primary font-medium">
+                    <i class="fas fa-store mr-2"></i>Customer Portal
+                </button>
+                <button onclick="switchPortal('vendor')" class="portal-tab whitespace-nowrap py-4 px-1 border-b-2 border-transparent text-neutral-600 hover:text-neutral-800 font-medium">
+                    <i class="fas fa-briefcase mr-2"></i>Vendor Portal
+                </button>
+                <button onclick="switchPortal('admin')" class="portal-tab whitespace-nowrap py-4 px-1 border-b-2 border-transparent text-neutral-600 hover:text-neutral-800 font-medium">
+                    <i class="fas fa-cog mr-2"></i>Admin Portal
+                </button>
+                <button onclick="switchPortal('delivery')" class="portal-tab whitespace-nowrap py-4 px-1 border-b-2 border-transparent text-neutral-600 hover:text-neutral-800 font-medium">
+                    <i class="fas fa-truck mr-2"></i>Delivery Portal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Portal -->
+    <div id="customer-portal" class="tab-content active">
+        <!-- Header -->
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <!-- Logo -->
+                    <div class="flex items-center">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 bg-gradient-to-br from-cyan-400 to-brand-secondary rounded-lg mr-3 flex items-center justify-center">
+                                <i class="fas fa-shopping-cart text-white text-sm"></i>
+                            </div>
+                            <span class="text-2xl font-bold">
+                                <span class="text-brand-primary">BUY</span><span class="text-neutral-800">LOCK</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Search Bar -->
+                    <div class="flex-1 max-w-2xl mx-8">
+                        <div class="relative">
+                            <input type="text" placeholder="Search products and services..." 
+                                   class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent">
+                            <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                        </div>
+                    </div>
+
+                    <!-- User Actions -->
+                    <div class="flex items-center space-x-4">
+                        <button class="text-neutral-600 hover:text-brand-primary smooth-hover">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span class="ml-1 hidden sm:inline">Deliver to</span>
+                        </button>
+                        <button class="relative text-neutral-600 hover:text-brand-primary smooth-hover">
+                            <i class="fas fa-shopping-cart text-xl"></i>
+                            <span class="absolute -top-2 -right-2 bg-brand-primary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
+                        </button>
+                        <button class="text-neutral-600 hover:text-brand-primary smooth-hover">
+                            <i class="fas fa-user"></i>
+                            <span class="ml-1 hidden sm:inline">Account</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Hero Section -->
+        <section class="bg-gradient-to-r from-brand-light to-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                <div class="grid lg:grid-cols-2 gap-8 items-center">
+                    <div class="animate-slide-up">
+                        <h1 class="text-4xl lg:text-5xl font-bold text-neutral-800 mb-4">
+                            Buy & Sell <span class="text-brand-primary">In Peace</span>
+                        </h1>
+                        <p class="text-xl text-neutral-600 mb-6">
+                            Discover amazing products and services in your area with fast, reliable delivery
+                        </p>
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <button class="bg-brand-primary text-white px-8 py-3 rounded-lg font-semibold hover:bg-opacity-90 smooth-hover">
+                                Start Shopping
+                            </button>
+                            <button class="border border-brand-primary text-brand-primary px-8 py-3 rounded-lg font-semibold hover:bg-brand-primary hover:text-white smooth-hover">
+                                Become a Vendor
+                            </button>
+                        </div>
+                    </div>
+                    <div class="hidden lg:block">
+                        <!-- Modern shopping illustration placeholder -->
+                        <div class="bg-gradient-to-br from-brand-secondary to-cyan-200 rounded-2xl h-80 flex items-center justify-center">
+                            <i class="fas fa-shopping-bag text-6xl text-white opacity-80"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Categories -->
+        <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <h2 class="text-2xl font-bold text-neutral-800 mb-8">Shop by Category</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div class="bg-white p-6 rounded-xl shadow-sm card-hover smooth-hover cursor-pointer text-center">
+                    <i class="fas fa-laptop text-3xl text-brand-primary mb-3"></i>
+                    <p class="font-medium">Electronics</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm card-hover smooth-hover cursor-pointer text-center">
+                    <i class="fas fa-tshirt text-3xl text-brand-primary mb-3"></i>
+                    <p class="font-medium">Fashion</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm card-hover smooth-hover cursor-pointer text-center">
+                    <i class="fas fa-home text-3xl text-brand-primary mb-3"></i>
+                    <p class="font-medium">Home & Garden</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm card-hover smooth-hover cursor-pointer text-center">
+                    <i class="fas fa-wrench text-3xl text-brand-primary mb-3"></i>
+                    <p class="font-medium">Services</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm card-hover smooth-hover cursor-pointer text-center">
+                    <i class="fas fa-utensils text-3xl text-brand-primary mb-3"></i>
+                    <p class="font-medium">Food & Drink</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm card-hover smooth-hover cursor-pointer text-center">
+                    <i class="fas fa-dumbbell text-3xl text-brand-primary mb-3"></i>
+                    <p class="font-medium">Sports</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Featured Products & Services -->
+        <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-2xl font-bold text-neutral-800">Featured Products & Services</h2>
+                <a href="#" class="text-brand-primary font-medium hover:underline">View All</a>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Product Card -->
+                <div class="bg-white rounded-xl shadow-sm card-hover smooth-hover overflow-hidden">
+                    <!-- High-end wireless headphones in sleek black design -->
+                    <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&h=300" 
+                         alt="Premium wireless headphones" class="w-full h-48 object-cover">
+                    <div class="p-4">
+                        <h3 class="font-semibold text-neutral-800 mb-2">Wireless Headphones</h3>
+                        <p class="text-sm text-neutral-600 mb-3">Premium noise-canceling audio</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-bold text-brand-primary">$299</span>
+                            <span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">30min delivery</span>
+                        </div>
+                        <button class="w-full mt-3 bg-brand-primary text-white py-2 rounded-lg hover:bg-opacity-90 smooth-hover">
+                            Add to Cart
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Service Card -->
+                <div class="bg-white rounded-xl shadow-sm card-hover smooth-hover overflow-hidden">
+                    <!-- Professional home cleaning service with cleaning supplies -->
+                    <img src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&h=300" 
+                         alt="Professional home cleaning service" class="w-full h-48 object-cover">
+                    <div class="p-4">
+                        <h3 class="font-semibold text-neutral-800 mb-2">Home Cleaning</h3>
+                        <p class="text-sm text-neutral-600 mb-3">Professional cleaning service</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-bold text-brand-primary">$89/session</span>
+                            <span class="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">Book today</span>
+                        </div>
+                        <button class="w-full mt-3 bg-brand-primary text-white py-2 rounded-lg hover:bg-opacity-90 smooth-hover">
+                            Book Service
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Product Card -->
+                <div class="bg-white rounded-xl shadow-sm card-hover smooth-hover overflow-hidden">
+                    <!-- Modern smartphone with sleek design and advanced camera system -->
+                    <img src="https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&h=300" 
+                         alt="Latest smartphone model" class="w-full h-48 object-cover">
+                    <div class="p-4">
+                        <h3 class="font-semibold text-neutral-800 mb-2">Smartphone Pro</h3>
+                        <p class="text-sm text-neutral-600 mb-3">Latest model with AI camera</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-bold text-brand-primary">$899</span>
+                            <span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">45min delivery</span>
+                        </div>
+                        <button class="w-full mt-3 bg-brand-primary text-white py-2 rounded-lg hover:bg-opacity-90 smooth-hover">
+                            Add to Cart
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Service Card -->
+                <div class="bg-white rounded-xl shadow-sm card-hover smooth-hover overflow-hidden">
+                    <!-- Professional plumber working on bathroom fixture repair -->
+                    <img src="https://images.unsplash.com/photo-1621905252507-b35492cc74b4?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&h=300" 
+                         alt="Professional plumbing service" class="w-full h-48 object-cover">
+                    <div class="p-4">
+                        <h3 class="font-semibold text-neutral-800 mb-2">Plumbing Service</h3>
+                        <p class="text-sm text-neutral-600 mb-3">Emergency and scheduled repairs</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-bold text-brand-primary">$125/hour</span>
+                            <span class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">24/7 available</span>
+                        </div>
+                        <button class="w-full mt-3 bg-brand-primary text-white py-2 rounded-lg hover:bg-opacity-90 smooth-hover">
+                            Book Service
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Advanced Search Section -->
+        <section class="bg-white py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-bold text-neutral-800 mb-4">Find Exactly What You Need</h2>
+                    <p class="text-xl text-neutral-600">Use our advanced search to filter by category, location, price, and availability</p>
+                </div>
+                <div class="bg-gray-50 rounded-2xl p-8">
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <!-- Category Filter -->
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-2">Category</label>
+                            <select class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent">
+                                <option>All Categories</option>
+                                <option>Products Only</option>
+                                <option>Services Only</option>
+                                <option>Electronics</option>
+                                <option>Home Services</option>
+                            </select>
+                        </div>
+                        <!-- Location Filter -->
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-2">Location</label>
+                            <input type="text" placeholder="Enter your location" 
+                                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent">
+                        </div>
+                        <!-- Price Filter -->
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-700 mb-2">Price Range</label>
+                            <div class="flex space-x-2">
+                                <input type="number" placeholder="Min" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent">
+                                <input type="number" placeholder="Max" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 text-center">
+                        <button class="bg-brand-primary text-white px-12 py-3 rounded-lg font-semibold hover:bg-opacity-90 smooth-hover">
+                            Search Now
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Vendor Portal -->
+    <div id="vendor-portal" class="tab-content">
+        <div class="min-h-screen bg-neutral-50">
+            <!-- Vendor Header -->
+            <header class="bg-white shadow-sm border-b">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex items-center justify-between h-16">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 bg-gradient-to-br from-cyan-400 to-brand-secondary rounded-lg mr-3 flex items-center justify-center">
+                                <i class="fas fa-briefcase text-white text-sm"></i>
+                            </div>
+                            <span class="text-xl font-bold text-neutral-800">Vendor Dashboard</span>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm text-neutral-600">Welcome back, <strong>TechStore Pro</strong></span>
+                            <button class="text-neutral-600 hover:text-brand-primary smooth-hover">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <!-- Stats Dashboard -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-chart-line text-green-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-neutral-600">Total Sales</p>
+                                <p class="text-2xl font-bold text-neutral-800">$12,450</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-shopping-cart text-blue-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-neutral-600">Orders</p>
+                                <p class="text-2xl font-bold text-neutral-800">47</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-calendar text-yellow-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-neutral-600">Service Bookings</p>
+                                <p class="text-2xl font-bold text-neutral-800">23</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-star text-purple-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-neutral-600">Rating</p>
+                                <p class="text-2xl font-bold text-neutral-800">4.8</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="bg-white rounded-xl shadow-sm p-6 mb-8">
+                    <h3 class="text-lg font-semibold text-neutral-800 mb-4">Quick Actions</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <button class="flex items-center p-4 border border-gray-200 rounded-lg hover:border-brand-primary hover:bg-brand-light smooth-hover">
+                            <i class="fas fa-plus text-brand-primary mr-3"></i>
+                            <span class="font-medium">Add Product</span>
+                        </button>
+                        <button class="flex items-center p-4 border border-gray-200 rounded-lg hover:border-brand-primary hover:bg-brand-light smooth-hover">
+                            <i class="fas fa-wrench text-brand-primary mr-3"></i>
+                            <span class="font-medium">Add Service</span>
+                        </button>
+                        <button class="flex items-center p-4 border border-gray-200 rounded-lg hover:border-brand-primary hover:bg-brand-light smooth-hover">
+                            <i class="fas fa-chart-bar text-brand-primary mr-3"></i>
+                            <span class="font-medium">View Analytics</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recent Orders & Bookings -->
+                <div class="grid lg:grid-cols-2 gap-8">
+                    <!-- Recent Orders -->
+                    <div class="bg-white rounded-xl shadow-sm">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-neutral-800">Recent Orders</h3>
+                        </div>
+                        <div class="p-6">
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <p class="font-medium text-neutral-800">Order #12345</p>
+                                        <p class="text-sm text-neutral-600">Wireless Headphones × 1</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-semibold text-green-600">$299</p>
+                                        <span class="text-xs bg-yellow-100 text-yellow-600 px-2 py-1 rounded">Processing</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <p class="font-medium text-neutral-800">Order #12344</p>
+                                        <p class="text-sm text-neutral-600">Smartphone Pro × 1</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-semibold text-green-600">$899</p>
+                                        <span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">Delivered</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Service Bookings -->
+                    <div class="bg-white rounded-xl shadow-sm">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-neutral-800">Recent Service Bookings</h3>
+                        </div>
+                        <div class="p-6">
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <p class="font-medium text-neutral-800">Tech Support</p>
+                                        <p class="text-sm text-neutral-600">Jan 15, 2024 - 2:00 PM</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-semibold text-blue-600">$125</p>
+                                        <span class="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">Confirmed</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <p class="font-medium text-neutral-800">Device Setup</p>
+                                        <p class="text-sm text-neutral-600">Jan 12, 2024 - 10:00 AM</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-semibold text-green-600">$89</p>
+                                        <span class="text-xs bg-green-100 text-green-600 px-2 py-1 rounded">Completed</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Portal -->
+    <div id="admin-portal" class="tab-content">
+        <div class="min-h-screen bg-neutral-50">
+            <!-- Admin Header -->
+            <header class="bg-white shadow-sm border-b">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex items-center justify-between h-16">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 bg-gradient-to-br from-purple-400 to-brand-primary rounded-lg mr-3 flex items-center justify-center">
+                                <i class="fas fa-cog text-white text-sm"></i>
+                            </div>
+                            <span class="text-xl font-bold text-neutral-800">Admin Dashboard</span>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm text-neutral-600">Welcome, <strong>Admin</strong></span>
+                            <button class="text-neutral-600 hover:text-brand-primary smooth-hover">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <!-- Platform Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-users text-green-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-neutral-600">Total Users</p>
+                                <p class="text-2xl font-bold text-neutral-800">15,432</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-store text-blue-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-neutral-600">Active Vendors</p>
+                                <p class="text-2xl font-bold text-neutral-800">1,247</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-chart-line text-yellow-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-neutral-600">Monthly Revenue</p>
+                                <p class="text-2xl font-bold text-neutral-800">$89,420</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-truck text-purple-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-neutral-600">Deliveries Today</p>
+                                <p class="text-2xl font-bold text-neutral-800">342</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Actions -->
+                <div class="grid lg:grid-cols-3 gap-8 mb-8">
+                    <!-- Vendor Management -->
+                    <div class="bg-white rounded-xl shadow-sm">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-neutral-800">Vendor Management</h3>
+                        </div>
+                        <div class="p-6">
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-neutral-600">Pending Approvals</span>
+                                    <span class="bg-red-100 text-red-600 px-2 py-1 rounded text-sm font-medium">12</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-neutral-600">Active Vendors</span>
+                                    <span class="bg-green-100 text-green-600 px-2 py-1 rounded text-sm font-medium">1,247</span>
+                                </div>
+                                <button class="w-full mt-4 bg-brand-primary text-white py-2 rounded-lg hover:bg-opacity-90 smooth-hover">
+                                    Manage Vendors
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Platform Health -->
+                    <div class="bg-white rounded-xl shadow-sm">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-neutral-800">Platform Health</h3>
+                        </div>
+                        <div class="p-6">
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-neutral-600">System Status</span>
+                                    <span class="bg-green-100 text-green-600 px-2 py-1 rounded text-sm font-medium">Healthy</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-neutral-600">Server Load</span>
+                                    <span class="bg-yellow-100 text-yellow-600 px-2 py-1 rounded text-sm font-medium">78%</span>
+                                </div>
+                                <button class="w-full mt-4 bg-blue-500 text-white py-2 rounded-lg hover:bg-opacity-90 smooth-hover">
+                                    View Details
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="bg-white rounded-xl shadow-sm">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-neutral-800">Recent Activity</h3>
+                        </div>
+                        <div class="p-6">
+                            <div class="space-y-3 text-sm">
+                                <div class="flex items-center">
+                                    <div class="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                                    <span class="text-neutral-600">New vendor approved</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
+                                    <span class="text-neutral-600">Payment processed</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-2 h-2 bg-yellow-400 rounded-full mr-2"></div>
+                                    <span class="text-neutral-600">Customer dispute resolved</span>
+                                </div>
+                                <button class="w-full mt-4 border border-gray-300 text-neutral-700 py-2 rounded-lg hover:border-brand-primary smooth-hover">
+                                    View All Activity
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pending Vendor Approvals -->
+                <div class="bg-white rounded-xl shadow-sm">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-neutral-800">Pending Vendor Approvals</h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="text-left border-b">
+                                    <tr>
+                                        <th class="pb-2 text-neutral-600">Vendor Name</th>
+                                        <th class="pb-2 text-neutral-600">Business Type</th>
+                                        <th class="pb-2 text-neutral-600">Applied Date</th>
+                                        <th class="pb-2 text-neutral-600">Status</th>
+                                        <th class="pb-2 text-neutral-600">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-sm">
+                                    <tr class="border-b">
+                                        <td class="py-3">TechGear Solutions</td>
+                                        <td class="py-3">Electronics</td>
+                                        <td class="py-3">Jan 10, 2024</td>
+                                        <td class="py-3"><span class="bg-yellow-100 text-yellow-600 px-2 py-1 rounded text-xs">Pending</span></td>
+                                        <td class="py-3">
+                                            <button class="text-green-600 hover:text-green-800 mr-2">Approve</button>
+                                            <button class="text-red-600 hover:text-red-800">Reject</button>
+                                        </td>
+                                    </tr>
+                                    <tr class="border-b">
+                                        <td class="py-3">Home Services Pro</td>
+                                        <td class="py-3">Services</td>
+                                        <td class="py-3">Jan 9, 2024</td>
+                                        <td class="py-3"><span class="bg-yellow-100 text-yellow-600 px-2 py-1 rounded text-xs">Pending</span></td>
+                                        <td class="py-3">
+                                            <button class="text-green-600 hover:text-green-800 mr-2">Approve</button>
+                                            <button class="text-red-600 hover:text-red-800">Reject</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delivery Portal -->
+    <div id="delivery-portal" class="tab-content">
+        <div class="min-h-screen bg-neutral-50">
+            <!-- Delivery Header -->
+            <header class="bg-white shadow-sm border-b">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex items-center justify-between h-16">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 bg-gradient-to-br from-green-400 to-brand-primary rounded-lg mr-3 flex items-center justify-center">
+                                <i class="fas fa-truck text-white text-sm"></i>
+                            </div>
+                            <span class="text-xl font-bold text-neutral-800">Delivery Operations</span>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm text-neutral-600">Operations Manager: <strong>Sarah Johnson</strong></span>
+                            <button class="text-neutral-600 hover:text-brand-primary smooth-hover">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <!-- Delivery Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-check-circle text-green-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-neutral-600">Completed Today</p>
+                                <p class="text-2xl font-bold text-neutral-800">287</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-clock text-blue-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-neutral-600">In Transit</p>
+                                <p class="text-2xl font-bold text-neutral-800">55</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-users text-yellow-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-neutral-600">Active Drivers</p>
+                                <p class="text-2xl font-bold text-neutral-800">23</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-tachometer-alt text-red-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-neutral-600">Avg Delivery Time</p>
+                                <p class="text-2xl font-bold text-neutral-800">37min</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Real-time Operations -->
+                <div class="grid lg:grid-cols-3 gap-8 mb-8">
+                    <!-- Active Deliveries -->
+                    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-neutral-800">Active Deliveries</h3>
+                        </div>
+                        <div class="p-6">
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                                            <i class="fas fa-truck text-green-600"></i>
+                                        </div>
+                                        <div>
+                                            <p class="font-medium text-neutral-800">Driver: Mike Chen</p>
+                                            <p class="text-sm text-neutral-600">Order #12345 → 123 Main St</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="bg-green-100 text-green-600 px-2 py-1 rounded text-xs">On Route</span>
+                                        <p class="text-sm text-neutral-600 mt-1">ETA: 15 min</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                                            <i class="fas fa-truck text-blue-600"></i>
+                                        </div>
+                                        <div>
+                                            <p class="font-medium text-neutral-800">Driver: Lisa Park</p>
+                                            <p class="text-sm text-neutral-600">Order #12346 → 456 Oak Ave</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs">Picking Up</span>
+                                        <p class="text-sm text-neutral-600 mt-1">ETA: 25 min</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center mr-3">
+                                            <i class="fas fa-truck text-yellow-600"></i>
+                                        </div>
+                                        <div>
+                                            <p class="font-medium text-neutral-800">Driver: David Kim</p>
+                                            <p class="text-sm text-neutral-600">Order #12347 → 789 Pine St</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="bg-yellow-100 text-yellow-600 px-2 py-1 rounded text-xs">Delayed</span>
+                                        <p class="text-sm text-neutral-600 mt-1">ETA: 45 min</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Driver Status -->
+                    <div class="bg-white rounded-xl shadow-sm">
+                        <div class="p-6 border-b border-gray-200">
+                            <h3 class="text-lg font-semibold text-neutral-800">Driver Status</h3>
+                        </div>
+                        <div class="p-6">
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-neutral-600">Available</span>
+                                    <span class="bg-green-100 text-green-600 px-2 py-1 rounded text-sm font-medium">8</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-neutral-600">On Delivery</span>
+                                    <span class="bg-blue-100 text-blue-600 px-2 py-1 rounded text-sm font-medium">23</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-neutral-600">Break</span>
+                                    <span class="bg-yellow-100 text-yellow-600 px-2 py-1 rounded text-sm font-medium">3</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-neutral-600">Offline</span>
+                                    <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-sm font-medium">12</span>
+                                </div>
+                                <button class="w-full mt-4 bg-brand-primary text-white py-2 rounded-lg hover:bg-opacity-90 smooth-hover">
+                                    Manage Drivers
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Dashboard -->
+                <div class="bg-white rounded-xl shadow-sm">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-neutral-800">Performance Dashboard</h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid md:grid-cols-3 gap-6">
+                            <div class="text-center">
+                                <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <span class="text-2xl font-bold text-green-600">95%</span>
+                                </div>
+                                <p class="font-medium text-neutral-800">On-Time Rate</p>
+                                <p class="text-sm text-neutral-600">Target: 95%</p>
+                            </div>
+                            <div class="text-center">
+                                <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <span class="text-2xl font-bold text-blue-600">4.8</span>
+                                </div>
+                                <p class="font-medium text-neutral-800">Customer Rating</p>
+                                <p class="text-sm text-neutral-600">Average rating</p>
+                            </div>
+                            <div class="text-center">
+                                <div class="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <span class="text-2xl font-bold text-yellow-600">37</span>
+                                </div>
+                                <p class="font-medium text-neutral-800">Avg Time (min)</p>
+                                <p class="text-sm text-neutral-600">Target: 45 min</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Portal switching functionality
+        function switchPortal(portalName) {
+            // Hide all portals
+            const portals = document.querySelectorAll('.tab-content');
+            portals.forEach(portal => {
+                portal.classList.remove('active');
+            });
+
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.portal-tab');
+            tabs.forEach(tab => {
+                tab.classList.remove('active', 'border-brand-primary', 'text-brand-primary');
+                tab.classList.add('border-transparent', 'text-neutral-600');
+            });
+
+            // Show selected portal
+            const selectedPortal = document.getElementById(portalName + '-portal');
+            if (selectedPortal) {
+                selectedPortal.classList.add('active');
+            }
+
+            // Add active class to selected tab
+            const selectedTab = event.target;
+            selectedTab.classList.add('active', 'border-brand-primary', 'text-brand-primary');
+            selectedTab.classList.remove('border-transparent', 'text-neutral-600');
+
+            // Add smooth animation
+            selectedPortal.style.animation = 'fadeIn 0.3s ease-in-out';
+        }
+
+        // Initialize portal switching
+        (function() {
+            // Add event listeners for portal tabs
+            const tabs = document.querySelectorAll('.portal-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const portalName = this.getAttribute('onclick').match(/'([^']+)'/)[1];
+                    switchPortal(portalName);
+                });
+            });
+
+            // Add smooth hover effects to interactive elements
+            const hoverElements = document.querySelectorAll('.smooth-hover');
+            hoverElements.forEach(element => {
+                element.addEventListener('mouseenter', function() {
+                    this.style.transform = 'scale(1.02)';
+                });
+                element.addEventListener('mouseleave', function() {
+                    this.style.transform = 'scale(1)';
+                });
+            });
+        })();
+
+        // Mock real-time updates for demonstration
+        function mockRealTimeUpdates() {
+            // TODO: Implement real-time WebSocket connections
+            // TODO: Update delivery statuses automatically
+            // TODO: Refresh dashboard statistics periodically
+            
+            // Simulate data updates every 30 seconds
+            setInterval(() => {
+                console.log('Mock: Updating real-time data...');
+                // In production, this would fetch fresh data from the API
+            }, 30000);
+        }
+
+        // Initialize mock real-time features
+        mockRealTimeUpdates();
+    </script>
+</body>
+</html>

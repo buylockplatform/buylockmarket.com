@@ -1,0 +1,169 @@
+ProductCard received product: Non-Stick Cookware Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Wooden Cutting Board Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Storage Container Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Digital Kitchen Scale distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Kitchen Knife Set Professional distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Stainless Steel Cookware Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Shark Navigator Vacuum distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Egyptian Cotton Sheet Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Memory Foam Pillow Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Weighted Blanket Therapy distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: All-Purpose Cleaning Kit distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Anthropologie Hanging Planter distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Vitamix Professional Blender distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Modern LED Floor Lamp distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Wooden Dining Table Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Professional Kitchen Knives distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Memory Foam Mattress Queen distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Multi Storage Ottoman distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Ninja Blender Pro distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: KitchenAid Stand Mixer Pro distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Instant Pot Pressure Cooker distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Coffee Maker Machine Pro distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Air Fryer XL Digital distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: IKEA Comfortable Sofa distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Smart Robot Vacuum distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Non-Stick Cookware Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: KitchenAid Stand Mixer distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Dyson V15 Detect Cordless Vacuum distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+react-dom.development.js:25682 [Violation] 'setTimeout' handler took 89ms
+product-card.tsx:20 ProductCard received product: Non-Stick Cookware Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Wooden Cutting Board Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Storage Container Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Digital Kitchen Scale distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Kitchen Knife Set Professional distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Stainless Steel Cookware Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Shark Navigator Vacuum distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Egyptian Cotton Sheet Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Memory Foam Pillow Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Weighted Blanket Therapy distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: All-Purpose Cleaning Kit distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Anthropologie Hanging Planter distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Vitamix Professional Blender distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Modern LED Floor Lamp distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Wooden Dining Table Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Professional Kitchen Knives distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Memory Foam Mattress Queen distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Multi Storage Ottoman distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Ninja Blender Pro distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: KitchenAid Stand Mixer Pro distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Instant Pot Pressure Cooker distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Coffee Maker Machine Pro distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Air Fryer XL Digital distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: IKEA Comfortable Sofa distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Smart Robot Vacuum distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Non-Stick Cookware Set distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: KitchenAid Stand Mixer distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number
+product-card.tsx:20 ProductCard received product: Dyson V15 Detect Cordless Vacuum distance: 265.21 showDistanceBadge: true
+ProximityBadge.tsx:11 ProximityBadge received distance: 265.21 number
+ProximityBadge.tsx:19 Formatting distance: 265.21 type: number

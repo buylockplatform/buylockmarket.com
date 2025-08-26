@@ -1,0 +1,21 @@
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["npm", "run", "dev"]
+deploymentTarget = "gce"
+
+[[ports]]
+localPort = 5001
+externalPort = 80
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Vendor Dashboard"
+author = "replit"
+
+[[workflows.workflow.tasks]]
+name = "Start Vendor Dashboard"
+command = "cd vendor-dashboard && npm run dev"

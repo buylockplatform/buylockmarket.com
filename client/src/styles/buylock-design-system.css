@@ -1,0 +1,109 @@
+/* BuyLock Brand Color System */
+
+:root {
+  /* Primary Brand Colors */
+  --buylock-orange: #FF4705;
+  --buylock-cyan: #00CFFF;
+  
+  /* Supporting Neutral Colors */
+  --buylock-charcoal: #1E1E1E;
+  --buylock-gray: #F4F4F4;
+  --buylock-white: #FFFFFF;
+  
+  /* Secondary Accent Colors */
+  --buylock-navy: #003F5C;
+  --buylock-beige: #FFF4E6;
+  
+  /* Gradient Combinations */
+  --buylock-gradient-primary: linear-gradient(135deg, #FF4705 0%, #00CFFF 100%);
+  --buylock-gradient-subtle: linear-gradient(135deg, #FFF4E6 0%, #F4F4F4 100%);
+  
+  /* Semantic mappings for existing CSS variables */
+  --primary: #FF4705;
+  --primary-foreground: #FFFFFF;
+  --secondary: #00CFFF;
+  --secondary-foreground: #FFFFFF;
+  --accent: #FFF4E6;
+  --accent-foreground: #1E1E1E;
+}
+
+/* BuyLock Component Styles */
+.buylock-btn-primary {
+  background: var(--buylock-orange);
+  color: var(--buylock-white);
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.buylock-btn-primary:hover {
+  background: #E63E04;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 71, 5, 0.3);
+}
+
+.buylock-btn-secondary {
+  background: var(--buylock-cyan);
+  color: var(--buylock-white);
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.buylock-btn-secondary:hover {
+  background: #00B8E6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 207, 255, 0.3);
+}
+
+.buylock-card {
+  background: var(--buylock-white);
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.buylock-card:hover {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.buylock-gradient-bg {
+  background: var(--buylock-gradient-primary);
+}
+
+.buylock-text-primary {
+  color: var(--buylock-orange);
+}
+
+.buylock-text-secondary {
+  color: var(--buylock-cyan);
+}
+
+.buylock-text-charcoal {
+  color: var(--buylock-charcoal);
+}
+
+.buylock-bg-gray {
+  background-color: var(--buylock-gray);
+}
+
+.buylock-bg-beige {
+  background-color: var(--buylock-beige);
+}
+
+.buylock-border-orange {
+  border-color: var(--buylock-orange);
+}
+
+.buylock-border-cyan {
+  border-color: var(--buylock-cyan);
+}
+
+/* Special effect classes */
+.buylock-glow-orange {
+  box-shadow: 0 0 20px rgba(255, 71, 5, 0.3);
+}
+
+.buylock-glow-cyan {
+  box-shadow: 0 0 20px rgba(0, 207, 255, 0.3);
+}

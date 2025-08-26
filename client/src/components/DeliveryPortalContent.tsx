@@ -1,0 +1,530 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Truck, Package, Clock, MapPin, Phone, CheckCircle, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+interface Delivery {
+  id: string;
+  orderId: string;
+  providerId: string;
+  externalTrackingId?: string;
+  status: string;
+  pickupAddress: string;
+  deliveryAddress: string;
+  estimatedPickupTime?: string;
+  actualPickupTime?: string;
+  estimatedDeliveryTime?: string;
+  actualDeliveryTime?: string;
+  deliveryFee: string;
+  packageDescription: string;
+  customerPhone?: string;
+  vendorPhone?: string;
+  courierName?: string;
+  courierPhone?: string;
+  specialInstructions?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface DeliveryProvider {
+  id: string;
+  name: string;
+  type: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  estimatedDeliveryTime?: string;
+}
+
+interface PickupOrder {
+  id: string;
+  trackingNumber: string;
+  internalTrackingId?: string;
+  deliveryAddress: string;
+  totalAmount: string;
+  courierName?: string;
+  courierId?: string;
+  estimatedDeliveryTime?: string;
+  user?: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export default function DeliveryPortalContent() {
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: deliveries, isLoading } = useQuery<Delivery[]>({
+    queryKey: ['/api/deliveries'],
+  });
+
+  const { data: pickupOrders, isLoading: isLoadingPickups } = useQuery<PickupOrder[]>({
+    queryKey: ['/api/deliveries/pickup-orders'],
+  });
+
+  const { data: providers } = useQuery<DeliveryProvider[]>({
+    queryKey: ['/api/delivery/providers'],
+  });
+
+  const createDeliveryMutation = useMutation({
+    mutationFn: async (data: { 
+      orderId: string; 
+      providerId: string;
+    }) => {
+      return await apiRequest('/api/deliveries/create', 'POST', {
+        orderId: data.orderId,
+        providerId: data.providerId,
+      });
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/deliveries'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/deliveries/pickup-orders'] });
+      
+      const courier = providers?.find(p => p.id === variables.providerId);
+      const courierName = courier?.name || 'Selected courier';
+      const estimatedTime = courier?.estimatedDeliveryTime || '2-4 hours';
+      
+      toast({
+        title: "Courier Notified Successfully! 🚚",
+        description: `${courierName} has been notified to pickup from vendor. Expected pickup within ${estimatedTime}.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to notify courier for pickup",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateDeliveryMutation = useMutation({
+    mutationFn: async (data: { 
+      deliveryId: string; 
+      status: string; 
+      courierName?: string;
+      courierPhone?: string;
+      estimatedDeliveryTime?: string;
+    }) => {
+      return await apiRequest(`/api/deliveries/${data.deliveryId}/status`, 'PUT', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/deliveries'] });
+      toast({
+        title: "Status Updated",
+        description: "Delivery status has been updated successfully",
+      });
+      setSelectedDelivery(null);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update delivery status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const formatPrice = (price: string | number) => {
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+    return new Intl.NumberFormat('en-KE', {
+      style: 'currency',
+      currency: 'KES',
+      minimumFractionDigits: 0,
+    }).format(numPrice);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      pending: { variant: "secondary" as const, icon: Clock },
+      in_transit: { variant: "default" as const, icon: Truck },
+      delivered: { variant: "default" as const, icon: CheckCircle, className: "bg-green-100 text-green-800" },
+      failed: { variant: "destructive" as const, icon: AlertCircle },
+    };
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+    const Icon = config.icon;
+
+    return (
+      <Badge variant={config.variant} className={config.className}>
+        <Icon className="w-3 h-3 mr-1" />
+        {status.replace('_', ' ').toUpperCase()}
+      </Badge>
+    );
+  };
+
+  const filteredDeliveries = deliveries?.filter(delivery => 
+    selectedStatus === "all" || delivery.status === selectedStatus
+  ) || [];
+
+  return (
+    <div className="space-y-6">
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <Truck className="w-8 h-8 text-blue-600" />
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-600">Total Deliveries</p>
+                <p className="text-2xl font-bold">{deliveries?.length || 0}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <Package className="w-8 h-8 text-green-600" />
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-600">Pending Pickups</p>
+                <p className="text-2xl font-bold">{pickupOrders?.length || 0}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-600">Completed</p>
+                <p className="text-2xl font-bold">
+                  {deliveries?.filter(d => d.status === 'delivered').length || 0}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <Clock className="w-8 h-8 text-orange-600" />
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-600">In Transit</p>
+                <p className="text-2xl font-bold">
+                  {deliveries?.filter(d => d.status === 'in_transit').length || 0}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Pending Pickup Orders */}
+      {pickupOrders && pickupOrders.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Orders Ready for Pickup ({pickupOrders.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {pickupOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg bg-blue-50">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-blue-100 p-2 rounded-full">
+                      <Package className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold">Order #{order.trackingNumber}</h4>
+                      <p className="text-sm text-gray-600">
+                        Customer: {order.user?.firstName} {order.user?.lastName}
+                      </p>
+                      <p className="text-sm text-gray-600 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {order.deliveryAddress}
+                      </p>
+                      <div className="text-sm text-gray-600 mt-2 p-2 bg-gray-100 rounded">
+                        <div className="flex items-center gap-1 mb-1">
+                          <Truck className="w-3 h-3" />
+                          <span className="font-medium">Pre-Selected: {order.courierName || 'BuyLock Dispatch'}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 space-y-1">
+                          <div>🆔 ID: {order.courierId || 'dispatch_service'}</div>
+                          <div>⏱️ ETA: {order.estimatedDeliveryTime || '2-4 hours'}</div>
+                          {order.internalTrackingId && (
+                            <div>📋 Internal: {order.internalTrackingId}</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="font-bold text-blue-600">{formatPrice(order.totalAmount)}</p>
+                      <p className="text-sm text-green-600 font-medium">
+                        ✓ Courier Pre-Selected
+                      </p>
+                    </div>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                          <Truck className="w-4 h-4 mr-1" />
+                          Notify Courier
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Notify Courier for Pickup - Order #{order.trackingNumber}</DialogTitle>
+                        </DialogHeader>
+                        
+                        <div className="space-y-4">
+                          <div className="bg-blue-50 p-4 rounded-lg">
+                            <h4 className="font-semibold text-blue-900 mb-2">Pre-Selected Courier (from checkout)</h4>
+                            <div className="space-y-2">
+                              <p className="text-blue-800">
+                                <strong>{order.courierName || 'BuyLock Dispatch'}</strong>
+                              </p>
+                              <div className="text-sm text-blue-700 space-y-1">
+                                <p><strong>Courier ID:</strong> {order.courierId || 'dispatch_service'}</p>
+                                <p><strong>ETA:</strong> {order.estimatedDeliveryTime || '2-4 hours'}</p>
+                                {(() => {
+                                  const courier = providers?.find(p => p.id === (order.courierId || 'dispatch_service'));
+                                  return courier && (
+                                    <>
+                                      <p><strong>Contact:</strong> {courier.contactPhone || 'Contact via platform'}</p>
+                                      <p><strong>Email:</strong> {courier.contactEmail || 'orders@buylock.co.ke'}</p>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <h5 className="font-medium text-gray-900 mb-1">Tracking Information</h5>
+                            <div className="text-sm text-gray-600 space-y-1">
+                              <p><strong>Internal ID:</strong> {order.internalTrackingId || order.trackingNumber}</p>
+                              <p><strong>Order Total:</strong> {formatPrice(order.totalAmount)}</p>
+                              <p><strong>Delivery Address:</strong> {order.deliveryAddress}</p>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Label>Pickup Instructions</Label>
+                            <textarea 
+                              className="w-full mt-1 p-2 border rounded-md" 
+                              rows={3}
+                              placeholder="Add any special pickup instructions for the courier..."
+                            />
+                          </div>
+                          
+                          <div className="pt-4">
+                            <Button 
+                              onClick={() => {
+                                // Use the courier that was selected during checkout
+                                const selectedCourierId = order.courierId || 'dispatch_service';
+                                createDeliveryMutation.mutate({
+                                  orderId: order.id,
+                                  providerId: selectedCourierId,
+                                });
+                              }}
+                              disabled={createDeliveryMutation.isPending}
+                              className="w-full bg-blue-600 hover:bg-blue-700"
+                            >
+                              <Truck className="w-4 h-4 mr-2" />
+                              {createDeliveryMutation.isPending ? 'Notifying...' : `Notify ${order.courierName || 'BuyLock Dispatch'} to Pickup`}
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Active Deliveries */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Truck className="w-5 h-5" />
+              Active Deliveries ({filteredDeliveries.length})
+            </CardTitle>
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in_transit">In Transit</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="flex items-center space-x-4 p-4">
+                    <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredDeliveries.length === 0 ? (
+            <div className="text-center py-8">
+              <Truck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No deliveries found</p>
+              <p className="text-sm text-gray-400">
+                {selectedStatus === "all" 
+                  ? "No deliveries have been created yet"
+                  : `No deliveries with status "${selectedStatus.replace('_', ' ')}"`
+                }
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredDeliveries.map((delivery) => (
+                <div key={delivery.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-gray-100 p-2 rounded-full">
+                      <Truck className="w-5 h-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold">Delivery #{delivery.id.slice(-8).toUpperCase()}</h4>
+                      <p className="text-sm text-gray-600">Order: {delivery.orderId.slice(-8).toUpperCase()}</p>
+                      <p className="text-sm text-gray-600 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {delivery.deliveryAddress}
+                      </p>
+                      {delivery.courierName && (
+                        <p className="text-sm text-gray-600 flex items-center gap-1">
+                          <Phone className="w-3 h-3" />
+                          {delivery.courierName}
+                          {delivery.courierPhone && ` (${delivery.courierPhone})`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="font-bold">{formatPrice(delivery.deliveryFee)}</p>
+                      {getStatusBadge(delivery.status)}
+                    </div>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedDelivery(delivery)}
+                        >
+                          Update Status
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Update Delivery Status</DialogTitle>
+                        </DialogHeader>
+                        
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Delivery Status</Label>
+                            <Select 
+                              defaultValue={delivery.status}
+                              onValueChange={(status) => {
+                                updateDeliveryMutation.mutate({
+                                  deliveryId: delivery.id,
+                                  status: status,
+                                });
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="in_transit">In Transit</SelectItem>
+                                <SelectItem value="delivered">Delivered</SelectItem>
+                                <SelectItem value="failed">Failed</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label>Courier Name</Label>
+                              <Input 
+                                defaultValue={delivery.courierName || ''}
+                                placeholder="Enter courier name"
+                              />
+                            </div>
+                            <div>
+                              <Label>Courier Phone</Label>
+                              <Input 
+                                defaultValue={delivery.courierPhone || ''}
+                                placeholder="Enter phone number"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <Label>Estimated Delivery Time</Label>
+                            <Input 
+                              defaultValue={delivery.estimatedDeliveryTime || ''}
+                              placeholder="e.g., 2-4 hours"
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label>Special Instructions</Label>
+                            <Textarea 
+                              defaultValue={delivery.specialInstructions || ''}
+                              placeholder="Any special delivery instructions..."
+                              rows={3}
+                            />
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

@@ -1,0 +1,85 @@
+Based on the current implementation, here's how the Vendor Payout Request and Approval Workflow works in detail:
+
+🔄 Complete Vendor Payout Workflow
+Phase 1: Vendor Earnings Accumulation
+Order Completion: When customers place orders, vendors earn 80% of the order value (20% platform fee)
+Earnings Tracking: System tracks earnings from confirmed orders in real-time
+Available Balance: Only earnings from customer_confirmed orders are available for payout
+Phase 2: Vendor Payout Request (Vendor Side)
+API Endpoint: POST /api/vendor/:vendorId/request-payout
+Authentication: Requires vendor authentication (isVendorAuthenticated)
+
+Workflow Steps:
+
+Balance Verification:
+
+System calculates available balance from confirmed orders
+Validates requested amount doesn't exceed available balance
+80% of total confirmed order value is available for payout
+Request Creation:
+
+Vendor provides: payout amount + bank account details
+System creates payout request with status pending
+Stores in vendor_payout_requests table with unique ID
+Security: Bank details are truncated for security in responses
+
+Phase 3: Admin Review and Processing (Admin Side)
+View All Requests: GET /api/admin/payout-requests
+
+Admins see all payout requests across all vendors
+Can filter by status: pending, processing, completed, rejected
+Includes vendor business name and contact information
+Process Request: POST /api/admin/payout-requests/:requestId/process
+Authentication: Requires admin authentication (isAdminAuthenticated)
+
+Admin Actions:
+
+Approve Payout:
+Admin provides payment reference number (required)
+Status changes from pending → processing
+Records admin ID who processed it
+Optional admin notes
+Reject Payout:
+Admin provides rejection reason
+Status changes from pending → rejected
+Records failure reason and admin notes
+Phase 4: Payment Completion
+Complete Payout: POST /api/admin/payout-requests/:requestId/complete
+
+Final Steps:
+
+After actual bank transfer is done
+Admin marks request as completed
+Provides final payment reference
+Records completion timestamp
+🔐 Authentication & Security
+Vendor Authentication:
+
+Uses isVendorAuthenticated middleware
+Vendors can only see their own requests
+Protects vendor-specific endpoints
+Admin Authentication:
+
+Uses isAdminAuthenticated middleware
+Full oversight of all payout requests
+Can approve, reject, and complete payouts
+📊 Status Flow
+pending → (admin approve) → processing → (admin complete) → completed
+       → (admin reject) → rejected
+🗄️ Database Tables
+vendor_payout_requests:
+
+Tracks all payout requests with full audit trail
+Links to vendor ID for relationship
+Stores bank details, amounts, and status history
+vendor_earnings (planned):
+
+Aggregated earnings summary per vendor
+Available vs. pending balances
+Total payout history
+💰 Financial Controls
+Platform Fee: 20% deducted automatically
+Vendor Share: 80% available for payout
+Balance Validation: Prevents over-withdrawals
+Audit Trail: Complete history of all transactions
+The system ensures secure, traceable vendor payments with proper admin oversight and financial controls. All payout requests require manual admin approval before processing.

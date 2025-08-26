@@ -1,0 +1,69 @@
+Here’s your **full, updated BuyLock website color palette** with **#FF4705** as the primary orange and detailed usage descriptions:
+
+---
+
+## 🎨 **BuyLock Brand Color Palette**
+
+### **1. Primary Brand Colors**
+
+These define your brand’s identity and should be used prominently.
+
+* **Bright Orange** – `#FF4705`
+
+  * **Use for:** Main call-to-action buttons, key icons, active menu items, sale tags, urgent notifications.
+  * **Feel:** Energetic, confident, urgent — draws instant attention.
+
+* **Vibrant Cyan** – `#00CFFF`
+
+  * **Use for:** Secondary buttons, link hovers, feature icons, trust badges, interactive highlights.
+  * **Feel:** Modern, refreshing, friendly — balances the warmth of orange.
+
+---
+
+### **2. Supporting Neutral Colors**
+
+These keep the design clean and allow primary colors to stand out.
+
+* **Dark Charcoal** – `#1E1E1E`
+
+  * **Use for:** Primary body text, headers, footer backgrounds, and high-contrast sections.
+  * **Feel:** Strong, professional, and grounding.
+
+* **Soft Gray** – `#F4F4F4`
+
+  * **Use for:** Light section backgrounds, form fields, dividers, and subtle content separation.
+  * **Feel:** Clean, minimal, non-distracting.
+
+* **White** – `#FFFFFF`
+
+  * **Use for:** Main background, text over dark sections, maintaining open visual space.
+  * **Feel:** Fresh, neutral, adaptable.
+
+---
+
+### **3. Secondary Accent Colors** *(Optional but Recommended)*
+
+Use sparingly for variety, contrast, or special elements.
+
+* **Muted Navy** – `#003F5C`
+
+  * **Use for:** Alternate header backgrounds, emphasis boxes, secondary navigation, or dark-themed sections.
+  * **Feel:** Stable, trustworthy, and professional — helps tone down vibrancy when needed.
+
+* **Warm Beige** – `#FFF4E6`
+
+  * **Use for:** Highlight boxes, subtle backgrounds, and onboarding flows to soften the look.
+  * **Feel:** Friendly, approachable, and warm.
+
+---
+
+### **4. Suggested Usage Ratios**
+
+* **Primary Orange (#FF4705):** \~15%
+* **Vibrant Cyan (#00CFFF):** \~10%
+* **Dark Charcoal (#1E1E1E):** \~25%
+* **Soft Gray & White (#F4F4F4 / #FFFFFF):** \~40%
+* **Secondary Accents (#003F5C / #FFF4E6):** \~10% combined
+
+---
+
