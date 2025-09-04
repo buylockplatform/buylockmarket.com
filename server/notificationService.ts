@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import type { DeliveryProvider } from "@shared/schema";
+import { uwaziiService } from './uwaziiService';
 
 export interface NotificationData {
   orderId: string;
@@ -16,12 +17,24 @@ export interface NotificationData {
   specialInstructions?: string;
 }
 
+export interface VendorNotificationData {
+  orderId: string;
+  customerName: string;
+  customerPhone?: string;
+  totalAmount: string;
+  orderType: string;
+  deliveryAddress?: string;
+  vendorName?: string;
+  vendorPhone: string;
+  itemCount?: number;
+}
+
 export class NotificationService {
   private transporter?: nodemailer.Transporter;
 
   constructor() {
     if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
           user: process.env.GMAIL_USER,
@@ -204,6 +217,44 @@ export class NotificationService {
     // In a real microservice architecture, this would be a message queue or internal API call
     // For now, we'll just log and return success
     return true;
+  }
+
+  async notifyVendorNewOrder(data: VendorNotificationData): Promise<boolean> {
+    try {
+      if (!data.vendorPhone) {
+        console.error('No vendor phone number provided for SMS notification');
+        return false;
+      }
+
+      // Create SMS message for vendor
+      const orderIdShort = data.orderId.slice(-8).toUpperCase();
+      const amount = Number(data.totalAmount).toLocaleString();
+      const itemText = data.itemCount ? `${data.itemCount} item${data.itemCount > 1 ? 's' : ''}` : 'items';
+      
+      const message = `🛍️ NEW ORDER ALERT!
+Order #${orderIdShort}
+Customer: ${data.customerName}
+Total: KES ${amount} (${itemText})
+Type: ${data.orderType.toUpperCase()}
+
+Login to your vendor dashboard to accept this order.
+- BuyLock Marketplace`;
+
+      console.log(`📱 Sending new order SMS to vendor: ${data.vendorPhone}`);
+      
+      const result = await uwaziiService.sendSMS(data.vendorPhone, message);
+      
+      if (result.success) {
+        console.log(`✅ Vendor SMS notification sent successfully for order ${data.orderId}`);
+        return true;
+      } else {
+        console.error(`❌ Failed to send vendor SMS for order ${data.orderId}:`, result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Vendor notification error:', error);
+      return false;
+    }
   }
 }
 

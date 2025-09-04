@@ -6,6 +6,7 @@ import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { sendPayoutStatusNotification, PayoutNotificationData } from "./emailService";
+import { notificationService, type VendorNotificationData } from "./notificationService";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
@@ -961,6 +962,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Clear cart
       await storage.clearCart(userId);
+      
+      // Send SMS notification to vendor about new order
+      if (primaryVendorId) {
+        try {
+          // Get vendor details for notification
+          const vendor = await storage.getVendorById(primaryVendorId);
+          const customer = await storage.getUser(userId);
+          
+          if (vendor && vendor.phone && customer) {
+            const vendorNotificationData: VendorNotificationData = {
+              orderId: order.id,
+              customerName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Customer',
+              customerPhone: customer.phone || undefined,
+              totalAmount: totalAmount.toString(),
+              orderType: orderType,
+              deliveryAddress: req.body.deliveryAddress || undefined,
+              vendorName: vendor.businessName || undefined,
+              vendorPhone: vendor.phone,
+              itemCount: orderItems.length
+            };
+            
+            // Send SMS notification (don't block the response if it fails)
+            notificationService.notifyVendorNewOrder(vendorNotificationData)
+              .then((success) => {
+                if (success) {
+                  console.log(`✅ Vendor SMS notification sent for order ${order.id}`);
+                } else {
+                  console.log(`⚠️ Failed to send vendor SMS notification for order ${order.id}`);
+                }
+              })
+              .catch((error) => {
+                console.error(`❌ Error sending vendor SMS notification for order ${order.id}:`, error);
+              });
+          } else {
+            console.log(`⚠️ Missing vendor data for SMS notification. Vendor: ${!!vendor}, Phone: ${vendor?.phone}, Customer: ${!!customer}`);
+          }
+        } catch (notificationError) {
+          console.error('Error setting up vendor notification:', notificationError);
+          // Don't fail the order creation if notification fails
+        }
+      }
       
       res.status(201).json({ ...order, trackingNumber });
     } catch (error) {
