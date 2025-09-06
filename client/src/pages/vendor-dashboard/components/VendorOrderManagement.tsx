@@ -52,21 +52,41 @@ export default function VendorOrderManagement({ vendorId }: VendorOrderManagemen
   const queryClient = useQueryClient();
 
   // Use React Query for automatic cache management and real-time updates
-  const { data: orders = [], isLoading: loading } = useQuery<Order[]>({
+  const { data: orders = [], isLoading: loading, error } = useQuery<Order[]>({
     queryKey: [`/api/vendor/${vendorId}/orders`],
     queryFn: getVendorQueryFn({ on401: "returnNull" }),
-    refetchInterval: 5000, // Auto-refresh every 5 seconds
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
     refetchOnWindowFocus: true, // Refresh when user returns to tab
   });
 
-  // Get pending and completed orders
-  const pendingOrders = orders.filter(order => 
-    ['paid', 'confirmed', 'vendor_accepted', 'packing', 'ready_for_pickup'].includes(order.status)
-  );
+  // Debug logging
+  console.log('VendorOrderManagement Debug:', {
+    vendorId,
+    orders,
+    ordersCount: orders?.length || 0,
+    loading,
+    error,
+    queryKey: `/api/vendor/${vendorId}/orders`
+  });
+
+  // Get pending and completed orders with comprehensive status coverage
+  const pendingOrders = orders.filter(order => {
+    const isPending = ['paid', 'confirmed', 'pending', 'vendor_accepted', 'packing', 'ready_for_pickup', 'processing'].includes(order.status);
+    console.log(`Order ${order.id}: status='${order.status}', isPending=${isPending}`);
+    return isPending;
+  });
   
   const completedOrders = orders.filter(order => 
-    ['delivered', 'completed'].includes(order.status)
+    ['delivered', 'completed', 'cancelled'].includes(order.status)
   );
+
+  console.log('Filtered orders:', {
+    totalOrders: orders.length,
+    pendingCount: pendingOrders.length,
+    completedCount: completedOrders.length,
+    pendingStatuses: pendingOrders.map(o => o.status),
+    completedStatuses: completedOrders.map(o => o.status)
+  });
 
   const acceptOrder = async (orderId: string) => {
     try {
