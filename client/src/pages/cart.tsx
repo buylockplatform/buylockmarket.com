@@ -277,6 +277,13 @@ export default function Cart() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      // Invalidate all vendor queries using predicate
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey?.[0];
+          return typeof key === 'string' && key.startsWith('/api/vendor/');
+        }
+      });
       
       if (result.success) {
         // Clear pending payment reference
