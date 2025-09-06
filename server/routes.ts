@@ -15,10 +15,10 @@ import { PaystackService } from "./paystackService";
 // Vendor authentication middleware - ensures vendor is logged in and approved
 const isVendorAuthenticated = async (req: any, res: any, next: any) => {
   try {
-    // Check session for vendorId
-    const vendorId = (req.session as any)?.vendorId;
+    const vendorId = req.headers['x-vendor-id'];
+    const vendorAuth = req.headers['x-vendor-auth'];
 
-    if (!vendorId) {
+    if (!vendorId || !vendorAuth) {
       return res.status(401).json({ message: "Vendor authentication required" });
     }
 
@@ -150,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Vendor authentication routes (backend endpoints)
+  // Vendor authentication routes
   app.post("/api/vendor/login", async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -181,9 +181,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Set vendor session
-      (req.session as any).vendorId = vendor.id;
-      
       // Return vendor data (without password hash)
       const { passwordHash, ...vendorData } = vendor;
       res.json(vendorData);
@@ -1508,80 +1505,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching current vendor:", error);
       res.status(500).json({ message: "Failed to fetch vendor data" });
-    }
-  });
-
-  // Frontend vendor dashboard auth endpoints (matching frontend paths)
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { email, password } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).json({ message: "Email and password are required" });
-      }
-
-      // Find vendor by email
-      const vendor = await storage.getVendorByEmail(email);
-      if (!vendor) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-
-      // Verify password
-      const bcrypt = await import("bcrypt");
-      const isValidPassword = await bcrypt.compare(password, vendor.passwordHash);
-      if (!isValidPassword) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-
-      // Check if vendor is approved
-      if (vendor.verificationStatus !== 'verified') {
-        return res.status(403).json({ 
-          message: "Account not approved", 
-          details: "Your vendor account is pending approval by our admin team. You will be notified once your account is verified.",
-          status: vendor.verificationStatus 
-        });
-      }
-
-      // Set vendor session
-      (req.session as any).vendorId = vendor.id;
-      
-      // Return vendor data (without password hash)
-      const { passwordHash, ...vendorData } = vendor;
-      res.json(vendorData);
-
-    } catch (error) {
-      console.error("Vendor login error:", error);
-      res.status(500).json({ message: "Login failed" });
-    }
-  });
-
-  app.get('/api/auth/vendor', isVendorAuthenticated, async (req, res) => {
-    try {
-      const vendor = req.vendor;
-      const { passwordHash, ...vendorData } = vendor;
-      res.json(vendorData);
-    } catch (error) {
-      console.error("Error fetching current vendor:", error);
-      res.status(500).json({ message: "Failed to fetch vendor data" });
-    }
-  });
-
-  app.post("/api/auth/logout", async (req, res) => {
-    try {
-      if (req.session) {
-        req.session.destroy((err) => {
-          if (err) {
-            console.error("Session destruction error:", err);
-            return res.status(500).json({ message: "Logout failed" });
-          }
-          res.json({ message: "Logged out successfully" });
-        });
-      } else {
-        res.json({ message: "Already logged out" });
-      }
-    } catch (error) {
-      console.error("Logout error:", error);
-      res.status(500).json({ message: "Logout failed" });
     }
   });
 

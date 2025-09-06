@@ -33,13 +33,24 @@ export async function apiRequest(
   return result;
 }
 
-// Vendor-specific API request function using session-based authentication
+// Vendor-specific API request function with authentication headers
 export async function vendorApiRequest(
   url: string,
   method: string = "GET",
   data?: unknown | undefined,
 ): Promise<any> {
-  const headers: Record<string, string> = {};
+  // Get vendor data from localStorage
+  const storedVendorData = localStorage.getItem('vendorData');
+  if (!storedVendorData) {
+    throw new Error("Vendor not authenticated");
+  }
+  
+  const vendorData = JSON.parse(storedVendorData);
+  
+  const headers: Record<string, string> = {
+    'x-vendor-id': vendorData.id,
+    'x-vendor-auth': vendorData.id, // Using vendor ID as auth token for now
+  };
   
   if (data) {
     headers["Content-Type"] = "application/json";
@@ -49,7 +60,6 @@ export async function vendorApiRequest(
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include", // Include cookies for session-based auth
   });
 
   await throwIfResNotOk(res);
