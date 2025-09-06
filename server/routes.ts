@@ -1818,6 +1818,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Simplified vendor order management endpoints for new workflow
+  app.post('/api/vendor/orders/:orderId/cancel', isVendorAuthenticated, async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      
+      // Update order status to cancelled
+      const updatedOrder = await storage.updateOrder(orderId, {
+        status: "cancelled"
+      });
+      
+      res.json({
+        success: true,
+        message: "Order cancelled successfully",
+        order: updatedOrder
+      });
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      res.status(500).json({ message: "Failed to cancel order" });
+    }
+  });
+
+  app.post('/api/vendor/orders/:orderId/ready', isVendorAuthenticated, async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      
+      // Update order status to ready for pickup
+      const updatedOrder = await storage.updateOrder(orderId, {
+        status: "ready_for_pickup"
+      });
+      
+      // Create delivery request for courier notification
+      await storage.createDeliveryRequest({
+        orderId: orderId,
+        status: "pending"
+      });
+      
+      // Send SMS notification to admin/courier
+      const notificationService = new (await import("./services/notificationService")).NotificationService();
+      const courierPhone = "+254740406442"; // User provided phone
+      const message = `New order ready for pickup! Order ID: ${orderId.slice(0, 8)}... Please check admin panel for details.`;
+      
+      try {
+        await notificationService.sendSMS(courierPhone, message);
+        console.log(`✅ Courier notification sent for order ${orderId}`);
+      } catch (smsError) {
+        console.error(`❌ Failed to send courier notification for order ${orderId}:`, smsError);
+        // Don't fail the order update if SMS fails
+      }
+      
+      res.json({
+        success: true,
+        message: "Order marked as ready for pickup. Courier has been notified.",
+        order: updatedOrder
+      });
+    } catch (error) {
+      console.error("Error marking order ready:", error);
+      res.status(500).json({ message: "Failed to mark order ready" });
+    }
+  });
+
   // Customer delivery confirmation endpoints
   app.get('/api/orders/confirm/:token', async (req, res) => {
     try {
@@ -3160,7 +3220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Main payment verification endpoint for cart-based payments
+  // Simplified payment verification endpoint for new workflow
   app.post('/api/payments/verify', isAuthenticated, async (req: any, res) => {
     try {
       const { reference } = req.body;
@@ -3179,21 +3239,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`Verifying payment with Paystack for reference: ${reference}`);
-
       // Verify payment with Paystack SDK
       const verification = await paystack.transaction.verify(reference);
 
-      console.log('Paystack verification response:', JSON.stringify(verification, null, 2));
-
       if (verification.status && verification.data.status === 'success') {
-        // Payment successful - check if order already exists for this reference
         console.log('✅ Payment verified successfully, checking for existing order...');
         
-        // Check if an order already exists with this payment reference
+        // Check if an order already exists with this payment reference (idempotency)
         const existingOrder = await storage.getOrderByPaymentReference(reference);
         if (existingOrder) {
-          console.log(`⚠️ Order already exists for payment reference ${reference}, returning existing order: ${existingOrder.id}`);
+          console.log(`⚠️ Order already exists for payment reference ${reference}`);
           return res.json({
             success: true,
             verified: true,
@@ -3204,182 +3259,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        console.log('Creating new order...');
-        
-        // Extract courier information and items from payment metadata
+        // Get user's cart items
+        const cartItems = await storage.getCartItems(userId);
+        if (cartItems.length === 0) {
+          return res.status(400).json({
+            success: false,
+            verified: false,
+            message: "No items in cart to process"
+          });
+        }
+
+        // Extract delivery address from payment metadata
         const metadata = verification.data.metadata;
-        console.log('Payment metadata:', JSON.stringify(metadata, null, 2));
         const customFields = metadata?.custom_fields || [];
-        console.log('Custom fields:', JSON.stringify(customFields, null, 2));
-        
         const deliveryAddress = customFields.find(f => f.variable_name === 'delivery_address')?.value || "No address provided";
-        const courierId = customFields.find(f => f.variable_name === 'courier_id')?.value;
-        const courierName = customFields.find(f => f.variable_name === 'courier_name')?.value;
-        const estimatedDeliveryTime = customFields.find(f => f.variable_name === 'estimated_delivery_time')?.value;
-        const deliveryFee = customFields.find(f => f.variable_name === 'delivery_fee')?.value || "0";
-        const itemsJson = customFields.find(f => f.variable_name === 'items')?.value;
         
-        // Check if this is a service booking payment
-        const serviceType = customFields.find(f => f.variable_name === 'service_type')?.value;
-        const existingOrderId = customFields.find(f => f.variable_name === 'order_id')?.value;
-        
-        console.log('Extracted info:', { courierId, courierName, estimatedDeliveryTime, deliveryFee, itemsJson, serviceType, existingOrderId });
-
-        // Handle service booking payment verification
-        if (serviceType === 'service_booking' && existingOrderId) {
-          console.log('Processing service booking payment verification...');
-          const verifiedAmount = verification.data.amount / 100; // Paystack amounts are in kobo
-          console.log(`✅ Service payment amount verified: ${verifiedAmount} KES`);
-          
-          // Update the existing order to mark payment as completed but keep pending for vendor acceptance
-          const updatedOrder = await storage.updateOrder(existingOrderId, {
-            paymentStatus: "completed",
-            status: "pending",
-            paymentReference: reference,
-            paymentMethod: "card"
-          });
-          
-          console.log(`✅ Service order payment updated: ${existingOrderId}`);
-          console.log(`=== Service Payment Verification Completed Successfully ===`);
-          
-          return res.json({
-            success: true,
-            verified: true,
-            orderId: existingOrderId,
-            message: "Service payment verified successfully",
-            amount: verifiedAmount,
-            reference: reference
-          });
-        }
-
-        // Parse items from metadata for regular cart payments
-        let orderItems = [];
-        if (itemsJson) {
-          try {
-            orderItems = JSON.parse(itemsJson);
-            console.log('Parsed order items from metadata:', orderItems);
-          } catch (error) {
-            console.error('Error parsing items from metadata:', error);
+        // Group cart items by vendor
+        const vendorGroups = cartItems.reduce((groups: any, item: any) => {
+          const vendorId = item.product?.vendorId || item.service?.providerId;
+          if (!groups[vendorId]) {
+            groups[vendorId] = [];
           }
-        }
+          groups[vendorId].push(item);
+          return groups;
+        }, {});
 
-        // If no items in metadata, fall back to cart (for backward compatibility)
-        if (orderItems.length === 0) {
-          console.log('No items in metadata, falling back to cart...');
-          const cartItems = await storage.getCartItems(userId);
-          console.log(`Cart items found: ${cartItems.length}`);
-          
-          if (cartItems.length === 0) {
-            console.log('ERROR: No items found in metadata or cart');
-            return res.status(400).json({ 
-              success: false,
-              verified: false,
-              message: "No order items found" 
+        const createdOrders = [];
+        
+        // Create one order per vendor
+        for (const [vendorId, items] of Object.entries(vendorGroups)) {
+          const vendorItems = items as any[];
+          const totalAmount = vendorItems.reduce((sum, item) => {
+            return sum + (parseFloat(item.price) * item.quantity);
+          }, 0);
+
+          // Create the order with 'paid' status
+          const order = await storage.createOrder({
+            userId,
+            vendorId,
+            status: "paid",
+            totalAmount: totalAmount.toString(),
+            deliveryAddress,
+            paymentReference: reference,
+            confirmedAt: new Date()
+          });
+
+          // Create order items
+          for (const item of vendorItems) {
+            await storage.createOrderItem({
+              orderId: order.id,
+              productId: item.productId,
+              serviceId: item.serviceId,
+              quantity: item.quantity,
+              price: item.price,
+              name: item.product?.name || item.service?.name || 'Unknown Item',
+              appointmentDate: item.appointmentDate,
+              appointmentTime: item.appointmentTime,
+              duration: item.duration,
+              notes: item.notes,
+              serviceLocation: item.serviceLocation,
+              locationCoordinates: item.locationCoordinates,
+              detailedInstructions: item.detailedInstructions
             });
           }
 
-          // Convert cart items to order items format
-          orderItems = cartItems.map(item => ({
-            id: item.productId || item.serviceId,
-            type: item.productId ? 'product' : 'service',
-            name: item.product?.name || item.service?.name || 'Unknown Item',
-            price: item.price || item.product?.price || item.service?.price || "0",
-            quantity: item.quantity || 1
-          }));
+          createdOrders.push(order);
         }
 
-        const verifiedAmount = verification.data.amount / 100; // Paystack amounts are in kobo
-        console.log(`✅ Payment amount verified: ${verifiedAmount} KES`);
-
-        // Determine vendor_id from the order items
-        let primaryVendorId = null;
-        if (orderItems.length > 0) {
-          // Get vendor from first item (for multi-vendor support later, this would need to be enhanced)
-          const firstItem = orderItems[0];
-          console.log(`Looking up vendor for first item:`, firstItem);
-          
-          if (firstItem.type === 'product' && firstItem.id) {
-            console.log(`Getting product by ID: ${firstItem.id}`);
-            const product = await storage.getProductById(firstItem.id);
-            console.log(`Product found:`, product);
-            primaryVendorId = product?.vendorId;
-            console.log(`Product vendor ID: ${primaryVendorId}`);
-          } else if (firstItem.type === 'service' && firstItem.id) {
-            console.log(`Getting service by ID: ${firstItem.id}`);
-            const service = await storage.getServiceById(firstItem.id);
-            console.log(`Service found:`, service);
-            primaryVendorId = service?.providerId;
-            console.log(`Service provider ID: ${primaryVendorId}`);
-          }
+        // Clear the user's cart
+        for (const item of cartItems) {
+          await storage.deleteCartItem(item.id);
         }
 
-        console.log(`Primary vendor ID determined: ${primaryVendorId}`);
-
-        // Create order with pending status so vendor can accept it
-        const order = await storage.createOrder({
-          userId,
-          totalAmount: verifiedAmount.toString(),
-          status: "pending", // Set to pending so vendor can accept the order
-          paymentStatus: "completed",
-          paymentMethod: "card",
-          paymentReference: reference,
-          deliveryAddress,
-          deliveryFee,
-          vendorId: primaryVendorId, // Set the vendor ID
-          courierId: courierId !== "not_selected" ? courierId : undefined,
-          courierName: courierName !== "No courier selected" ? courierName : undefined,
-          estimatedDeliveryTime: estimatedDeliveryTime !== "TBD" ? estimatedDeliveryTime : undefined,
-        });
-
-        console.log(`✅ Order created: ${order.id}`);
-
-        // Add order items from metadata or cart
-        for (const item of orderItems) {
-          const orderItem = await storage.addOrderItem({
-            orderId: order.id,
-            productId: item.type === 'product' ? item.id : (item.productId || undefined),
-            serviceId: item.type === 'service' ? item.id : (item.serviceId || undefined),
-            quantity: item.quantity || 1,
-            price: item.price || "0",
-            name: item.name || "Unknown Item", // Add the required name field
-          });
-          console.log(`✅ Order item added: ${orderItem.id} - ${item.name}`);
-        }
-
-        // Clear the cart after successful order creation
-        await storage.clearCart(userId);
-        console.log(`✅ Cart cleared for user: ${userId}`);
-
-        console.log(`=== Payment Verification Completed Successfully ===`);
-
-        res.json({
+        console.log(`✅ Created ${createdOrders.length} orders for payment ${reference}`);
+        
+        return res.json({
           success: true,
           verified: true,
-          orderId: order.id,
-          message: "Payment verified and order created successfully",
-          amount: verifiedAmount,
+          orderIds: createdOrders.map(o => o.id),
+          message: "Payment verified and orders created successfully",
+          amount: verification.data.amount / 100,
           reference: reference
         });
-
       } else {
-        // Payment failed or pending
-        console.log('❌ Payment verification failed:', verification);
-        res.json({
+        console.log('❌ Payment verification failed');
+        return res.status(400).json({
           success: false,
           verified: false,
-          message: verification.message || "Payment verification failed",
-          status: verification.data?.status || "failed"
+          message: "Payment verification failed"
         });
       }
-
     } catch (error) {
-      console.error("❌ Error verifying payment:", error);
-      console.error("Error details:", {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
-      res.status(500).json({ 
+      console.error('❌ Error verifying payment:', error);
+      return res.status(500).json({
         success: false,
         verified: false,
         message: "Payment verification failed due to server error",
@@ -3387,8 +3359,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-
-  // Payment status check endpoint
   app.get('/api/payments/status/:reference', isAuthenticated, async (req, res) => {
     try {
       const { reference } = req.params;

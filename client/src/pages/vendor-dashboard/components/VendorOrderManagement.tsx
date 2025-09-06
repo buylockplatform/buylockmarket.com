@@ -47,7 +47,7 @@ interface VendorOrderManagementProps {
 export default function VendorOrderManagement({ vendorId }: VendorOrderManagementProps) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [vendorNotes, setVendorNotes] = useState('');
-  const [activeTab, setActiveTab] = useState('pending');
+  const [activeTab, setActiveTab] = useState('paid');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -59,14 +59,46 @@ export default function VendorOrderManagement({ vendorId }: VendorOrderManagemen
     refetchOnWindowFocus: true, // Refresh when user returns to tab
   });
 
-  // Get pending and completed orders
-  const pendingOrders = orders.filter(order => 
-    ['paid', 'confirmed', 'vendor_accepted', 'packing', 'ready_for_pickup'].includes(order.status)
-  );
-  
-  const completedOrders = orders.filter(order => 
-    ['delivered', 'completed'].includes(order.status)
-  );
+  // Simplified order filtering for new workflow
+  const paidOrders = orders.filter(order => order.status === 'paid');
+  const readyOrders = orders.filter(order => order.status === 'ready_for_pickup');
+  const cancelledOrders = orders.filter(order => order.status === 'cancelled');
+  const completedOrders = orders.filter(order => order.status === 'completed');
+
+  // Simplified vendor actions for new workflow
+  const cancelOrder = async (orderId: string) => {
+    try {
+      await vendorApiRequest(`/api/vendor/orders/${orderId}/cancel`, 'POST', {});
+      queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/orders`] });
+      toast({
+        title: "Order Cancelled",
+        description: "Order has been cancelled successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to cancel order. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const markReadyForPickup = async (orderId: string) => {
+    try {
+      await vendorApiRequest(`/api/vendor/orders/${orderId}/ready`, 'POST', {});
+      queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/orders`] });
+      toast({
+        title: "Order Ready",
+        description: "Order marked as ready for pickup. Courier has been notified.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error", 
+        description: "Failed to mark order ready. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const acceptOrder = async (orderId: string) => {
     try {
@@ -269,7 +301,44 @@ export default function VendorOrderManagement({ vendorId }: VendorOrderManagemen
           </div>
         )}
 
-        <OrderWorkflow order={order} deliveryProviders={[]} />
+        {/* Simplified action buttons for new workflow */}
+        <div className="flex gap-2 mt-4">
+          {order.status === 'paid' && (
+            <>
+              <Button 
+                onClick={() => cancelOrder(order.id)}
+                variant="destructive"
+                size="sm"
+                data-testid={`button-cancel-${order.id}`}
+              >
+                Cancel Order
+              </Button>
+              <Button 
+                onClick={() => markReadyForPickup(order.id)}
+                className="bg-green-600 hover:bg-green-700"
+                size="sm"
+                data-testid={`button-ready-${order.id}`}
+              >
+                Mark Ready for Pickup
+              </Button>
+            </>
+          )}
+          {order.status === 'ready_for_pickup' && (
+            <Badge variant="default" className="bg-green-100 text-green-800">
+              Ready for courier pickup
+            </Badge>
+          )}
+          {order.status === 'cancelled' && (
+            <Badge variant="destructive">
+              Cancelled
+            </Badge>
+          )}
+          {order.status === 'completed' && (
+            <Badge variant="default" className="bg-blue-100 text-blue-800">
+              Completed
+            </Badge>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -290,27 +359,63 @@ export default function VendorOrderManagement({ vendorId }: VendorOrderManagemen
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="pending" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="paid" className="flex items-center gap-2">
+            <DollarSign className="w-4 h-4" />
+            New ({paidOrders.length})
+          </TabsTrigger>
+          <TabsTrigger value="ready" className="flex items-center gap-2">
+            <Truck className="w-4 h-4" />
+            Ready ({readyOrders.length})
+          </TabsTrigger>
+          <TabsTrigger value="cancelled" className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
-            Pending Orders ({pendingOrders.length})
+            Cancelled ({cancelledOrders.length})
           </TabsTrigger>
           <TabsTrigger value="completed" className="flex items-center gap-2">
             <CheckCircle className="w-4 h-4" />
-            Completed Orders ({completedOrders.length})
+            Completed ({completedOrders.length})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="pending" className="space-y-4">
+        <TabsContent value="paid" className="space-y-4">
           <div className="grid gap-4">
-            {pendingOrders.length === 0 ? (
+            {paidOrders.length === 0 ? (
               <Card>
                 <CardContent className="flex items-center justify-center h-32">
-                  <p className="text-gray-500">No pending orders</p>
+                  <p className="text-gray-500">No new orders</p>
                 </CardContent>
               </Card>
             ) : (
-              pendingOrders.map(renderOrderCard)
+              paidOrders.map(renderOrderCard)
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="ready" className="space-y-4">
+          <div className="grid gap-4">
+            {readyOrders.length === 0 ? (
+              <Card>
+                <CardContent className="flex items-center justify-center h-32">
+                  <p className="text-gray-500">No orders ready for pickup</p>
+                </CardContent>
+              </Card>
+            ) : (
+              readyOrders.map(renderOrderCard)
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="cancelled" className="space-y-4">
+          <div className="grid gap-4">
+            {cancelledOrders.length === 0 ? (
+              <Card>
+                <CardContent className="flex items-center justify-center h-32">
+                  <p className="text-gray-500">No cancelled orders</p>
+                </CardContent>
+              </Card>
+            ) : (
+              cancelledOrders.map(renderOrderCard)
             )}
           </div>
         </TabsContent>

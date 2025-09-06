@@ -172,6 +172,9 @@ export interface IStorage {
     limit?: number;
     offset?: number;
   }): Promise<Order[]>;
+
+  // Delivery Request operations (for simplified workflow)
+  createDeliveryRequest(request: InsertDeliveryRequest): Promise<DeliveryRequest>;
   getOrderById(id: string): Promise<Order | undefined>;
   getOrderByPaymentReference(paymentReference: string): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
@@ -947,6 +950,11 @@ export class DatabaseStorage implements IStorage {
       totalAmount: parseFloat(newOrder.totalAmount.toString()),
       orderItems: []
     };
+  }
+
+  async createDeliveryRequest(request: InsertDeliveryRequest): Promise<DeliveryRequest> {
+    const [newRequest] = await db.insert(deliveryRequests).values(request).returning();
+    return newRequest;
   }
 
   async addOrderItem(orderItem: InsertOrderItem): Promise<OrderItem> {
