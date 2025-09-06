@@ -3215,10 +3215,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const verifiedAmount = verification.data.amount / 100; // Paystack amounts are in kobo
           console.log(`✅ Service payment amount verified: ${verifiedAmount} KES`);
           
-          // Update the existing order to mark payment as completed
+          // Update the existing order to mark payment as completed but keep pending for vendor acceptance
           const updatedOrder = await storage.updateOrder(existingOrderId, {
             paymentStatus: "completed",
-            status: "confirmed",
+            status: "pending",
             paymentReference: reference,
             paymentMethod: "card"
           });
@@ -3299,11 +3299,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log(`Primary vendor ID determined: ${primaryVendorId}`);
 
-        // Create order with confirmed payment status
+        // Create order with pending status so vendor can accept it
         const order = await storage.createOrder({
           userId,
           totalAmount: verifiedAmount.toString(),
-          status: "confirmed", // Set to confirmed since payment is verified
+          status: "pending", // Set to pending so vendor can accept the order
           paymentStatus: "completed",
           paymentMethod: "card",
           paymentReference: reference,
