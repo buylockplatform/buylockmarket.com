@@ -152,6 +152,18 @@ export default function Payment() {
         description: "Unable to load payment configuration. Please try again.",
         variant: "destructive",
       });
+      setIsProcessingPayment(false);
+      return;
+    }
+
+    // Validate Paystack public key format
+    if (!paymentConfig.publicKey.startsWith('pk_test_') && !paymentConfig.publicKey.startsWith('pk_live_')) {
+      toast({
+        title: "Payment configuration error",
+        description: "Invalid Paystack public key format. Please contact support.",
+        variant: "destructive",
+      });
+      setIsProcessingPayment(false);
       return;
     }
     
@@ -178,10 +190,18 @@ export default function Payment() {
       callback: function(response: any) {
         setIsProcessingPayment(false);
         // Verify payment on the backend
-        verifyPaymentMutation.mutate({
-          reference: response.reference,
-          orderId: orderId!,
-        });
+        if (response && response.reference) {
+          verifyPaymentMutation.mutate({
+            reference: response.reference,
+            orderId: orderId!,
+          });
+        } else {
+          toast({
+            title: "Payment error",
+            description: "Payment response is incomplete. Please contact support.",
+            variant: "destructive",
+          });
+        }
       },
       onClose: function() {
         setIsProcessingPayment(false);
