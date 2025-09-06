@@ -61,7 +61,7 @@ export default function VendorOrderManagement({ vendorId }: VendorOrderManagemen
 
   // Get pending and completed orders
   const pendingOrders = orders.filter(order => 
-    ['confirmed', 'vendor_accepted', 'packing', 'ready_for_pickup'].includes(order.status)
+    ['paid', 'confirmed', 'vendor_accepted', 'packing', 'ready_for_pickup'].includes(order.status)
   );
   
   const completedOrders = orders.filter(order => 
