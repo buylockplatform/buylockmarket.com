@@ -213,6 +213,13 @@ export default function Cart() {
         // Direct order creation succeeded
         queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
         queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+        // Invalidate all vendor queries using predicate
+        queryClient.invalidateQueries({ 
+          predicate: (query) => {
+            const key = query.queryKey?.[0];
+            return typeof key === 'string' && key.startsWith('/api/vendor/');
+          }
+        });
         toast({
           title: "Order placed successfully!",
           description: "Your order has been created. Payment can be completed upon delivery.",

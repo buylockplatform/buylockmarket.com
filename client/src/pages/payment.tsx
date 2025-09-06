@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { queryClient } from "@/lib/queryClient";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -72,15 +73,26 @@ export default function Payment() {
       });
     },
     onSuccess: (data) => {
-      toast({
-        title: "Payment successful!",
-        description: "Your service has been booked successfully. Redirecting to your orders...",
+      // Invalidate queries to refresh data across the app
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      // Invalidate all vendor queries using predicate
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey?.[0];
+          return typeof key === 'string' && key.startsWith('/api/vendor/');
+        }
       });
       
-      // Redirect to orders page after 2 seconds
+      toast({
+        title: "Payment successful!",
+        description: "Your order has been confirmed! Redirecting to your orders...",
+      });
+      
+      // Redirect to orders page immediately after clearing cache
       setTimeout(() => {
         setLocation("/my-orders");
-      }, 2000);
+      }, 1500);
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
