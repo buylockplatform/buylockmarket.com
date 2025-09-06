@@ -101,6 +101,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/auth/profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { firstName, lastName, phone, address, city, country } = req.body;
+
+      const updatedUser = await storage.updateUser(userId, {
+        firstName,
+        lastName,
+        phone,
+        address,
+        city,
+        country: country || 'Kenya'
+      });
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Profile update error:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
   app.put('/api/auth/change-password', isAuthenticated, async (req: any, res) => {
     try {
       const { currentPassword, newPassword } = req.body;
@@ -966,7 +987,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send SMS notification to vendor about new order
       if (primaryVendorId) {
         try {
-          // Get vendor details for notification
+          // Get fresh vendor details for notification (ensures updated phone number)
           const vendor = await storage.getVendorById(primaryVendorId);
           const customer = await storage.getUser(userId);
           

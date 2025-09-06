@@ -580,6 +580,12 @@ export function Header() {
                   </div>
                   <div className="absolute right-0 top-full mt-1 w-48 bg-buylock-white border border-buylock-gray rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                     <Link
+                      href="/profile"
+                      className="block px-4 py-2 text-buylock-charcoal hover:bg-buylock-cyan/10 hover:text-buylock-cyan transition-colors"
+                    >
+                      Profile
+                    </Link>
+                    <Link
                       href="/my-orders"
                       className="block px-4 py-2 text-buylock-charcoal hover:bg-buylock-cyan/10 hover:text-buylock-cyan transition-colors"
                     >

@@ -14,6 +14,7 @@ import Services from "@/pages/services";
 import ServiceDetail from "@/pages/service-detail";
 import Cart from "@/pages/cart";
 import MyOrders from "@/pages/my-orders";
+import Profile from "@/pages/profile";
 
 import Shop from "@/pages/shop";
 import VendorPortal from "@/pages/vendor-portal";
@@ -50,6 +51,7 @@ function Router() {
           <Route path="/shop" component={Shop} />
           <Route path="/cart" component={Cart} />
           <Route path="/my-orders" component={MyOrders} />
+          <Route path="/profile" component={Profile} />
           <Route path="/vendor-tasks" component={VendorTasks} />
           <Route path="/payment" component={Payment} />
         </>
