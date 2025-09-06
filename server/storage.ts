@@ -874,8 +874,50 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrderByPaymentReference(paymentReference: string): Promise<Order | undefined> {
-    const [order] = await db.select().from(orders).where(eq(orders.paymentReference, paymentReference));
-    return order;
+    try {
+      // Use raw SQL query to bypass any ORM compilation issues
+      const result = await db.execute(sql`SELECT * FROM orders WHERE payment_reference = ${paymentReference} LIMIT 1`);
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      const row = result.rows[0] as any;
+      return {
+        id: row.id,
+        userId: row.user_id,
+        vendorId: row.vendor_id,
+        status: row.status,
+        totalAmount: parseFloat(row.total_amount),
+        deliveryAddress: row.delivery_address,
+        deliveryFee: parseFloat(row.delivery_fee || '0'),
+        courierId: row.courier_id,
+        courierName: row.courier_name,
+        estimatedDeliveryTime: row.estimated_delivery_time,
+        paymentStatus: row.payment_status,
+        paymentMethod: row.payment_method,
+        paymentReference: row.payment_reference,
+        notes: row.notes,
+        vendorNotes: row.vendor_notes,
+        trackingNumber: row.tracking_number,
+        internalTrackingId: row.internal_tracking_id,
+        estimatedDelivery: row.estimated_delivery,
+        vendorAcceptedAt: row.vendor_accepted_at,
+        deliveryPickupAt: row.delivery_pickup_at,
+        orderType: row.order_type,
+        confirmationToken: row.confirmation_token,
+        confirmationStatus: row.confirmation_status,
+        customerConfirmedAt: row.customer_confirmed_at,
+        disputeReason: row.dispute_reason,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        shippingAddress: row.delivery_address || '',
+        orderDate: row.created_at?.toISOString() || new Date().toISOString(),
+        orderItems: []
+      };
+    } catch (error) {
+      console.error('Error in getOrderByPaymentReference:', error);
+      throw error;
+    }
   }
 
   async updateOrder(id: string, updates: Partial<InsertOrder>): Promise<Order> {
