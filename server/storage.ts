@@ -15,6 +15,7 @@ import {
   appointments,
   deliveryProviders,
   deliveries,
+  deliveryRequests,
   deliveryUpdates,
   deliveryAnalytics,
   payoutRequests,
@@ -41,6 +42,7 @@ import {
   type Appointment,
   type DeliveryProvider,
   type Delivery,
+  type DeliveryRequest,
   type DeliveryUpdate,
   type DeliveryAnalytics,
   type InsertCategory,
@@ -53,6 +55,7 @@ import {
   type InsertOrder,
   type InsertOrderItem,
   type InsertOrderTracking,
+  type InsertDeliveryRequest,
   type InsertAppointment,
   type InsertDeliveryProvider,
   type InsertDelivery,
@@ -1453,16 +1456,9 @@ export class DatabaseStorage implements IStorage {
       status: orders.status,
       totalAmount: orders.totalAmount,
       deliveryAddress: orders.deliveryAddress,
-      deliveryFee: orders.deliveryFee,
-      paymentStatus: orders.paymentStatus,
-      paymentMethod: orders.paymentMethod,
       notes: orders.notes,
-      vendorNotes: orders.vendorNotes,
-      trackingNumber: orders.trackingNumber,
-      estimatedDelivery: orders.estimatedDelivery,
-      vendorAcceptedAt: orders.vendorAcceptedAt,
-      deliveryPickupAt: orders.deliveryPickupAt,
-      orderType: orders.orderType,
+      paymentReference: orders.paymentReference,
+      confirmedAt: orders.confirmedAt,
       createdAt: orders.createdAt,
       updatedAt: orders.updatedAt,
       user: {
@@ -1509,11 +1505,16 @@ export class DatabaseStorage implements IStorage {
           ...order,
           shippingAddress: order.deliveryAddress || '',
           orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
-          paymentMethod: order.paymentMethod || 'Unknown',
+          paymentMethod: 'Paystack', // Default since we use Paystack for all payments
           totalAmount: typeof order.totalAmount === 'string' ? parseFloat(order.totalAmount) : order.totalAmount,
+          // Add missing fields for compatibility with Order interface
+          deliveryFee: 0,
+          paymentStatus: 'completed', // All orders start with 'paid' status after payment verification
           orderItems: items.map(item => ({
             ...item,
-            price: parseFloat(item.price.toString())
+            price: parseFloat(item.price.toString()),
+            product: item.product || undefined,
+            service: item.service || undefined,
           }))
         };
       })
