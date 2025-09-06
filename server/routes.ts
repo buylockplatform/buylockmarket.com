@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { appointments } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { sendPayoutStatusNotification, PayoutNotificationData } from "./emailService";
 import { notificationService, type VendorNotificationData } from "./notificationService";
@@ -78,6 +78,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Auth middleware
   await setupAuth(app);
+
+  // Debug endpoint to check database connection
+  app.get('/api/debug/db', async (req, res) => {
+    try {
+      const dbInfo = await db.execute(sql`SELECT current_database(), current_user, current_schema()`);
+      const columns = await db.execute(sql`SELECT column_name FROM information_schema.columns WHERE table_name='orders' ORDER BY 1`);
+      
+      res.json({
+        database: dbInfo.rows[0],
+        ordersColumns: columns.rows.map(row => row.column_name),
+        hasPaymentReference: columns.rows.some(row => row.column_name === 'payment_reference')
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // Exchange rates API
   app.get('/api/exchange-rates', async (req, res) => {
