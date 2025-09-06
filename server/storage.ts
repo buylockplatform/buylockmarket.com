@@ -173,6 +173,7 @@ export interface IStorage {
     offset?: number;
   }): Promise<Order[]>;
   getOrderById(id: string): Promise<Order | undefined>;
+  getOrderByPaymentReference(paymentReference: string): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrder(id: string, updates: Partial<InsertOrder>): Promise<Order>;
   getOrderItems(orderId: string): Promise<OrderItem[]>;
@@ -870,6 +871,11 @@ export class DatabaseStorage implements IStorage {
         price: parseFloat(item.price.toString())
       }))
     };
+  }
+
+  async getOrderByPaymentReference(paymentReference: string): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.paymentReference, paymentReference));
+    return order;
   }
 
   async updateOrder(id: string, updates: Partial<InsertOrder>): Promise<Order> {

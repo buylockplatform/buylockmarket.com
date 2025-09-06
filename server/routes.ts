@@ -70,6 +70,7 @@ import { insertCartItemSchema, insertOrderSchema, insertOrderItemSchema, service
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import { sortByDistance, filterByRadius, getDefaultKenyaLocation, calculateDistance, type Coordinates } from "./geoUtils";
+import { seedDatabase } from "./seedDatabase";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize Paystack SDK
@@ -3170,8 +3171,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Paystack verification response:', JSON.stringify(verification, null, 2));
 
       if (verification.status && verification.data.status === 'success') {
-        // Payment successful - proceed with order creation
-        console.log('✅ Payment verified successfully, creating order...');
+        // Payment successful - check if order already exists for this reference
+        console.log('✅ Payment verified successfully, checking for existing order...');
+        
+        // Check if an order already exists with this payment reference
+        const existingOrder = await storage.getOrderByPaymentReference(reference);
+        if (existingOrder) {
+          console.log(`⚠️ Order already exists for payment reference ${reference}, returning existing order: ${existingOrder.id}`);
+          return res.json({
+            success: true,
+            verified: true,
+            orderId: existingOrder.id,
+            message: "Payment already processed",
+            amount: verification.data.amount / 100,
+            reference: reference
+          });
+        }
+        
+        console.log('Creating new order...');
         
         // Extract courier information and items from payment metadata
         const metadata = verification.data.metadata;
@@ -3263,12 +3280,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (orderItems.length > 0) {
           // Get vendor from first item (for multi-vendor support later, this would need to be enhanced)
           const firstItem = orderItems[0];
+          console.log(`Looking up vendor for first item:`, firstItem);
+          
           if (firstItem.type === 'product' && firstItem.id) {
+            console.log(`Getting product by ID: ${firstItem.id}`);
             const product = await storage.getProductById(firstItem.id);
+            console.log(`Product found:`, product);
             primaryVendorId = product?.vendorId;
+            console.log(`Product vendor ID: ${primaryVendorId}`);
           } else if (firstItem.type === 'service' && firstItem.id) {
+            console.log(`Getting service by ID: ${firstItem.id}`);
             const service = await storage.getServiceById(firstItem.id);
+            console.log(`Service found:`, service);
             primaryVendorId = service?.providerId;
+            console.log(`Service provider ID: ${primaryVendorId}`);
           }
         }
 
@@ -4613,6 +4638,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Internal server error" });
     }
   });
+
+  // Seed database on startup for development
+  if (process.env.NODE_ENV === "development") {
+    try {
+      await seedDatabase();
+      console.log("✅ Database seeded successfully");
+    } catch (error) {
+      console.error("❌ Failed to seed database:", error);
+    }
+  }
 
   const httpServer = createServer(app);
   return httpServer;
