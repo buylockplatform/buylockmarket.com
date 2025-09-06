@@ -15,10 +15,10 @@ import { PaystackService } from "./paystackService";
 // Vendor authentication middleware - ensures vendor is logged in and approved
 const isVendorAuthenticated = async (req: any, res: any, next: any) => {
   try {
-    const vendorId = req.headers['x-vendor-id'];
-    const vendorAuth = req.headers['x-vendor-auth'];
+    // Check session for vendorId
+    const vendorId = (req.session as any)?.vendorId;
 
-    if (!vendorId || !vendorAuth) {
+    if (!vendorId) {
       return res.status(401).json({ message: "Vendor authentication required" });
     }
 
@@ -181,6 +181,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Set vendor session
+      (req.session as any).vendorId = vendor.id;
+      
       // Return vendor data (without password hash)
       const { passwordHash, ...vendorData } = vendor;
       res.json(vendorData);
