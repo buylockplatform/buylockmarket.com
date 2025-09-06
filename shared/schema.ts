@@ -3,6 +3,7 @@ import {
   index,
   jsonb,
   pgTable,
+  pgEnum,
   timestamp,
   varchar,
   text,
@@ -158,34 +159,29 @@ export const cartItems = pgTable("cart_items", {
 });
 
 // Orders
+// Simplified order status enum
+export const orderStatusEnum = pgEnum("order_status", ["paid", "ready_for_pickup", "cancelled", "completed"]);
+
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
-  vendorId: varchar("vendor_id").references(() => vendors.id), // New: vendor responsible for fulfillment
-  status: varchar("status", { length: 30 }).default("paid"), // For products: paid, confirmed, awaiting_dispatch, in_delivery, delivered, completed, customer_confirmed, disputed, cancelled
-  // For services: paid, pending_acceptance, accepted, in_progress, completed, customer_confirmed, disputed, cancelled
+  vendorId: varchar("vendor_id").references(() => vendors.id).notNull(),
+  status: orderStatusEnum("status").default("paid").notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  deliveryAddress: text("delivery_address"),
-  deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).default("0"),
-  courierId: varchar("courier_id"),
-  courierName: varchar("courier_name"),
-  estimatedDeliveryTime: varchar("estimated_delivery_time"),
-  paymentStatus: varchar("payment_status", { length: 20 }).default("pending"),
-  paymentMethod: varchar("payment_method", { length: 50 }),
-  paymentReference: varchar("payment_reference", { length: 100 }), // Paystack payment reference
+  deliveryAddress: text("delivery_address").notNull(),
   notes: text("notes"),
-  vendorNotes: text("vendor_notes"), // New: notes from vendor
-  trackingNumber: varchar("tracking_number"), // Internal BuyLock tracking number
-  internalTrackingId: varchar("internal_tracking_id"), // Our system tracking ID
-  estimatedDelivery: timestamp("estimated_delivery"),
-  vendorAcceptedAt: timestamp("vendor_accepted_at"), // New: when vendor accepted order
-  deliveryPickupAt: timestamp("delivery_pickup_at"), // New: when delivery picked up order
-  orderType: varchar("order_type", { length: 20 }).default("product"), // product or service
-  // Delivery confirmation fields
-  confirmationToken: varchar("confirmation_token"), // Token for customer confirmation via email
-  confirmationStatus: varchar("confirmation_status", { length: 20 }), // pending, confirmed, disputed
-  customerConfirmedAt: timestamp("customer_confirmed_at"), // When customer confirmed delivery
-  disputeReason: text("dispute_reason"), // Reason for dispute if order is disputed
+  paymentReference: varchar("payment_reference", { length: 100 }).unique().notNull(), // Paystack payment reference
+  confirmedAt: timestamp("confirmed_at"), // When payment was confirmed
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Delivery Requests - Simple table for courier pickup notifications
+export const deliveryRequests = pgTable("delivery_requests", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: uuid("order_id").references(() => orders.id).notNull(),
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, assigned, picked_up, delivered, cancelled
+  assignedCourierId: varchar("assigned_courier_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -522,6 +518,12 @@ export const insertDeliverySchema = createInsertSchema(deliveries).omit({
   updatedAt: true,
 });
 
+export const insertDeliveryRequestSchema = createInsertSchema(deliveryRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertDeliveryUpdateSchema = createInsertSchema(deliveryUpdates).omit({
   id: true,
   timestamp: true,
@@ -591,6 +593,8 @@ export type DeliveryUpdate = typeof deliveryUpdates.$inferSelect;
 export type InsertDeliveryUpdate = typeof insertDeliveryUpdateSchema._type;
 export type DeliveryAnalytics = typeof deliveryAnalytics.$inferSelect;
 export type InsertDeliveryAnalytics = typeof insertDeliveryAnalyticsSchema._type;
+export type DeliveryRequest = typeof deliveryRequests.$inferSelect;
+export type InsertDeliveryRequest = typeof insertDeliveryRequestSchema._type;
 export type InsertCartItem = typeof insertCartItemSchema._type;
 export type InsertOrder = typeof insertOrderSchema._type;
 export type InsertOrderItem = typeof insertOrderItemSchema._type;
