@@ -172,6 +172,7 @@ export const orders = pgTable("orders", {
   estimatedDeliveryTime: varchar("estimated_delivery_time"),
   paymentStatus: varchar("payment_status", { length: 20 }).default("pending"),
   paymentMethod: varchar("payment_method", { length: 50 }),
+  paymentReference: varchar("payment_reference", { length: 100 }), // Paystack payment reference
   notes: text("notes"),
   vendorNotes: text("vendor_notes"), // New: notes from vendor
   trackingNumber: varchar("tracking_number"), // Internal BuyLock tracking number
