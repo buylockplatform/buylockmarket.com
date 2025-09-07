@@ -820,7 +820,6 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
-  }
 
   async getServiceBySlug(slug: string): Promise<Service | undefined> {
     const [service] = await db.select().from(services).where(eq(services.slug, slug));
