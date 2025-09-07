@@ -953,50 +953,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrdersByVendor(vendorId: string, type?: string): Promise<Order[]> {
-    try {
-      // Use direct database connection to bypass Drizzle schema issues
-      const { Pool } = await import('@neondatabase/serverless');
-      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
-      
-      let queryText = `
-        SELECT 
-          o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
-          o.payment_status, o.payment_method, o.payment_reference, o.notes,
-          o.created_at, o.updated_at,
-          u.email as user_email, u.first_name, u.last_name
-        FROM orders o
-        LEFT JOIN users u ON o.user_id = u.id
-        WHERE o.vendor_id = $1
-        ORDER BY o.created_at DESC
-      `;
-      
-      const result = await directPool.query(queryText, [vendorId]);
-      await directPool.end();
-      
-      return result.rows.map(row => ({
-        id: row.id,
-        userId: row.user_id,
-        vendorId: row.vendor_id,
-        status: row.status,
-        totalAmount: parseFloat(row.total_amount.toString()),
-        deliveryAddress: row.delivery_address,
-        deliveryFee: 0,
-        paymentStatus: row.payment_status || 'completed',
-        paymentMethod: row.payment_method || 'Paystack',
-        paymentReference: row.payment_reference,
-        notes: row.notes,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        shippingAddress: row.delivery_address || '',
-        orderDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
-        orderItems: [],
-        userEmail: row.user_email,
-        userName: `${row.first_name || ''} ${row.last_name || ''}`.trim()
-      }));
-    } catch (error) {
-      console.error('Error in getOrdersByVendor:', error);
-      throw error;
-    }
+    const vendorOrders = await db.select({
+      ...orders,
+      userEmail: users.email,
+      userName: sql<string>`TRIM(CONCAT(${users.firstName}, ' ', ${users.lastName}))`
+    })
+    .from(orders)
+    .leftJoin(users, eq(orders.userId, users.id))
+    .where(eq(orders.vendorId, vendorId))
+    .orderBy(desc(orders.createdAt));
+
+    return vendorOrders.map(order => ({
+      ...order,
+      totalAmount: parseFloat(order.totalAmount.toString()),
+      deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
+      shippingAddress: order.deliveryAddress || '',
+      orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
+      orderItems: []
+    }));
   }
 
   // Removed duplicate getOrderById method - using the enhanced one above
@@ -1030,54 +1004,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrderItems(orderId: string): Promise<OrderItem[]> {
-    try {
-      // Use direct database connection to bypass Drizzle schema issues
-      const { Pool } = await import('@neondatabase/serverless');
-      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
-      
-      const queryText = `
-        SELECT 
-          oi.id, oi.order_id, oi.product_id, oi.service_id, oi.quantity, oi.price, oi.name,
-          oi.appointment_date, oi.appointment_time, oi.duration, oi.service_location, oi.notes,
-          p.name as product_name, p.image_url as product_image,
-          s.name as service_name, s.image_url as service_image
-        FROM order_items oi
-        LEFT JOIN products p ON oi.product_id = p.id
-        LEFT JOIN services s ON oi.service_id = s.id
-        WHERE oi.order_id = $1
-      `;
-      
-      const result = await directPool.query(queryText, [orderId]);
-      await directPool.end();
-      
-      return result.rows.map(row => ({
-        id: row.id,
-        orderId: row.order_id,
-        productId: row.product_id,
-        serviceId: row.service_id,
-        quantity: row.quantity,
-        price: parseFloat(row.price.toString()),
-        name: row.name,
-        appointmentDate: row.appointment_date,
-        appointmentTime: row.appointment_time,
-        duration: row.duration,
-        serviceLocation: row.service_location,
-        notes: row.notes,
-        product: row.product_id ? {
-          id: row.product_id,
-          name: row.product_name,
-          imageUrl: row.product_image
-        } : undefined,
-        service: row.service_id ? {
-          id: row.service_id,
-          name: row.service_name,
-          imageUrl: row.service_image
-        } : undefined
-      }));
-    } catch (error) {
-      console.error('Error in getOrderItems:', error);
-      throw error;
-    }
+    const items = await db.select({
+      id: orderItems.id,
+      orderId: orderItems.orderId,
+      productId: orderItems.productId,
+      serviceId: orderItems.serviceId,
+      quantity: orderItems.quantity,
+      price: orderItems.price,
+      name: orderItems.name,
+      appointmentDate: orderItems.appointmentDate,
+      appointmentTime: orderItems.appointmentTime,
+      duration: orderItems.duration,
+      serviceLocation: orderItems.serviceLocation,
+      notes: orderItems.notes,
+      locationCoordinates: orderItems.locationCoordinates,
+      detailedInstructions: orderItems.detailedInstructions,
+      product: {
+        id: products.id,
+        name: products.name,
+        imageUrl: products.imageUrl
+      },
+      service: {
+        id: services.id,
+        name: services.name,
+        imageUrl: services.imageUrl
+      }
+    })
+    .from(orderItems)
+    .leftJoin(products, eq(orderItems.productId, products.id))
+    .leftJoin(services, eq(orderItems.serviceId, services.id))
+    .where(eq(orderItems.orderId, orderId));
+
+    return items.map(item => ({
+      ...item,
+      price: parseFloat(item.price.toString())
+    }));
   }
 
   // Order tracking operations
