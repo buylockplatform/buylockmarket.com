@@ -72,7 +72,7 @@ import {
   type EmailNotification,
   type InsertEmailNotification,
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, like, ilike, and, or, desc, asc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
@@ -886,22 +886,28 @@ export class DatabaseStorage implements IStorage {
 
   async getOrderByPaymentReference(paymentReference: string): Promise<Order | undefined> {
     try {
-      // Use the same raw SQL approach as other working queries to avoid ORM issues
-      const result = await db.execute(sql`
+      // Use raw database connection to completely bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const queryText = `
         SELECT 
           id, user_id, vendor_id, status, total_amount, delivery_address,
           payment_status, payment_method, payment_reference, notes,
           created_at, updated_at
         FROM orders 
-        WHERE payment_reference = ${paymentReference} 
+        WHERE payment_reference = $1 
         LIMIT 1
-      `);
+      `;
+      
+      const result = await directPool.query(queryText, [paymentReference]);
+      await directPool.end(); // Clean up connection
       
       if (result.rows.length === 0) {
         return undefined;
       }
       
-      const row = result.rows[0] as any;
+      const row = result.rows[0];
       return {
         id: row.id,
         userId: row.user_id,

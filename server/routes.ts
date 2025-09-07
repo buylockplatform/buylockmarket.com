@@ -3220,6 +3220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // Simplified payment verification endpoint for new workflow
   app.post('/api/payments/verify', isAuthenticated, async (req: any, res) => {
     try {
