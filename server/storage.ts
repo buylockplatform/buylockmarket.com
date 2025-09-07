@@ -742,103 +742,104 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Get orders with user information and order items
-    let query = db.select({
-      id: orders.id,
-      userId: orders.userId,
-      vendorId: orders.vendorId,
-      status: orders.status,
-      totalAmount: orders.totalAmount,
-      deliveryAddress: orders.deliveryAddress,
-      deliveryFee: orders.deliveryFee,
-      paymentStatus: orders.paymentStatus,
-      paymentMethod: orders.paymentMethod,
-      paymentReference: orders.paymentReference,
-      notes: orders.notes,
-      vendorNotes: orders.vendorNotes,
-      trackingNumber: orders.trackingNumber,
-      estimatedDelivery: orders.estimatedDelivery,
-      vendorAcceptedAt: orders.vendorAcceptedAt,
-      createdAt: orders.createdAt,
-      updatedAt: orders.updatedAt,
-      user: {
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-      }
-    })
-    .from(orders)
-    .leftJoin(users, eq(orders.userId, users.id))
-    .orderBy(desc(orders.createdAt));
+    // Simplified query without parameters for now
 
-    if (whereConditions.length > 0) {
-      query = query.where(and(...whereConditions)) as any;
-    }
-
-    if (params?.limit !== undefined) {
-      query = query.limit(params.limit) as any;
-    }
-
-    if (params?.offset !== undefined) {
-      query = query.offset(params.offset) as any;
-    }
-
-    const result = await query;
+    // Use simple raw SQL query without parameters to avoid binding issues
+    const result = await db.execute(sql`
+      SELECT 
+        o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
+        o.delivery_fee, o.payment_status, o.payment_method,
+        o.notes, o.vendor_notes, o.tracking_number, o.estimated_delivery,
+        o.vendor_accepted_at, o.created_at, o.updated_at,
+        u.id as user_id, u.email as user_email, u.first_name, u.last_name
+      FROM orders o
+      LEFT JOIN users u ON o.user_id = u.id
+      ORDER BY o.created_at DESC
+    `);
     
-    // Get order items for all orders with product and service details
-    const orderIds = result.map(order => order.id);
+    const orders = result.rows as any[];
+    
+    // Get order items for all orders with product and service details using raw SQL
+    const orderIds = orders.map(order => order.id);
     let allOrderItems: any[] = [];
     
     if (orderIds.length > 0) {
-      allOrderItems = await db.select({
-        id: orderItems.id,
-        orderId: orderItems.orderId,
-        productId: orderItems.productId,
-        serviceId: orderItems.serviceId,
-        quantity: orderItems.quantity,
-        price: orderItems.price,
-        name: orderItems.name,
-        appointmentDate: orderItems.appointmentDate,
-        appointmentTime: orderItems.appointmentTime,
-        duration: orderItems.duration,
-        serviceLocation: orderItems.serviceLocation,
-        notes: orderItems.notes,
-        product: {
-          id: products.id,
-          name: products.name,
-          imageUrl: products.imageUrl,
-          description: products.description,
-          vendorId: products.vendorId,
-        },
-        service: {
-          id: services.id,
-          name: services.name,
-          imageUrl: services.imageUrl,
-          description: services.description,
-          providerId: services.providerId,
-        }
-      })
-      .from(orderItems)
-      .leftJoin(products, eq(orderItems.productId, products.id))
-      .leftJoin(services, eq(orderItems.serviceId, services.id))
-      .where(inArray(orderItems.orderId, orderIds));
+      const itemsResult = await db.execute(sql`
+        SELECT 
+          oi.id, oi.order_id, oi.product_id, oi.service_id, oi.quantity, oi.price, oi.name,
+          oi.appointment_date, oi.appointment_time, oi.duration, oi.service_location, oi.notes as item_notes,
+          p.id as product_id, p.name as product_name, p.image_url as product_image, 
+          p.description as product_description, p.vendor_id as product_vendor_id,
+          s.id as service_id, s.name as service_name, s.image_url as service_image, 
+          s.description as service_description, s.provider_id as service_provider_id
+        FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id
+        LEFT JOIN services s ON oi.service_id = s.id
+        WHERE oi.order_id = ANY(${orderIds})
+      `);
+      
+      allOrderItems = itemsResult.rows;
     }
     
     // Transform the result to match expected Order type with proper structure
-    return result.map(order => ({
-      ...order,
-      shippingAddress: order.deliveryAddress || '',
-      orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
-      paymentMethod: order.paymentMethod || 'Unknown',
-      totalAmount: typeof order.totalAmount === 'string' ? parseFloat(order.totalAmount) : order.totalAmount,
-      orderItems: allOrderItems
-        .filter(item => item.orderId === order.id)
-        .map(item => ({
-          ...item,
-          price: parseFloat(item.price.toString())
+    return orders.map(order => {
+      const orderItems = allOrderItems.filter((item: any) => item.order_id === order.id);
+      
+      return {
+        id: order.id,
+        userId: order.user_id,
+        vendorId: order.vendor_id,
+        status: order.status,
+        totalAmount: parseFloat(order.total_amount.toString()),
+        deliveryAddress: order.delivery_address,
+        deliveryFee: parseFloat(order.delivery_fee?.toString() || '0'),
+        paymentStatus: order.payment_status || 'completed',
+        paymentMethod: order.payment_method || 'Paystack',
+        notes: order.notes,
+        vendorNotes: order.vendor_notes,
+        trackingNumber: order.tracking_number,
+        estimatedDelivery: order.estimated_delivery,
+        vendorAcceptedAt: order.vendor_accepted_at,
+        createdAt: order.created_at,
+        updatedAt: order.updated_at,
+        shippingAddress: order.delivery_address || '',
+        orderDate: order.created_at ? new Date(order.created_at).toISOString() : new Date().toISOString(),
+        user: order.user_id ? {
+          id: order.user_id,
+          email: order.user_email,
+          firstName: order.first_name,
+          lastName: order.last_name,
+        } : undefined,
+        orderItems: orderItems.map((item: any) => ({
+          id: item.id,
+          orderId: item.order_id,
+          productId: item.product_id,
+          serviceId: item.service_id,
+          quantity: item.quantity,
+          price: parseFloat(item.price.toString()),
+          name: item.name,
+          appointmentDate: item.appointment_date,
+          appointmentTime: item.appointment_time,
+          duration: item.duration,
+          serviceLocation: item.service_location,
+          notes: item.item_notes,
+          product: item.product_id ? {
+            id: item.product_id,
+            name: item.product_name,
+            imageUrl: item.product_image,
+            description: item.product_description,
+            vendorId: item.product_vendor_id,
+          } : undefined,
+          service: item.service_id ? {
+            id: item.service_id,
+            name: item.service_name,
+            imageUrl: item.service_image,
+            description: item.service_description,
+            providerId: item.service_provider_id,
+          } : undefined,
         }))
-    }));
+      };
+    });
   }
 
   async getOrderById(id: string): Promise<Order | undefined> {
@@ -1453,83 +1454,94 @@ export class DatabaseStorage implements IStorage {
 
   // Vendor order management methods
   async getVendorOrders(vendorId: string): Promise<Order[]> {
-    const vendorOrders = await db.select({
-      id: orders.id,
-      userId: orders.userId,
-      vendorId: orders.vendorId,
-      status: orders.status,
-      totalAmount: orders.totalAmount,
-      deliveryAddress: orders.deliveryAddress,
-      deliveryFee: orders.deliveryFee,
-      paymentStatus: orders.paymentStatus,
-      paymentMethod: orders.paymentMethod,
-      notes: orders.notes,
-      vendorNotes: orders.vendorNotes,
-      trackingNumber: orders.trackingNumber,
-      estimatedDelivery: orders.estimatedDelivery,
-      vendorAcceptedAt: orders.vendorAcceptedAt,
-      paymentReference: orders.paymentReference,
-      createdAt: orders.createdAt,
-      updatedAt: orders.updatedAt,
-      user: {
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-      }
-    })
-    .from(orders)
-    .leftJoin(users, eq(orders.userId, users.id))
-    .where(eq(orders.vendorId, vendorId))
-    .orderBy(desc(orders.createdAt));
+    try {
+      // Use raw SQL query to avoid ORM field selection issues
+      const result = await db.execute(sql`
+        SELECT 
+          o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
+          o.delivery_fee, o.payment_status, o.payment_method,
+          o.notes, o.vendor_notes, o.tracking_number, o.estimated_delivery,
+          o.vendor_accepted_at, o.created_at, o.updated_at,
+          u.id as user_id, u.email as user_email, u.first_name, u.last_name
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.vendor_id = ${vendorId}
+        ORDER BY o.created_at DESC
+      `);
 
-    // Fetch order items for each order
-    const ordersWithItems = await Promise.all(
-      vendorOrders.map(async (order) => {
-        const items = await db.select({
-          id: orderItems.id,
-          orderId: orderItems.orderId,
-          productId: orderItems.productId,
-          serviceId: orderItems.serviceId,
-          quantity: orderItems.quantity,
-          price: orderItems.price,
-          name: orderItems.name,
-          product: {
-            id: products.id,
-            name: products.name,
-            imageUrl: products.imageUrl,
-            price: products.price,
-          },
-          service: {
-            id: services.id,
-            name: services.name,
-            imageUrl: services.imageUrl,
-            price: services.price,
-          }
-        }).from(orderItems)
-        .leftJoin(products, eq(orderItems.productId, products.id))
-        .leftJoin(services, eq(orderItems.serviceId, services.id))
-        .where(eq(orderItems.orderId, order.id));
+      const orders = result.rows as any[];
 
-        return {
-          ...order,
-          shippingAddress: order.deliveryAddress || '',
-          orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
-          paymentMethod: order.paymentMethod || 'Paystack',
-          totalAmount: typeof order.totalAmount === 'string' ? parseFloat(order.totalAmount) : order.totalAmount,
-          deliveryFee: typeof order.deliveryFee === 'string' ? parseFloat(order.deliveryFee) : order.deliveryFee || 0,
-          paymentStatus: order.paymentStatus || 'completed',
-          orderItems: items.map(item => ({
-            ...item,
+      // Get order items for all orders
+      const ordersWithItems = await Promise.all(
+        orders.map(async (order) => {
+          const itemsResult = await db.execute(sql`
+            SELECT 
+              oi.id, oi.order_id, oi.product_id, oi.service_id, oi.quantity, oi.price, oi.name,
+              p.id as product_id, p.name as product_name, p.image_url as product_image, p.price as product_price,
+              s.id as service_id, s.name as service_name, s.image_url as service_image, s.price as service_price
+            FROM order_items oi
+            LEFT JOIN products p ON oi.product_id = p.id
+            LEFT JOIN services s ON oi.service_id = s.id
+            WHERE oi.order_id = ${order.id}
+          `);
+
+          const items = itemsResult.rows.map((item: any) => ({
+            id: item.id,
+            orderId: item.order_id,
+            productId: item.product_id,
+            serviceId: item.service_id,
+            quantity: item.quantity,
             price: parseFloat(item.price.toString()),
-            product: item.product || undefined,
-            service: item.service || undefined,
-          }))
-        };
-      })
-    );
+            name: item.name,
+            product: item.product_id ? {
+              id: item.product_id,
+              name: item.product_name,
+              imageUrl: item.product_image,
+              price: item.product_price,
+            } : undefined,
+            service: item.service_id ? {
+              id: item.service_id,
+              name: item.service_name,
+              imageUrl: item.service_image,
+              price: item.service_price,
+            } : undefined,
+          }));
 
-    return ordersWithItems as any;
+          return {
+            id: order.id,
+            userId: order.user_id,
+            vendorId: order.vendor_id,
+            status: order.status,
+            totalAmount: parseFloat(order.total_amount.toString()),
+            deliveryAddress: order.delivery_address,
+            deliveryFee: parseFloat(order.delivery_fee?.toString() || '0'),
+            paymentStatus: order.payment_status || 'completed',
+            paymentMethod: order.payment_method || 'Paystack',
+            notes: order.notes,
+            vendorNotes: order.vendor_notes,
+            trackingNumber: order.tracking_number,
+            estimatedDelivery: order.estimated_delivery,
+            vendorAcceptedAt: order.vendor_accepted_at,
+            createdAt: order.created_at,
+            updatedAt: order.updated_at,
+            shippingAddress: order.delivery_address || '',
+            orderDate: order.created_at ? new Date(order.created_at).toISOString() : new Date().toISOString(),
+            user: order.user_id ? {
+              id: order.user_id,
+              email: order.user_email,
+              firstName: order.first_name,
+              lastName: order.last_name,
+            } : undefined,
+            orderItems: items
+          };
+        })
+      );
+
+      return ordersWithItems;
+    } catch (error) {
+      console.error('Error in getVendorOrders:', error);
+      throw error;
+    }
   }
 
   async acceptOrder(orderId: string, vendorNotes?: string): Promise<Order> {
