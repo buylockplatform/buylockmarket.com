@@ -722,124 +722,57 @@ export class DatabaseStorage implements IStorage {
     limit?: number;
     offset?: number;
   }): Promise<Order[]> {
-    let whereConditions = [];
-
-    if (params?.status && params.status !== 'all') {
-      whereConditions.push(eq(orders.status, params.status));
-    }
-
-    if (params?.paymentStatus && params.paymentStatus !== 'all') {
-      whereConditions.push(eq(orders.paymentStatus, params.paymentStatus));
-    }
-
-    if (params?.search) {
-      const searchCondition = or(
-        ilike(orders.id, `%${params.search}%`),
-        ilike(orders.trackingNumber, `%${params.search}%`)
-      );
-      if (searchCondition) {
-        whereConditions.push(searchCondition);
-      }
-    }
-
-    // Simplified query without parameters for now
-
-    // Use simple raw SQL query without parameters to avoid binding issues
-    const result = await db.execute(sql`
-      SELECT 
-        o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
-        o.delivery_fee, o.payment_status, o.payment_method,
-        o.notes, o.vendor_notes, o.tracking_number, o.estimated_delivery,
-        o.vendor_accepted_at, o.created_at, o.updated_at,
-        u.id as user_id, u.email as user_email, u.first_name, u.last_name
-      FROM orders o
-      LEFT JOIN users u ON o.user_id = u.id
-      ORDER BY o.created_at DESC
-    `);
-    
-    const orders = result.rows as any[];
-    
-    // Get order items for all orders with product and service details using raw SQL
-    const orderIds = orders.map(order => order.id);
-    let allOrderItems: any[] = [];
-    
-    if (orderIds.length > 0) {
-      const itemsResult = await db.execute(sql`
+    try {
+      // Use direct database connection to bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const queryText = `
         SELECT 
-          oi.id, oi.order_id, oi.product_id, oi.service_id, oi.quantity, oi.price, oi.name,
-          oi.appointment_date, oi.appointment_time, oi.duration, oi.service_location, oi.notes as item_notes,
-          p.id as product_id, p.name as product_name, p.image_url as product_image, 
-          p.description as product_description, p.vendor_id as product_vendor_id,
-          s.id as service_id, s.name as service_name, s.image_url as service_image, 
-          s.description as service_description, s.provider_id as service_provider_id
-        FROM order_items oi
-        LEFT JOIN products p ON oi.product_id = p.id
-        LEFT JOIN services s ON oi.service_id = s.id
-        WHERE oi.order_id = ANY(${orderIds})
-      `);
+          o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
+          o.payment_status, o.payment_method, o.payment_reference, o.notes,
+          o.created_at, o.updated_at,
+          v.business_name as vendor_name, v.email as vendor_email,
+          u.email as user_email, u.first_name, u.last_name
+        FROM orders o
+        LEFT JOIN vendors v ON o.vendor_id = v.id
+        LEFT JOIN users u ON o.user_id = u.id
+        ORDER BY o.created_at DESC
+        LIMIT $1 OFFSET $2
+      `;
       
-      allOrderItems = itemsResult.rows;
+      const result = await directPool.query(queryText, [
+        params?.limit || 100,
+        params?.offset || 0
+      ]);
+      await directPool.end();
+      
+      return result.rows.map(row => ({
+        id: row.id,
+        userId: row.user_id,
+        vendorId: row.vendor_id,
+        status: row.status,
+        totalAmount: parseFloat(row.total_amount.toString()),
+        deliveryAddress: row.delivery_address,
+        deliveryFee: 0,
+        paymentStatus: row.payment_status || 'completed',
+        paymentMethod: row.payment_method || 'Paystack',
+        paymentReference: row.payment_reference,
+        notes: row.notes,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        shippingAddress: row.delivery_address || '',
+        orderDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+        orderItems: [],
+        vendorName: row.vendor_name,
+        vendorEmail: row.vendor_email,
+        userEmail: row.user_email,
+        userName: `${row.first_name || ''} ${row.last_name || ''}`.trim()
+      }));
+    } catch (error) {
+      console.error('Error in getOrders:', error);
+      throw error;
     }
-    
-    // Transform the result to match expected Order type with proper structure
-    return orders.map(order => {
-      const orderItems = allOrderItems.filter((item: any) => item.order_id === order.id);
-      
-      return {
-        id: order.id,
-        userId: order.user_id,
-        vendorId: order.vendor_id,
-        status: order.status,
-        totalAmount: parseFloat(order.total_amount.toString()),
-        deliveryAddress: order.delivery_address,
-        deliveryFee: parseFloat(order.delivery_fee?.toString() || '0'),
-        paymentStatus: order.payment_status || 'completed',
-        paymentMethod: order.payment_method || 'Paystack',
-        notes: order.notes,
-        vendorNotes: order.vendor_notes,
-        trackingNumber: order.tracking_number,
-        estimatedDelivery: order.estimated_delivery,
-        vendorAcceptedAt: order.vendor_accepted_at,
-        createdAt: order.created_at,
-        updatedAt: order.updated_at,
-        shippingAddress: order.delivery_address || '',
-        orderDate: order.created_at ? new Date(order.created_at).toISOString() : new Date().toISOString(),
-        user: order.user_id ? {
-          id: order.user_id,
-          email: order.user_email,
-          firstName: order.first_name,
-          lastName: order.last_name,
-        } : undefined,
-        orderItems: orderItems.map((item: any) => ({
-          id: item.id,
-          orderId: item.order_id,
-          productId: item.product_id,
-          serviceId: item.service_id,
-          quantity: item.quantity,
-          price: parseFloat(item.price.toString()),
-          name: item.name,
-          appointmentDate: item.appointment_date,
-          appointmentTime: item.appointment_time,
-          duration: item.duration,
-          serviceLocation: item.service_location,
-          notes: item.item_notes,
-          product: item.product_id ? {
-            id: item.product_id,
-            name: item.product_name,
-            imageUrl: item.product_image,
-            description: item.product_description,
-            vendorId: item.product_vendor_id,
-          } : undefined,
-          service: item.service_id ? {
-            id: item.service_id,
-            name: item.service_name,
-            imageUrl: item.service_image,
-            description: item.service_description,
-            providerId: item.service_provider_id,
-          } : undefined,
-        }))
-      };
-    });
   }
 
   async getOrderById(id: string): Promise<Order | undefined> {
@@ -1072,7 +1005,50 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrdersByUser(userId: string): Promise<Order[]> {
-    return db.select().from(orders).where(eq(orders.userId, userId)).orderBy(desc(orders.createdAt));
+    try {
+      // Use direct database connection to bypass Drizzle schema issues  
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const queryText = `
+        SELECT 
+          o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
+          o.payment_status, o.payment_method, o.payment_reference, o.notes,
+          o.created_at, o.updated_at,
+          v.business_name as vendor_name, v.email as vendor_email
+        FROM orders o
+        LEFT JOIN vendors v ON o.vendor_id = v.id
+        WHERE o.user_id = $1 
+        ORDER BY o.created_at DESC
+      `;
+      
+      const result = await directPool.query(queryText, [userId]);
+      await directPool.end();
+      
+      return result.rows.map(row => ({
+        id: row.id,
+        userId: row.user_id,
+        vendorId: row.vendor_id,
+        status: row.status,
+        totalAmount: parseFloat(row.total_amount.toString()),
+        deliveryAddress: row.delivery_address,
+        deliveryFee: 0,
+        paymentStatus: row.payment_status || 'completed',
+        paymentMethod: row.payment_method || 'Paystack',
+        paymentReference: row.payment_reference,
+        notes: row.notes,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        shippingAddress: row.delivery_address || '',
+        orderDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+        orderItems: [],
+        vendorName: row.vendor_name,
+        vendorEmail: row.vendor_email
+      }));
+    } catch (error) {
+      console.error('Error in getOrdersByUser:', error);
+      throw error;
+    }
   }
 
   async getOrdersByVendor(vendorId: string, type?: string): Promise<Order[]> {
