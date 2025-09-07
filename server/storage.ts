@@ -746,15 +746,19 @@ export class DatabaseStorage implements IStorage {
     let query = db.select({
       id: orders.id,
       userId: orders.userId,
+      vendorId: orders.vendorId,
       status: orders.status,
       totalAmount: orders.totalAmount,
       deliveryAddress: orders.deliveryAddress,
       deliveryFee: orders.deliveryFee,
       paymentStatus: orders.paymentStatus,
       paymentMethod: orders.paymentMethod,
+      paymentReference: orders.paymentReference,
       notes: orders.notes,
+      vendorNotes: orders.vendorNotes,
       trackingNumber: orders.trackingNumber,
       estimatedDelivery: orders.estimatedDelivery,
+      vendorAcceptedAt: orders.vendorAcceptedAt,
       createdAt: orders.createdAt,
       updatedAt: orders.updatedAt,
       user: {
@@ -1456,9 +1460,15 @@ export class DatabaseStorage implements IStorage {
       status: orders.status,
       totalAmount: orders.totalAmount,
       deliveryAddress: orders.deliveryAddress,
+      deliveryFee: orders.deliveryFee,
+      paymentStatus: orders.paymentStatus,
+      paymentMethod: orders.paymentMethod,
       notes: orders.notes,
+      vendorNotes: orders.vendorNotes,
+      trackingNumber: orders.trackingNumber,
+      estimatedDelivery: orders.estimatedDelivery,
+      vendorAcceptedAt: orders.vendorAcceptedAt,
       paymentReference: orders.paymentReference,
-      confirmedAt: orders.confirmedAt,
       createdAt: orders.createdAt,
       updatedAt: orders.updatedAt,
       user: {
@@ -1505,11 +1515,10 @@ export class DatabaseStorage implements IStorage {
           ...order,
           shippingAddress: order.deliveryAddress || '',
           orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
-          paymentMethod: 'Paystack', // Default since we use Paystack for all payments
+          paymentMethod: order.paymentMethod || 'Paystack',
           totalAmount: typeof order.totalAmount === 'string' ? parseFloat(order.totalAmount) : order.totalAmount,
-          // Add missing fields for compatibility with Order interface
-          deliveryFee: 0,
-          paymentStatus: 'completed', // All orders start with 'paid' status after payment verification
+          deliveryFee: typeof order.deliveryFee === 'string' ? parseFloat(order.deliveryFee) : order.deliveryFee || 0,
+          paymentStatus: order.paymentStatus || 'completed',
           orderItems: items.map(item => ({
             ...item,
             price: parseFloat(item.price.toString()),
