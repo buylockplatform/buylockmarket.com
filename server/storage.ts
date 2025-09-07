@@ -1012,6 +1012,65 @@ export class DatabaseStorage implements IStorage {
     return newOrderItem;
   }
 
+  async createOrderItem(orderItem: InsertOrderItem): Promise<OrderItem> {
+    try {
+      // Use direct database connection to bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const insertQuery = `
+        INSERT INTO order_items (
+          id, order_id, product_id, service_id, quantity, price, name,
+          appointment_date, appointment_time, duration, notes,
+          service_location, location_coordinates, detailed_instructions,
+          created_at, updated_at
+        ) VALUES (
+          gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW()
+        ) RETURNING *
+      `;
+      
+      const result = await directPool.query(insertQuery, [
+        orderItem.orderId,
+        orderItem.productId || null,
+        orderItem.serviceId || null,
+        orderItem.quantity || 1,
+        orderItem.price,
+        orderItem.name || 'Unknown Item',
+        orderItem.appointmentDate || null,
+        orderItem.appointmentTime || null,
+        orderItem.duration || null,
+        orderItem.notes || null,
+        orderItem.serviceLocation || null,
+        orderItem.locationCoordinates || null,
+        orderItem.detailedInstructions || null
+      ]);
+      await directPool.end();
+      
+      const newItem = result.rows[0];
+      return {
+        id: newItem.id,
+        orderId: newItem.order_id,
+        productId: newItem.product_id,
+        serviceId: newItem.service_id,
+        quantity: newItem.quantity,
+        price: parseFloat(newItem.price.toString()),
+        name: newItem.name,
+        appointmentDate: newItem.appointment_date,
+        appointmentTime: newItem.appointment_time,
+        duration: newItem.duration,
+        notes: newItem.notes,
+        serviceLocation: newItem.service_location,
+        locationCoordinates: newItem.location_coordinates,
+        detailedInstructions: newItem.detailed_instructions,
+        createdAt: newItem.created_at,
+        updatedAt: newItem.updated_at
+      };
+    } catch (error) {
+      console.error('Error in createOrderItem:', error);
+      throw error;
+    }
+  }
+
   async getOrdersByUser(userId: string): Promise<Order[]> {
     return db.select().from(orders).where(eq(orders.userId, userId)).orderBy(desc(orders.createdAt));
   }
