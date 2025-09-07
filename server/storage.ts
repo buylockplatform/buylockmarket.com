@@ -889,11 +889,11 @@ export class DatabaseStorage implements IStorage {
       // Use the same raw SQL approach as other working queries to avoid ORM issues
       const result = await db.execute(sql`
         SELECT 
-          o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
-          o.payment_status, o.payment_method, o.payment_reference, o.notes,
-          o.created_at, o.updated_at
-        FROM orders o 
-        WHERE o.payment_reference = ${paymentReference} 
+          id, user_id, vendor_id, status, total_amount, delivery_address,
+          payment_status, payment_method, payment_reference, notes,
+          created_at, updated_at
+        FROM orders 
+        WHERE payment_reference = ${paymentReference} 
         LIMIT 1
       `);
       
