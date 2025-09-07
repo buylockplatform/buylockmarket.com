@@ -1108,19 +1108,50 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrdersByVendor(vendorId: string, type?: string): Promise<Order[]> {
-    let whereConditions = [eq(orders.vendorId, vendorId)];
-    
-    if (type === "service") {
-      whereConditions.push(eq(orders.orderType, "service"));
-    }
-
-    const vendorOrders = await db
-      .select()
-      .from(orders)
-      .where(and(...whereConditions))
-      .orderBy(desc(orders.createdAt));
+    try {
+      // Use direct database connection to bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
       
-    return vendorOrders;
+      let queryText = `
+        SELECT 
+          o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
+          o.payment_status, o.payment_method, o.payment_reference, o.notes,
+          o.created_at, o.updated_at,
+          u.email as user_email, u.first_name, u.last_name
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.vendor_id = $1
+        ORDER BY o.created_at DESC
+      `;
+      
+      const result = await directPool.query(queryText, [vendorId]);
+      await directPool.end();
+      
+      return result.rows.map(row => ({
+        id: row.id,
+        userId: row.user_id,
+        vendorId: row.vendor_id,
+        status: row.status,
+        totalAmount: parseFloat(row.total_amount.toString()),
+        deliveryAddress: row.delivery_address,
+        deliveryFee: 0,
+        paymentStatus: row.payment_status || 'completed',
+        paymentMethod: row.payment_method || 'Paystack',
+        paymentReference: row.payment_reference,
+        notes: row.notes,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        shippingAddress: row.delivery_address || '',
+        orderDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+        orderItems: [],
+        userEmail: row.user_email,
+        userName: `${row.first_name || ''} ${row.last_name || ''}`.trim()
+      }));
+    } catch (error) {
+      console.error('Error in getOrdersByVendor:', error);
+      throw error;
+    }
   }
 
   // Removed duplicate getOrderById method - using the enhanced one above
