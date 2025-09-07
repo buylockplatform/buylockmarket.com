@@ -886,8 +886,17 @@ export class DatabaseStorage implements IStorage {
 
   async getOrderByPaymentReference(paymentReference: string): Promise<Order | undefined> {
     try {
-      // Use raw SQL query to bypass any ORM compilation issues
-      const result = await db.execute(sql`SELECT * FROM orders WHERE payment_reference = ${paymentReference} LIMIT 1`);
+      // Use the same raw SQL approach as other working queries to avoid ORM issues
+      const result = await db.execute(sql`
+        SELECT 
+          o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
+          o.payment_status, o.payment_method, o.payment_reference, o.notes,
+          o.created_at, o.updated_at
+        FROM orders o 
+        WHERE o.payment_reference = ${paymentReference} 
+        LIMIT 1
+      `);
+      
       if (result.rows.length === 0) {
         return undefined;
       }
@@ -898,31 +907,17 @@ export class DatabaseStorage implements IStorage {
         userId: row.user_id,
         vendorId: row.vendor_id,
         status: row.status,
-        totalAmount: parseFloat(row.total_amount),
+        totalAmount: parseFloat(row.total_amount.toString()),
         deliveryAddress: row.delivery_address,
-        deliveryFee: parseFloat(row.delivery_fee || '0'),
-        courierId: row.courier_id,
-        courierName: row.courier_name,
-        estimatedDeliveryTime: row.estimated_delivery_time,
-        paymentStatus: row.payment_status,
-        paymentMethod: row.payment_method,
+        deliveryFee: 0, // Default for simplified schema
+        paymentStatus: row.payment_status || 'completed',
+        paymentMethod: row.payment_method || 'Paystack',
         paymentReference: row.payment_reference,
         notes: row.notes,
-        vendorNotes: row.vendor_notes,
-        trackingNumber: row.tracking_number,
-        internalTrackingId: row.internal_tracking_id,
-        estimatedDelivery: row.estimated_delivery,
-        vendorAcceptedAt: row.vendor_accepted_at,
-        deliveryPickupAt: row.delivery_pickup_at,
-        orderType: row.order_type,
-        confirmationToken: row.confirmation_token,
-        confirmationStatus: row.confirmation_status,
-        customerConfirmedAt: row.customer_confirmed_at,
-        disputeReason: row.dispute_reason,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         shippingAddress: row.delivery_address || '',
-        orderDate: row.created_at?.toISOString() || new Date().toISOString(),
+        orderDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
         orderItems: []
       };
     } catch (error) {
