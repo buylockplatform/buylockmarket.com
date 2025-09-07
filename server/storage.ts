@@ -1090,7 +1090,10 @@ export class DatabaseStorage implements IStorage {
       orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
       orderItems: items.map(item => ({
         ...item,
-        price: parseFloat(item.price.toString())
+        price: parseFloat(item.price.toString()),
+        // Add missing required fields with defaults
+        locationCoordinates: null,
+        detailedInstructions: null
       }))
     };
   }
