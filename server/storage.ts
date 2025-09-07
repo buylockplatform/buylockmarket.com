@@ -292,8 +292,38 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   // User operations (mandatory for Replit Auth)
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    try {
+      // Use direct database connection to bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const queryText = `
+        SELECT id, email, first_name, last_name, created_at, updated_at
+        FROM users
+        WHERE id = $1
+        LIMIT 1
+      `;
+      
+      const result = await directPool.query(queryText, [id]);
+      await directPool.end();
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      const row = result.rows[0];
+      return {
+        id: row.id,
+        email: row.email,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+    } catch (error) {
+      console.error('Error in getUser:', error);
+      throw error;
+    }
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
@@ -351,13 +381,97 @@ export class DatabaseStorage implements IStorage {
 
   // Vendor operations
   async getVendorById(id: string): Promise<Vendor | undefined> {
-    const [vendor] = await db.select().from(vendors).where(eq(vendors.id, id));
-    return vendor;
+    try {
+      // Use direct database connection to bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const queryText = `
+        SELECT 
+          id, email, business_name, contact_name, phone, address, 
+          bank_name, bank_code, account_number, account_name,
+          status, verified, created_at, updated_at, paystack_subaccount_code
+        FROM vendors
+        WHERE id = $1
+        LIMIT 1
+      `;
+      
+      const result = await directPool.query(queryText, [id]);
+      await directPool.end();
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      const row = result.rows[0];
+      return {
+        id: row.id,
+        email: row.email,
+        businessName: row.business_name,
+        contactName: row.contact_name,
+        phone: row.phone,
+        address: row.address,
+        bankName: row.bank_name,
+        bankCode: row.bank_code,
+        accountNumber: row.account_number,
+        accountName: row.account_name,
+        status: row.status,
+        verified: row.verified,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        paystackSubaccountCode: row.paystack_subaccount_code
+      };
+    } catch (error) {
+      console.error('Error in getVendorById:', error);
+      throw error;
+    }
   }
 
   async getVendorByEmail(email: string): Promise<Vendor | undefined> {
-    const [vendor] = await db.select().from(vendors).where(eq(vendors.email, email));
-    return vendor;
+    try {
+      // Use direct database connection to bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const queryText = `
+        SELECT 
+          id, email, business_name, contact_name, phone, address, 
+          bank_name, bank_code, account_number, account_name,
+          status, verified, created_at, updated_at, paystack_subaccount_code
+        FROM vendors
+        WHERE email = $1
+        LIMIT 1
+      `;
+      
+      const result = await directPool.query(queryText, [email]);
+      await directPool.end();
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      const row = result.rows[0];
+      return {
+        id: row.id,
+        email: row.email,
+        businessName: row.business_name,
+        contactName: row.contact_name,
+        phone: row.phone,
+        address: row.address,
+        bankName: row.bank_name,
+        bankCode: row.bank_code,
+        accountNumber: row.account_number,
+        accountName: row.account_name,
+        status: row.status,
+        verified: row.verified,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        paystackSubaccountCode: row.paystack_subaccount_code
+      };
+    } catch (error) {
+      console.error('Error in getVendorByEmail:', error);
+      throw error;
+    }
   }
 
   // Alias for backward compatibility
