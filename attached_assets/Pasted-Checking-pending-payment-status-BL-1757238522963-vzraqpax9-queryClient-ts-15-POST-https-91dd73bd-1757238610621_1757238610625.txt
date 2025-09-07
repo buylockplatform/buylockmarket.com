@@ -1,0 +1,62 @@
+Checking pending payment status: BL_1757238522963_vzraqpax9
+queryClient.ts:15  POST https://91dd73bd-e23e-44c5-aa1d-afff3d44d49c-00-patxmn7s6j4l.kirk.replit.dev/api/payments/verify 500 (Internal Server Error)
+apiRequest @ queryClient.ts:15
+mutationFn @ cart.tsx:273
+fn @ @tanstack_react-query.js?v=e34bcedf:1189
+run @ @tanstack_react-query.js?v=e34bcedf:494
+start @ @tanstack_react-query.js?v=e34bcedf:536
+execute @ @tanstack_react-query.js?v=e34bcedf:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=e34bcedf:2630
+(anonymous) @ @tanstack_react-query.js?v=e34bcedf:3295
+checkPendingPayments @ cart.tsx:415
+(anonymous) @ cart.tsx:421
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=e34bcedf:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=e34bcedf:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=e34bcedf:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=e34bcedf:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=e34bcedf:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=e34bcedf:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=e34bcedf:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=e34bcedf:19416
+commitRoot @ chunk-RPCDYKBN.js?v=e34bcedf:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e34bcedf:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e34bcedf:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=e34bcedf:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=e34bcedf:555
+flush @ @tanstack_react-query.js?v=e34bcedf:569
+batch @ @tanstack_react-query.js?v=e34bcedf:587
+dispatch_fn @ @tanstack_react-query.js?v=e34bcedf:996
+setData @ @tanstack_react-query.js?v=e34bcedf:696
+onSuccess @ @tanstack_react-query.js?v=e34bcedf:897
+resolve @ @tanstack_react-query.js?v=e34bcedf:456
+Promise.then
+run @ @tanstack_react-query.js?v=e34bcedf:498
+start @ @tanstack_react-query.js?v=e34bcedf:536
+fetch @ @tanstack_react-query.js?v=e34bcedf:926
+executeFetch_fn @ @tanstack_react-query.js?v=e34bcedf:2211
+onSubscribe @ @tanstack_react-query.js?v=e34bcedf:1898
+subscribe @ @tanstack_react-query.js?v=e34bcedf:24
+(anonymous) @ @tanstack_react-query.js?v=e34bcedf:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=e34bcedf:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=e34bcedf:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=e34bcedf:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=e34bcedf:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=e34bcedf:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=e34bcedf:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=e34bcedf:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=e34bcedf:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e34bcedf:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e34bcedf:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=e34bcedf:19432
+commitRoot @ chunk-RPCDYKBN.js?v=e34bcedf:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=e34bcedf:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=e34bcedf:18718
+workLoop @ chunk-RPCDYKBN.js?v=e34bcedf:197
+flushWork @ chunk-RPCDYKBN.js?v=e34bcedf:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=e34bcedf:384Understand this error
+cart.tsx:319 Payment verification error: Error: 500: {"success":false,"verified":false,"message":"Payment verification failed due to server error","error":"insert or update on table \"orders\" violates foreign key constraint \"orders_vendor_id_vendors_id_fk\""}
+    at throwIfResNotOk (queryClient.ts:6:11)
+    at async apiRequest (queryClient.ts:22:3)
+    at async Object.mutationFn (cart.tsx:273:24)
