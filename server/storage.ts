@@ -619,8 +619,63 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProductById(id: string): Promise<Product | undefined> {
-    const [product] = await db.select().from(products).where(eq(products.id, id));
-    return product;
+    try {
+      // Use direct database connection to bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const queryText = `
+        SELECT 
+          p.id, p.name, p.slug, p.description, p.short_description, p.price, p.original_price,
+          p.image_url, p.category_id, p.subcategory_id, p.vendor_id, p.stock, p.rating,
+          p.review_count, p.is_active, p.is_featured, p.admin_approved, p.tags,
+          p.created_at, p.updated_at,
+          v.business_name as vendor_name, v.email as vendor_email
+        FROM products p
+        LEFT JOIN vendors v ON p.vendor_id = v.id
+        WHERE p.id = $1
+        LIMIT 1
+      `;
+      
+      const result = await directPool.query(queryText, [id]);
+      await directPool.end();
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      const row = result.rows[0];
+      return {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        description: row.description,
+        shortDescription: row.short_description,
+        price: row.price,
+        originalPrice: row.original_price,
+        imageUrl: row.image_url,
+        categoryId: row.category_id,
+        subcategoryId: row.subcategory_id,
+        vendorId: row.vendor_id,
+        stock: row.stock,
+        rating: row.rating,
+        reviewCount: row.review_count,
+        isActive: row.is_active,
+        isFeatured: row.is_featured,
+        adminApproved: row.admin_approved,
+        tags: row.tags,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        vendor: row.vendor_name ? {
+          id: row.vendor_id,
+          businessName: row.vendor_name,
+          email: row.vendor_email
+        } : undefined
+      };
+    } catch (error) {
+      console.error('Error in getProductById:', error);
+      throw error;
+    }
   }
 
   async getProductBySlug(slug: string): Promise<Product | undefined> {
@@ -707,8 +762,64 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getServiceById(id: string): Promise<Service | undefined> {
-    const [service] = await db.select().from(services).where(eq(services.id, id));
-    return service;
+    try {
+      // Use direct database connection to bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const queryText = `
+        SELECT 
+          s.id, s.name, s.slug, s.description, s.short_description, s.price, s.price_type,
+          s.image_url, s.category_id, s.provider_id, s.rating, s.review_count,
+          s.is_active, s.is_featured, s.admin_approved, s.tags, s.location,
+          s.is_available_today, s.created_at, s.updated_at,
+          v.business_name as vendor_name, v.email as vendor_email
+        FROM services s
+        LEFT JOIN vendors v ON s.provider_id = v.id
+        WHERE s.id = $1
+        LIMIT 1
+      `;
+      
+      const result = await directPool.query(queryText, [id]);
+      await directPool.end();
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      const row = result.rows[0];
+      return {
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        description: row.description,
+        shortDescription: row.short_description,
+        price: row.price,
+        priceType: row.price_type,
+        imageUrl: row.image_url,
+        categoryId: row.category_id,
+        providerId: row.provider_id,
+        rating: row.rating,
+        reviewCount: row.review_count,
+        isActive: row.is_active,
+        isFeatured: row.is_featured,
+        adminApproved: row.admin_approved,
+        tags: row.tags,
+        location: row.location,
+        isAvailableToday: row.is_available_today,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        vendor: row.vendor_name ? {
+          id: row.provider_id,
+          businessName: row.vendor_name,
+          email: row.vendor_email
+        } : undefined
+      };
+    } catch (error) {
+      console.error('Error in getServiceById:', error);
+      throw error;
+    }
+  }
   }
 
   async getServiceBySlug(slug: string): Promise<Service | undefined> {
@@ -826,7 +937,53 @@ export class DatabaseStorage implements IStorage {
 
   // Order operations
   async getAllOrders(): Promise<Order[]> {
-    return await db.select().from(orders).orderBy(desc(orders.createdAt));
+    try {
+      // Use direct database connection to bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const queryText = `
+        SELECT 
+          o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
+          o.payment_status, o.payment_method, o.payment_reference, o.notes,
+          o.created_at, o.updated_at,
+          v.business_name as vendor_name, v.email as vendor_email,
+          u.email as user_email, u.first_name, u.last_name
+        FROM orders o
+        LEFT JOIN vendors v ON o.vendor_id = v.id
+        LEFT JOIN users u ON o.user_id = u.id
+        ORDER BY o.created_at DESC
+      `;
+      
+      const result = await directPool.query(queryText);
+      await directPool.end();
+      
+      return result.rows.map(row => ({
+        id: row.id,
+        userId: row.user_id,
+        vendorId: row.vendor_id,
+        status: row.status,
+        totalAmount: parseFloat(row.total_amount.toString()),
+        deliveryAddress: row.delivery_address,
+        deliveryFee: 0,
+        paymentStatus: row.payment_status || 'completed',
+        paymentMethod: row.payment_method || 'Paystack',
+        paymentReference: row.payment_reference,
+        notes: row.notes,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        shippingAddress: row.delivery_address || '',
+        orderDate: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+        orderItems: [],
+        vendorName: row.vendor_name,
+        vendorEmail: row.vendor_email,
+        userEmail: row.user_email,
+        userName: `${row.first_name || ''} ${row.last_name || ''}`.trim()
+      }));
+    } catch (error) {
+      console.error('Error in getAllOrders:', error);
+      throw error;
+    }
   }
 
   async getOrders(params?: {
@@ -1299,7 +1456,54 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrderItems(orderId: string): Promise<OrderItem[]> {
-    return await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+    try {
+      // Use direct database connection to bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const queryText = `
+        SELECT 
+          oi.id, oi.order_id, oi.product_id, oi.service_id, oi.quantity, oi.price, oi.name,
+          oi.appointment_date, oi.appointment_time, oi.duration, oi.service_location, oi.notes,
+          p.name as product_name, p.image_url as product_image,
+          s.name as service_name, s.image_url as service_image
+        FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id
+        LEFT JOIN services s ON oi.service_id = s.id
+        WHERE oi.order_id = $1
+      `;
+      
+      const result = await directPool.query(queryText, [orderId]);
+      await directPool.end();
+      
+      return result.rows.map(row => ({
+        id: row.id,
+        orderId: row.order_id,
+        productId: row.product_id,
+        serviceId: row.service_id,
+        quantity: row.quantity,
+        price: parseFloat(row.price.toString()),
+        name: row.name,
+        appointmentDate: row.appointment_date,
+        appointmentTime: row.appointment_time,
+        duration: row.duration,
+        serviceLocation: row.service_location,
+        notes: row.notes,
+        product: row.product_id ? {
+          id: row.product_id,
+          name: row.product_name,
+          imageUrl: row.product_image
+        } : undefined,
+        service: row.service_id ? {
+          id: row.service_id,
+          name: row.service_name,
+          imageUrl: row.service_image
+        } : undefined
+      }));
+    } catch (error) {
+      console.error('Error in getOrderItems:', error);
+      throw error;
+    }
   }
 
   // Order tracking operations
