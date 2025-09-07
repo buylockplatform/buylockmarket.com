@@ -776,45 +776,101 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrderById(id: string): Promise<Order | undefined> {
-    const [order] = await db.select().from(orders).where(eq(orders.id, id));
-    if (!order) return undefined;
-    
-    // Get order items for this order
-    const items = await db.select({
-      id: orderItems.id,
-      orderId: orderItems.orderId,
-      productId: orderItems.productId,
-      serviceId: orderItems.serviceId,
-      quantity: orderItems.quantity,
-      price: orderItems.price,
-      name: orderItems.name,
-      product: {
-        id: products.id,
-        name: products.name,
-        imageUrl: products.imageUrl,
-      },
-      service: {
-        id: services.id,
-        name: services.name,
-        imageUrl: services.imageUrl,
+    try {
+      // Use direct database connection to bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const orderQuery = `
+        SELECT 
+          o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
+          o.payment_status, o.payment_method, o.payment_reference, o.notes,
+          o.created_at, o.updated_at,
+          v.business_name as vendor_name, v.email as vendor_email,
+          u.email as user_email, u.first_name, u.last_name
+        FROM orders o
+        LEFT JOIN vendors v ON o.vendor_id = v.id
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.id = $1
+        LIMIT 1
+      `;
+      
+      const orderResult = await directPool.query(orderQuery, [id]);
+      
+      if (orderResult.rows.length === 0) {
+        await directPool.end();
+        return undefined;
       }
-    })
-    .from(orderItems)
-    .leftJoin(products, eq(orderItems.productId, products.id))
-    .leftJoin(services, eq(orderItems.serviceId, services.id))
-    .where(eq(orderItems.orderId, id));
-
-    return {
-      ...order,
-      shippingAddress: order.deliveryAddress || '',
-      orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
-      paymentMethod: order.paymentMethod || 'Unknown',
-      totalAmount: parseFloat(order.totalAmount.toString()),
-      orderItems: items.map(item => ({
-        ...item,
-        price: parseFloat(item.price.toString())
-      }))
-    };
+      
+      const orderRow = orderResult.rows[0];
+      
+      // Get order items
+      const itemsQuery = `
+        SELECT 
+          oi.id, oi.order_id, oi.product_id, oi.service_id, oi.quantity, oi.price, oi.name,
+          oi.appointment_date, oi.appointment_time, oi.duration, oi.service_location, oi.notes as item_notes,
+          p.name as product_name, p.image_url as product_image, p.description as product_description,
+          s.name as service_name, s.image_url as service_image, s.description as service_description
+        FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id
+        LEFT JOIN services s ON oi.service_id = s.id
+        WHERE oi.order_id = $1
+      `;
+      
+      const itemsResult = await directPool.query(itemsQuery, [id]);
+      await directPool.end();
+      
+      return {
+        id: orderRow.id,
+        userId: orderRow.user_id,
+        vendorId: orderRow.vendor_id,
+        status: orderRow.status,
+        totalAmount: parseFloat(orderRow.total_amount.toString()),
+        deliveryAddress: orderRow.delivery_address,
+        deliveryFee: 0,
+        paymentStatus: orderRow.payment_status || 'completed',
+        paymentMethod: orderRow.payment_method || 'Paystack',
+        paymentReference: orderRow.payment_reference,
+        notes: orderRow.notes,
+        createdAt: orderRow.created_at,
+        updatedAt: orderRow.updated_at,
+        shippingAddress: orderRow.delivery_address || '',
+        orderDate: orderRow.created_at ? new Date(orderRow.created_at).toISOString() : new Date().toISOString(),
+        vendorName: orderRow.vendor_name,
+        vendorEmail: orderRow.vendor_email,
+        userEmail: orderRow.user_email,
+        userName: `${orderRow.first_name || ''} ${orderRow.last_name || ''}`.trim(),
+        orderItems: itemsResult.rows.map((item: any) => ({
+          id: item.id,
+          orderId: item.order_id,
+          productId: item.product_id,
+          serviceId: item.service_id,
+          quantity: item.quantity,
+          price: parseFloat(item.price.toString()),
+          name: item.name,
+          appointmentDate: item.appointment_date,
+          appointmentTime: item.appointment_time,
+          duration: item.duration,
+          serviceLocation: item.service_location,
+          notes: item.item_notes,
+          product: item.product_id ? {
+            id: item.product_id,
+            name: item.product_name,
+            imageUrl: item.product_image,
+            description: item.product_description,
+          } : undefined,
+          service: item.service_id ? {
+            id: item.service_id,
+            name: item.service_name,
+            imageUrl: item.service_image,
+            description: item.service_description,
+          } : undefined,
+        }))
+      };
+    } catch (error) {
+      console.error('Error in getOrderById:', error);
+      throw error;
+    }
   }
 
   async getOrderByPaymentReference(paymentReference: string): Promise<Order | undefined> {
