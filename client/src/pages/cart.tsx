@@ -234,6 +234,7 @@ export default function Cart() {
           // Store reference for pending payment checking
           if (result.reference) {
             localStorage.setItem('pending_payment_reference', result.reference);
+            localStorage.setItem('last_payment_time', Date.now().toString());
           }
           window.location.href = result.authorization_url;
         } else {
@@ -344,7 +345,14 @@ export default function Cart() {
     const status = urlParams.get('status');
     const paymentStatus = urlParams.get('payment');
 
-    if (reference && status === 'returned') {
+    // Only process if we have recent payment parameters (within last 5 minutes)
+    const lastPaymentTime = localStorage.getItem('last_payment_time');
+    const now = Date.now();
+    const fiveMinutesAgo = now - (5 * 60 * 1000);
+    
+    const isRecentPayment = lastPaymentTime && parseInt(lastPaymentTime) > fiveMinutesAgo;
+
+    if (reference && status === 'returned' && isRecentPayment) {
       // Automatically verify payment when user returns from Paystack
       console.log('Payment return detected, verifying payment...');
       if (!isAuthenticated) {
@@ -363,8 +371,9 @@ export default function Cart() {
       setPaymentVerificationAttempted(true);
       verifyPaymentMutation.mutate(reference);
       
-      // Clean up URL parameters
+      // Clean up URL parameters and storage
       window.history.replaceState({}, document.title, '/cart');
+      localStorage.removeItem('last_payment_time');
     } else if (paymentStatus === 'failed') {
       const message = urlParams.get('message') || 'Payment failed';
       toast({
@@ -374,6 +383,11 @@ export default function Cart() {
       });
       // Clean up URL parameters
       window.history.replaceState({}, document.title, '/cart');
+    } else if (reference || status) {
+      // Clean up old payment parameters that shouldn't trigger verification
+      console.log('Cleaning up old payment parameters');
+      window.history.replaceState({}, document.title, '/cart');
+      localStorage.removeItem('pending_payment_reference');
     }
   }, [verifyPaymentMutation, paymentVerificationAttempted]);
 

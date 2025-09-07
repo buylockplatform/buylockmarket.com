@@ -950,15 +950,56 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createOrder(order: InsertOrder): Promise<Order> {
-    const [newOrder] = await db.insert(orders).values(order).returning();
-    return {
-      ...newOrder,
-      shippingAddress: newOrder.deliveryAddress || '',
-      orderDate: newOrder.createdAt?.toISOString() || new Date().toISOString(),
-      paymentMethod: newOrder.paymentMethod || 'Unknown',
-      totalAmount: parseFloat(newOrder.totalAmount.toString()),
-      orderItems: []
-    };
+    try {
+      // Use direct database connection to bypass Drizzle schema issues
+      const { Pool } = await import('@neondatabase/serverless');
+      const directPool = new Pool({ connectionString: process.env.DATABASE_URL });
+      
+      const insertQuery = `
+        INSERT INTO orders (
+          id, user_id, vendor_id, status, total_amount, delivery_address,
+          payment_status, payment_method, payment_reference, notes, created_at, updated_at
+        ) VALUES (
+          gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()
+        ) RETURNING *
+      `;
+      
+      const result = await directPool.query(insertQuery, [
+        order.userId,
+        order.vendorId,
+        order.status || 'paid',
+        order.totalAmount,
+        order.deliveryAddress,
+        'paid', // payment_status 
+        'Paystack', // payment_method
+        order.paymentReference,
+        order.notes || null
+      ]);
+      await directPool.end();
+      
+      const newOrder = result.rows[0];
+      return {
+        id: newOrder.id,
+        userId: newOrder.user_id,
+        vendorId: newOrder.vendor_id,
+        status: newOrder.status,
+        totalAmount: parseFloat(newOrder.total_amount.toString()),
+        deliveryAddress: newOrder.delivery_address,
+        deliveryFee: 0,
+        paymentStatus: newOrder.payment_status,
+        paymentMethod: newOrder.payment_method,
+        paymentReference: newOrder.payment_reference,
+        notes: newOrder.notes,
+        createdAt: newOrder.created_at,
+        updatedAt: newOrder.updated_at,
+        shippingAddress: newOrder.delivery_address || '',
+        orderDate: newOrder.created_at ? new Date(newOrder.created_at).toISOString() : new Date().toISOString(),
+        orderItems: []
+      };
+    } catch (error) {
+      console.error('Error in createOrder:', error);
+      throw error;
+    }
   }
 
   async createDeliveryRequest(request: InsertDeliveryRequest): Promise<DeliveryRequest> {
