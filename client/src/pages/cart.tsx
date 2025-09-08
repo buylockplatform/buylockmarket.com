@@ -622,7 +622,7 @@ export default function Cart() {
               </Card>
             </div>
           </div>
-        ) : cartItems.length === 0 ? (
+        ) : !cartItems || cartItems.length === 0 ? (
           <div className="text-center py-12">
             <ShoppingBag className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</h2>
@@ -644,7 +644,7 @@ export default function Cart() {
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
-              {cartItems.map((item) => {
+              {cartItems && cartItems.map((item) => {
                 const itemData = item.product || item.service;
                 const isProduct = !!item.product;
                 
