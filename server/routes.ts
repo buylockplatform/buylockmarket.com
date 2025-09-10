@@ -4649,6 +4649,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test payment reference storage
+  app.post('/api/test/payment-storage', async (req, res) => {
+    try {
+      const { reference } = req.body;
+      
+      if (!reference) {
+        return res.status(400).json({ error: 'Payment reference required' });
+      }
+      
+      console.log(`🔍 Testing payment reference: ${reference}`);
+      
+      const existingOrder = await storage.getOrderByPaymentReference(reference);
+      
+      res.json({
+        success: true,
+        found: !!existingOrder,
+        order: existingOrder,
+        message: existingOrder ? 'Order found!' : 'No order found with this reference'
+      });
+    } catch (error) {
+      console.error('Payment storage test error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Test failed',
+        details: error.toString()
+      });
+    }
+  });
+
   // Simple SMS test endpoint
   app.post('/api/sms/test', async (req, res) => {
     try {
