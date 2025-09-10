@@ -1,8 +1,12 @@
 interface UwaziiResponse {
-  ErrorCode: number;
+  ErrorCode?: number;
   ErrorDescription?: string;
   Data?: Array<{
     MessageId: string;
+  }>;
+  // Alternative format: phone number as key with array of id_state objects
+  [phoneNumber: string]: Array<{
+    id_state: number;
   }>;
 }
 
@@ -45,23 +49,40 @@ export class UwaziiSMSService {
       }
 
       const responseText = await response.text();
+      console.log(`📋 Uwazii API raw response: ${responseText}`);
       let responseObject: UwaziiResponse;
       
       try {
         responseObject = JSON.parse(responseText);
+        console.log(`📋 Uwazii API parsed response:`, responseObject);
       } catch (parseError) {
         console.error('Failed to parse Uwazii response:', responseText);
         return { success: false, error: 'Invalid response from SMS service' };
       }
 
-      if (responseObject.ErrorCode === 0) {
-        const messageId = responseObject.Data?.[0]?.MessageId;
-        console.log(`✅ SMS sent successfully to ${formattedPhone}, MessageId: ${messageId}`);
-        return { success: true, messageId };
-      } else {
-        console.error(`❌ SMS failed for ${formattedPhone}:`, responseObject.ErrorDescription);
-        return { success: false, error: responseObject.ErrorDescription || 'Unknown error' };
+      // Check if response has ErrorCode format
+      if (responseObject.ErrorCode !== undefined) {
+        if (responseObject.ErrorCode === 0) {
+          const messageId = responseObject.Data?.[0]?.MessageId;
+          console.log(`✅ SMS sent successfully to ${formattedPhone}, MessageId: ${messageId}`);
+          return { success: true, messageId };
+        } else {
+          console.error(`❌ SMS failed for ${formattedPhone}. ErrorCode: ${responseObject.ErrorCode}, ErrorDescription: "${responseObject.ErrorDescription}"`);
+          return { success: false, error: responseObject.ErrorDescription || `Error code: ${responseObject.ErrorCode}` };
+        }
       }
+      
+      // Check if response has phone number key format (successful response)
+      const phoneData = responseObject[formattedPhone];
+      if (phoneData && Array.isArray(phoneData) && phoneData.length > 0) {
+        const messageIds = phoneData.map(item => item.id_state.toString());
+        console.log(`✅ SMS sent successfully to ${formattedPhone}, MessageIds: ${messageIds.join(', ')}`);
+        return { success: true, messageId: messageIds[0] };
+      }
+      
+      // If we reach here, the response format is unexpected
+      console.error(`❌ Unexpected UWAZII response format for ${formattedPhone}:`, responseObject);
+      return { success: false, error: 'Unexpected response format from SMS service' };
     } catch (error) {
       console.error('Uwazii SMS error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

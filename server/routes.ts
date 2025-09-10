@@ -4649,6 +4649,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SMS endpoint for sending dispatch notifications
+  app.post('/api/sms/dispatch', async (req, res) => {
+    try {
+      const { phone, orderId } = req.body;
+      
+      if (!phone) {
+        return res.status(400).json({ success: false, error: 'Phone number is required' });
+      }
+      
+      // Import uwaziiService
+      const { uwaziiService } = await import('./uwaziiService');
+      
+      // Create dispatch message
+      const message = `🚚 Great news! Your order has been dispatched and is on its way to you. ${orderId ? `Order #${orderId.slice(-8).toUpperCase()} ` : ''}You will receive it within the estimated delivery time. Track your order in the BuyLock app. - BuyLock Marketplace`;
+      
+      console.log(`📱 Sending dispatch SMS to ${phone}`);
+      
+      const result = await uwaziiService.sendSMS(phone, message);
+      
+      if (result.success) {
+        console.log(`✅ Dispatch SMS sent successfully to ${phone}`);
+        res.json({ 
+          success: true, 
+          message: 'Dispatch notification sent successfully',
+          messageId: result.messageId 
+        });
+      } else {
+        console.error(`❌ Failed to send dispatch SMS to ${phone}:`, result.error);
+        res.status(500).json({ 
+          success: false, 
+          error: result.error || 'Failed to send SMS' 
+        });
+      }
+    } catch (error) {
+      console.error('SMS dispatch error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Internal server error' 
+      });
+    }
+  });
+
   // Seed database on startup for development
   if (process.env.NODE_ENV === "development") {
     try {
