@@ -861,17 +861,44 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrderByPaymentReference(paymentReference: string): Promise<Order | undefined> {
-    const [order] = await db.select().from(orders).where(eq(orders.paymentReference, paymentReference));
-    if (!order) return undefined;
-    
-    return {
-      ...order,
-      totalAmount: parseFloat(order.totalAmount.toString()),
-      deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
-      shippingAddress: order.deliveryAddress || '',
-      orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
-      orderItems: []
-    };
+    try {
+      // Temporary fix: Use raw SQL to bypass Drizzle ORM connection issue
+      const result = await db.execute(
+        sql`SELECT * FROM orders WHERE payment_reference = ${paymentReference} LIMIT 1`
+      );
+      
+      if (!result.rows || result.rows.length === 0) return undefined;
+      
+      const order = result.rows[0] as any;
+      
+      return {
+        ...order,
+        totalAmount: parseFloat(order.total_amount?.toString() || '0'),
+        deliveryFee: parseFloat(order.delivery_fee?.toString() || '0'),
+        shippingAddress: order.delivery_address || '',
+        orderDate: order.created_at || new Date().toISOString(),
+        orderItems: []
+      };
+    } catch (error) {
+      console.error('Raw SQL payment reference query error:', error);
+      // Fallback to original Drizzle query
+      try {
+        const [order] = await db.select().from(orders).where(eq(orders.paymentReference, paymentReference));
+        if (!order) return undefined;
+        
+        return {
+          ...order,
+          totalAmount: parseFloat(order.totalAmount.toString()),
+          deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
+          shippingAddress: order.deliveryAddress || '',
+          orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
+          orderItems: []
+        };
+      } catch (drizzleError) {
+        console.error('Drizzle payment reference query error:', drizzleError);
+        return undefined;
+      }
+    }
   }
 
   async updateOrder(id: string, updates: Partial<InsertOrder>): Promise<Order> {
