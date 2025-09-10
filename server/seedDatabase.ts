@@ -134,15 +134,16 @@ export async function seedDatabase() {
       email: "vendor@buylock.com",
       passwordHash: hashedPassword,
       businessName: "BuyLock Premier Store",
-      contactEmail: "vendor@buylock.com", // Add missing required field
+      contactEmail: "vendor@buylock.com",
       contactName: "John Vendor",
       phone: "+254 712 345 678",
       address: "Nairobi CBD, Kenya",
-      city: "Nairobi",
-      country: "Kenya",
-      businessCategory: "General Merchandise", // Add missing required field
+      businessCategory: "General Merchandise",
       description: "Premium products and services retailer with nationwide delivery",
-      nationalIdNumber: "12345678", // Add missing required field
+      nationalIdNumber: "12345678",
+      businessLatitude: -1.286389, // Nairobi CBD coordinates
+      businessLongitude: 36.817223,
+      locationDescription: "Located in the heart of Nairobi Central Business District, easily accessible from all major roads and transport hubs",
       verificationStatus: "verified",
       isActive: true,
       createdAt: new Date(),
