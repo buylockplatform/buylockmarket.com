@@ -11,6 +11,7 @@ import {
   decimal,
   boolean,
   uuid,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -163,9 +164,9 @@ export const cartItems = pgTable("cart_items", {
 export const orderStatusEnum = pgEnum("order_status", ["paid", "ready_for_pickup", "cancelled", "completed"]);
 
 export const orders = pgTable("orders", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  vendorId: varchar("vendor_id").references(() => vendors.id).notNull(),
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: varchar("user_id").notNull(),
+  vendorId: varchar("vendor_id").notNull(),
   status: varchar("status").notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   deliveryAddress: text("delivery_address").notNull(),
@@ -187,10 +188,12 @@ export const orders = pgTable("orders", {
   confirmationStatus: varchar("confirmation_status"),
   customerConfirmedAt: timestamp("customer_confirmed_at"),
   disputeReason: text("dispute_reason"),
-  paymentReference: varchar("payment_reference").unique().notNull(), // Paystack payment reference
+  paymentReference: varchar("payment_reference").notNull(), // Paystack payment reference
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  unique("orders_payment_reference_unique").on(table.paymentReference),
+]);
 
 // Delivery Requests - Simple table for courier pickup notifications
 export const deliveryRequests = pgTable("delivery_requests", {

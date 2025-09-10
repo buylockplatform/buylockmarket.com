@@ -5,8 +5,8 @@ import * as schema from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 
-// Use original database if available, fallback to current one
-const databaseUrl = process.env.ORIGINAL_DATABASE_URL || process.env.DATABASE_URL;
+// Use the main DATABASE_URL to ensure consistency with schema pushes
+const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
   throw new Error(
