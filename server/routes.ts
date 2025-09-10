@@ -584,6 +584,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const cartItemData = insertCartItemSchema.parse({ ...req.body, userId });
+      
+      // Fetch product or service details to get the correct price
+      let itemPrice = "0.00";
+      if (cartItemData.productId) {
+        const product = await storage.getProductById(cartItemData.productId);
+        if (product) {
+          itemPrice = product.price;
+        }
+      } else if (cartItemData.serviceId) {
+        const service = await storage.getServiceById(cartItemData.serviceId);
+        if (service) {
+          itemPrice = service.price;
+        }
+      }
+      
+      // Set the correct price in the cart item data
+      cartItemData.price = itemPrice;
+      
       const cartItem = await storage.addToCart(cartItemData);
       res.status(201).json(cartItem);
     } catch (error) {
