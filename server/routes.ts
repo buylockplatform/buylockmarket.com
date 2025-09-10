@@ -3352,7 +3352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Clear the user's cart
         for (const item of cartItems) {
-          await storage.deleteCartItem(item.id);
+          await storage.removeFromCart(item.id);
         }
 
         console.log(`✅ Created ${createdOrders.length} orders for payment ${reference}`);
