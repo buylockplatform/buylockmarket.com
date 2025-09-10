@@ -4649,6 +4649,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Simple SMS test endpoint
+  app.post('/api/sms/test', async (req, res) => {
+    try {
+      const { phone } = req.body;
+      
+      if (!phone) {
+        return res.status(400).json({ success: false, error: 'Phone number is required' });
+      }
+      
+      // Import uwaziiService
+      const { uwaziiService } = await import('./uwaziiService');
+      
+      // Create simple test message
+      const message = `Test from BuyLock: Hello! This is a test message.`;
+      
+      console.log(`📱 Sending test SMS to ${phone}`);
+      
+      const result = await uwaziiService.sendSMS(phone, message);
+      
+      if (result.success) {
+        console.log(`✅ Test SMS sent successfully to ${phone}`);
+        res.json({ 
+          success: true, 
+          message: 'Test SMS sent successfully',
+          messageId: result.messageId,
+          phone: phone,
+          formattedPhone: phone.replace(/\D/g, '').startsWith('0') ? '254' + phone.replace(/\D/g, '').substring(1) : phone
+        });
+      } else {
+        console.error(`❌ Failed to send test SMS to ${phone}:`, result.error);
+        res.status(500).json({ 
+          success: false, 
+          error: result.error || 'Failed to send SMS' 
+        });
+      }
+    } catch (error) {
+      console.error('SMS test error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Internal server error' 
+      });
+    }
+  });
+
   // SMS endpoint for sending dispatch notifications
   app.post('/api/sms/dispatch', async (req, res) => {
     try {

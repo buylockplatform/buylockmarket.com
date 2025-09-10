@@ -74,10 +74,23 @@ export class UwaziiSMSService {
       
       // Check if response has phone number key format (successful response)
       const phoneData = responseObject[formattedPhone];
-      if (phoneData && Array.isArray(phoneData) && phoneData.length > 0) {
-        const messageIds = phoneData.map(item => item.id_state.toString());
-        console.log(`✅ SMS sent successfully to ${formattedPhone}, MessageIds: ${messageIds.join(', ')}`);
-        return { success: true, messageId: messageIds[0] };
+      if (phoneData) {
+        // Handle array format: [{"id_state": 123}, {"id_state": 124}]
+        if (Array.isArray(phoneData) && phoneData.length > 0) {
+          const messageIds = phoneData.map(item => item.id_state.toString());
+          console.log(`✅ SMS sent successfully to ${formattedPhone}, MessageIds: ${messageIds.join(', ')}`);
+          return { success: true, messageId: messageIds[0] };
+        }
+        // Handle string format: "556594022"
+        else if (typeof phoneData === 'string') {
+          console.log(`✅ SMS sent successfully to ${formattedPhone}, MessageId: ${phoneData}`);
+          return { success: true, messageId: phoneData };
+        }
+        // Handle number format: 556594022
+        else if (typeof phoneData === 'number') {
+          console.log(`✅ SMS sent successfully to ${formattedPhone}, MessageId: ${phoneData.toString()}`);
+          return { success: true, messageId: phoneData.toString() };
+        }
       }
       
       // If we reach here, the response format is unexpected
