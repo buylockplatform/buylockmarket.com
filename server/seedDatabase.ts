@@ -145,7 +145,7 @@ export async function seedDatabase() {
       businessName: "BuyLock Premier Store",
       contactEmail: "vendor@buylock.com",
       contactName: "John Vendor",
-      phone: "+254 712 345 678",
+      phone: "+254740717201",
       address: "Nairobi CBD, Kenya",
       businessCategory: "General Merchandise",
       description: "Premium products and services retailer with nationwide delivery",
