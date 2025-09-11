@@ -32,7 +32,7 @@ export function getSession() {
     tableName: "sessions",
   });
   return session({
-    secret: process.env.SESSION_SECRET || 'ea18cd32d964cf85eb3b4575d880763ada2b58612ae923793df3b4d75b82b17c',
+    secret: process.env.SESSION_SECRET || 'ea18cd32d964cf85eb3b4d75b82b17c',
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
@@ -40,6 +40,7 @@ export function getSession() {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: sessionTtl,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     },
   });
 }

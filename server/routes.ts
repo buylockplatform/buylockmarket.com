@@ -110,10 +110,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log("Fetching user with ID:", userId);
+      
+      if (!userId) {
+        console.error("No user ID found in claims");
+        return res.status(401).json({ message: "Invalid user session" });
+      }
+      
       const user = await storage.getUser(userId);
+      
+      if (!user) {
+        console.error("User not found in database:", userId);
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
+      console.error("User claims:", req.user?.claims);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
