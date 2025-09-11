@@ -75,6 +75,7 @@ import {
 import { db, pool } from "./db";
 import { eq, like, ilike, and, or, desc, asc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcrypt";
+import { generatePublicToken, getTokenExpiration } from "./tokenUtils";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -180,6 +181,8 @@ export interface IStorage {
   createDeliveryRequest(request: InsertDeliveryRequest): Promise<DeliveryRequest>;
   getOrderById(id: string): Promise<Order | undefined>;
   getOrderByPaymentReference(paymentReference: string): Promise<Order | undefined>;
+  getOrderByPublicToken(token: string): Promise<Order | undefined>;
+  ensurePublicToken(orderId: string): Promise<string>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrder(id: string, updates: Partial<InsertOrder>): Promise<Order>;
   getOrderItems(orderId: string): Promise<OrderItem[]>;
@@ -898,6 +901,65 @@ export class DatabaseStorage implements IStorage {
         console.error('Drizzle payment reference query error:', drizzleError);
         return undefined;
       }
+    }
+  }
+
+  async getOrderByPublicToken(token: string): Promise<Order | undefined> {
+    try {
+      const [order] = await db.select().from(orders).where(eq(orders.publicToken, token));
+      if (!order) return undefined;
+      
+      // Check if token has expired
+      if (order.publicTokenExpiresAt && new Date() > order.publicTokenExpiresAt) {
+        return undefined;
+      }
+      
+      return {
+        ...order,
+        totalAmount: parseFloat(order.totalAmount.toString()),
+        deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
+        shippingAddress: order.deliveryAddress || '',
+        orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
+        orderItems: []
+      };
+    } catch (error) {
+      console.error('Error fetching order by public token:', error);
+      return undefined;
+    }
+  }
+
+  async ensurePublicToken(orderId: string): Promise<string> {
+    try {
+      // First check if order already has a valid token
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) {
+        throw new Error(`Order ${orderId} not found`);
+      }
+      
+      // If token exists and hasn't expired, return it
+      if (order.publicToken && (!order.publicTokenExpiresAt || new Date() < order.publicTokenExpiresAt)) {
+        return order.publicToken;
+      }
+      
+      // Generate new token
+      const token = generatePublicToken();
+      const expiresAt = getTokenExpiration();
+      
+      // Update order with new token
+      await db
+        .update(orders)
+        .set({
+          publicToken: token,
+          publicTokenCreatedAt: new Date(),
+          publicTokenExpiresAt: expiresAt,
+          updatedAt: new Date()
+        })
+        .where(eq(orders.id, orderId));
+      
+      return token;
+    } catch (error) {
+      console.error('Error ensuring public token:', error);
+      throw error;
     }
   }
 
