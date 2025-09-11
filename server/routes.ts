@@ -1979,6 +1979,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public order access by token (no authentication required)
+  app.get('/api/public/orders/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      if (!token || token.length < 10) {
+        return res.status(400).json({ error: 'Invalid token format' });
+      }
+      
+      const order = await storage.getOrderByPublicToken(token);
+      if (!order) {
+        return res.status(404).json({ error: 'Order not found or token expired' });
+      }
+      
+      // Get order items with product/service details
+      const orderItems = await storage.getOrderItems(order.id);
+      
+      // Sanitize order data for public access (remove sensitive information)
+      const sanitizedOrder = {
+        id: order.id,
+        status: order.status,
+        totalAmount: order.totalAmount,
+        deliveryFee: order.deliveryFee,
+        deliveryAddress: order.deliveryAddress,
+        estimatedDeliveryTime: order.estimatedDeliveryTime,
+        courierName: order.courierName,
+        trackingNumber: order.trackingNumber,
+        createdAt: order.createdAt,
+        estimatedDelivery: order.estimatedDelivery,
+        vendorAcceptedAt: order.vendorAcceptedAt,
+        orderType: order.orderType,
+        orderItems: orderItems.map(item => ({
+          id: item.id,
+          quantity: item.quantity,
+          price: item.price,
+          productName: item.productName,
+          serviceName: item.serviceName,
+          appointmentDate: item.appointmentDate,
+          appointmentTime: item.appointmentTime,
+          duration: item.duration
+        }))
+      };
+      
+      res.json(sanitizedOrder);
+    } catch (error) {
+      console.error('Error fetching public order:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // Customer delivery confirmation endpoints
   app.get('/api/orders/confirm/:token', async (req, res) => {
     try {
