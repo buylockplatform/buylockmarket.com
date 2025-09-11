@@ -856,8 +856,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const vendor = await storage.getVendorById(existingOrder.vendorId);
           
           if (vendor && vendor.phone) {
-            const orderItemsText = emailOrderItems.map(item => `${item.name} (${item.quantity}x)`).join(', ');
-            const vendorMessage = `New BuyLock Order! Order ID: ${orderId}\nCustomer: ${customer?.firstName || 'Customer'}\nItems: ${orderItemsText}\nTotal: KES ${existingOrder.totalAmount}\nDelivery: ${existingOrder.deliveryAddress || 'Address not provided'}\nPlease prepare order and mark ready for pickup.`;
+            // Generate public token for order link
+            const token = await storage.ensurePublicToken(orderId);
+            const orderLink = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app/o/${token}`;
+            
+            const vendorMessage = `New BuyLock Order! ID: ${orderId.slice(-8)} Customer: ${customer?.firstName || 'Customer'} Total: KES ${existingOrder.totalAmount} Track: ${orderLink}`;
             
             const smsResult = await sendSMS(vendor.phone, vendorMessage);
             
@@ -1842,7 +1845,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Courier phone number as provided by user
           const courierPhone = '+254740406442';
           
-          const courierMessage = `BuyLock Pickup Request!\\nOrder ID: ${orderId}\\nItems: ${itemsText}\\nPickup: ${vendor.businessName}, ${vendor.businessAddress || vendor.locationDescription}\\nDelivery: ${order.deliveryAddress}\\nCustomer: ${customer?.firstName || 'Customer'} ${customer?.phone || ''}\\nTotal: KES ${order.totalAmount}\\nPlease pickup and deliver ASAP.`;
+          // Generate public token for order link
+          const token = await storage.ensurePublicToken(orderId);
+          const orderLink = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app/o/${token}`;
+          
+          const courierMessage = `BuyLock Pickup! Order: ${orderId.slice(-8)} From: ${vendor.businessName} To: ${order.deliveryAddress} Total: KES ${order.totalAmount} Details: ${orderLink}`;
           
           const smsResult = await sendSMS(courierPhone, courierMessage);
           
@@ -1955,8 +1962,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`📱 Sending courier SMS notification for order ${orderId}`);
       
       try {
+        // Generate public token for order link
+        const token = await storage.ensurePublicToken(orderId);
+        const orderLink = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app/o/${token}`;
+        
+        // Update message to include order link and keep it concise
+        const shortMessage = `BuyLock Ready! Order: ${orderId.slice(-8)} Pickup ready. Details: ${orderLink}`;
+        
         const { uwaziiService } = await import("./uwaziiService");
-        const result = await uwaziiService.sendSMS(courierPhone, message);
+        const result = await uwaziiService.sendSMS(courierPhone, shortMessage);
         
         if (result.success) {
           console.log(`✅ Courier SMS notification sent successfully for order ${orderId}, MessageId: ${result.messageId}`);

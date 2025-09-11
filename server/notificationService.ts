@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import type { DeliveryProvider } from "@shared/schema";
 import { uwaziiService } from './uwaziiService';
+import { storage } from './storage';
 
 export interface NotificationData {
   orderId: string;
@@ -240,12 +241,15 @@ export class NotificationService {
         return false;
       }
 
-      // Create SMS message for vendor
+      // Generate public token for order link
+      const token = await storage.ensurePublicToken(data.orderId);
+      const orderLink = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app/o/${token}`;
+
+      // Create concise SMS message for vendor with order link
       const orderIdShort = data.orderId.slice(-8).toUpperCase();
       const amount = Number(data.totalAmount).toLocaleString();
-      const itemText = data.itemCount ? `${data.itemCount} item${data.itemCount > 1 ? 's' : ''}` : 'items';
       
-      const message = `NEW ORDER! #${orderIdShort} from ${data.customerName}. Total: KES ${amount} (${itemText}). Login to dashboard. - BuyLock`;
+      const message = `NEW ORDER! #${orderIdShort} from ${data.customerName}. KES ${amount}. Track: ${orderLink}`;
 
       console.log(`📱 Sending new order SMS to vendor: ${data.vendorPhone}`);
       
