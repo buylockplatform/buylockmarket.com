@@ -245,7 +245,7 @@ export class NotificationService {
       const amount = Number(data.totalAmount).toLocaleString();
       const itemText = data.itemCount ? `${data.itemCount} item${data.itemCount > 1 ? 's' : ''}` : 'items';
       
-      const message = `NEW ORDER ALERT! Order #${orderIdShort} from ${data.customerName}. Total: KES ${amount} (${itemText}). Type: ${data.orderType.toUpperCase()}. Login to your vendor dashboard to accept this order. - BuyLock Marketplace`;
+      const message = `NEW ORDER! #${orderIdShort} from ${data.customerName}. Total: KES ${amount} (${itemText}). Login to dashboard. - BuyLock`;
 
       console.log(`📱 Sending new order SMS to vendor: ${data.vendorPhone}`);
       

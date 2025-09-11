@@ -1950,7 +1950,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send SMS notification to courier using uwaziiService
       const courierPhone = "+254740406442"; // E.164 format
       const orderIdShort = orderId.slice(-8).toUpperCase();
-      const message = `ORDER READY FOR PICKUP! Order #${orderIdShort} from ${vendor.businessName}. Location: ${vendor.address || 'Address not provided'}. Phone: ${vendor.phone || 'Phone not provided'}. Please coordinate pickup with vendor. - BuyLock Delivery`;
+      const message = `PICKUP READY! Order #${orderIdShort}. Vendor: ${vendor.businessName}. Phone: ${vendor.phone}. - BuyLock`;
       
       console.log(`📱 Sending courier SMS notification for order ${orderId}`);
       
