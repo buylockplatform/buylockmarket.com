@@ -850,6 +850,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Don't fail the payment verification if email fails
         }
 
+        // Send SMS notification to vendor about new order
+        try {
+          const { sendSMS } = await import('./uwaziiService');
+          const vendor = await storage.getVendorById(existingOrder.vendorId);
+          
+          if (vendor && vendor.phone) {
+            const orderItemsText = emailOrderItems.map(item => `${item.name} (${item.quantity}x)`).join(', ');
+            const vendorMessage = `New BuyLock Order! Order ID: ${orderId}\nCustomer: ${customer?.firstName || 'Customer'}\nItems: ${orderItemsText}\nTotal: KES ${existingOrder.totalAmount}\nDelivery: ${existingOrder.deliveryAddress || 'Address not provided'}\nPlease prepare order and mark ready for pickup.`;
+            
+            const smsResult = await sendSMS(vendor.phone, vendorMessage);
+            
+            if (smsResult.success) {
+              console.log(`Vendor SMS notification sent to ${vendor.phone} for order ${orderId}`);
+            } else {
+              console.warn(`Failed to send vendor SMS notification for order ${orderId}:`, smsResult.message);
+            }
+          } else {
+            console.warn(`No vendor phone number found for order ${orderId}`);
+          }
+        } catch (smsError) {
+          console.error('Error sending vendor SMS notification:', smsError);
+          // Don't fail the payment verification if SMS fails
+        }
+
         // Create appointment entry for service orders
         if (existingOrder.orderType === 'service') {
           const orderWithItems = await storage.getOrderWithItems(orderId);
@@ -1804,6 +1828,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { orderId } = req.params;
       const { status, notes } = req.body;
+      
+      // If order is being marked as ready for pickup, notify courier
+      if (status === 'ready_for_pickup') {
+        try {
+          const { sendSMS } = await import('./uwaziiService');
+          const order = await storage.getOrder(orderId);
+          const vendor = req.vendor;
+          const customer = await storage.getUser(order.userId);
+          const orderItems = await storage.getOrderItems(order.id);
+          const itemsText = orderItems.map(item => `${item.name} (${item.quantity}x)`).join(', ');
+          
+          // Courier phone number as provided by user
+          const courierPhone = '+254740406442';
+          
+          const courierMessage = `BuyLock Pickup Request!\\nOrder ID: ${orderId}\\nItems: ${itemsText}\\nPickup: ${vendor.businessName}, ${vendor.businessAddress || vendor.locationDescription}\\nDelivery: ${order.deliveryAddress}\\nCustomer: ${customer?.firstName || 'Customer'} ${customer?.phone || ''}\\nTotal: KES ${order.totalAmount}\\nPlease pickup and deliver ASAP.`;
+          
+          const smsResult = await sendSMS(courierPhone, courierMessage);
+          
+          if (smsResult.success) {
+            console.log(`Courier SMS notification sent to ${courierPhone} for order ${orderId}`);
+          } else {
+            console.warn(`Failed to send courier SMS notification for order ${orderId}:`, smsResult.message);
+          }
+        } catch (smsError) {
+          console.error('Error sending courier SMS notification:', smsError);
+          // Don't fail the status update if SMS fails
+        }
+      }
       
       // If order is being marked as delivered/completed, send confirmation email
       if (status === 'delivered' || status === 'completed') {
