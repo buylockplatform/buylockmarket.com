@@ -142,12 +142,35 @@ export class NotificationService {
       return false;
     }
 
-    // For now, we'll simulate SMS sending
-    // In production, integrate with SMS provider (Twilio, Africa's Talking, etc.)
-    console.log(`SMS to ${provider.contactPhone}: New delivery order ${data.orderId} ready for pickup from ${data.vendorName}. Contact: ${data.vendorPhone}`);
-    
-    // TODO: Implement actual SMS sending
-    return true;
+    try {
+      // Create SMS message for courier
+      const orderIdShort = data.orderId.slice(-8).toUpperCase();
+      const message = `🚚 NEW DELIVERY ORDER!
+Order #${orderIdShort}
+Customer: ${data.customerName}
+Vendor: ${data.vendorName} (${data.vendorPhone})
+Pickup: ${data.pickupAddress}
+Deliver to: ${data.deliveryAddress}
+Fee: KES ${Number(data.deliveryFee).toLocaleString()}
+
+Please coordinate pickup with vendor.
+- BuyLock Delivery`;
+
+      console.log(`📱 Sending courier SMS to: ${provider.contactPhone}`);
+      
+      const result = await uwaziiService.sendSMS(provider.contactPhone, message);
+      
+      if (result.success) {
+        console.log(`✅ Courier SMS notification sent successfully for order ${data.orderId}, MessageId: ${result.messageId}`);
+        return true;
+      } else {
+        console.error(`❌ Failed to send courier SMS for order ${data.orderId}:`, result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Courier SMS notification error:', error);
+      return false;
+    }
   }
 
   private async sendWebhookNotification(provider: DeliveryProvider, data: NotificationData): Promise<boolean> {

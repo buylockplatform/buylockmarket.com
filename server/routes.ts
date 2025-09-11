@@ -1909,11 +1909,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/vendor/orders/:orderId/ready', isVendorAuthenticated, async (req, res) => {
+  app.post('/api/vendor/orders/:orderId/ready', isVendorAuthenticated, async (req: any, res) => {
     try {
       const { orderId } = req.params;
+      const vendor = req.vendor; // From isVendorAuthenticated middleware
+      
+      // Get the existing order first
+      const existingOrder = await storage.getOrderById(orderId);
+      if (!existingOrder) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      // Security validation: Check if vendor owns this order
+      if (existingOrder.vendorId !== vendor.id) {
+        return res.status(403).json({ message: "Access denied. This order does not belong to your vendor account." });
+      }
+
+      // Idempotency check: Don't process if already ready for pickup
+      if (existingOrder.status === 'ready_for_pickup') {
+        console.log(`⚠️ Order ${orderId} is already marked as ready for pickup`);
+        return res.json({
+          success: true,
+          message: "Order is already marked as ready for pickup.",
+          order: existingOrder
+        });
+      }
       
       // Update order status to ready for pickup
+      console.log(`📦 Marking order ${orderId} as ready for pickup by vendor ${vendor.businessName}`);
       const updatedOrder = await storage.updateOrder(orderId, {
         status: "ready_for_pickup"
       });
@@ -1924,16 +1947,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "pending"
       });
       
-      // Send SMS notification to admin/courier
-      const notificationService = new (await import("./services/notificationService")).NotificationService();
-      const courierPhone = "+254740406442"; // User provided phone
-      const message = `New order ready for pickup! Order ID: ${orderId.slice(0, 8)}... Please check admin panel for details.`;
+      // Send SMS notification to courier using uwaziiService
+      const courierPhone = "+254740406442"; // E.164 format
+      const orderIdShort = orderId.slice(-8).toUpperCase();
+      const message = `🚚 ORDER READY FOR PICKUP!
+Order #${orderIdShort}
+Vendor: ${vendor.businessName}
+Location: ${vendor.address || 'Address not provided'}
+Phone: ${vendor.phone || 'Phone not provided'}
+
+Please coordinate pickup with vendor.
+- BuyLock Delivery`;
+      
+      console.log(`📱 Sending courier SMS notification for order ${orderId}`);
       
       try {
-        await notificationService.sendSMS(courierPhone, message);
-        console.log(`✅ Courier notification sent for order ${orderId}`);
+        const { uwaziiService } = await import("./uwaziiService");
+        const result = await uwaziiService.sendSMS(courierPhone, message);
+        
+        if (result.success) {
+          console.log(`✅ Courier SMS notification sent successfully for order ${orderId}, MessageId: ${result.messageId}`);
+        } else {
+          console.error(`❌ Failed to send courier SMS for order ${orderId}:`, result.error);
+        }
       } catch (smsError) {
-        console.error(`❌ Failed to send courier notification for order ${orderId}:`, smsError);
+        console.error(`❌ SMS service error for order ${orderId}:`, smsError);
         // Don't fail the order update if SMS fails
       }
       
@@ -3419,6 +3457,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           createdOrders.push(order);
+        }
+
+        // Send vendor SMS notifications for each created order
+        console.log(`📱 Sending vendor SMS notifications for ${createdOrders.length} orders...`);
+        
+        for (const order of createdOrders) {
+          try {
+            // Get vendor details
+            const vendor = await storage.getVendorById(order.vendorId);
+            if (!vendor || !vendor.phone) {
+              console.warn(`⚠️ No vendor phone found for order ${order.id}, skipping SMS`);
+              continue;
+            }
+
+            // Get customer details
+            const customer = await storage.getUser(order.userId);
+            const customerName = customer?.firstName && customer?.lastName 
+              ? `${customer.firstName} ${customer.lastName}`
+              : customer?.username || 'Customer';
+
+            // Get order items for SMS
+            const orderItems = await storage.getOrderItems(order.id);
+            const itemCount = orderItems.reduce((sum, item) => sum + item.quantity, 0);
+            const orderType = orderItems.some(item => item.serviceId) ? 'service' : 'product';
+
+            // Send vendor SMS notification
+            const { notificationService } = await import("./notificationService");
+            
+            const vendorNotificationData = {
+              orderId: order.id,
+              customerName,
+              customerPhone: customer?.phone,
+              totalAmount: order.totalAmount,
+              orderType,
+              deliveryAddress: order.deliveryAddress,
+              vendorName: vendor.businessName,
+              vendorPhone: vendor.phone,
+              itemCount
+            };
+
+            const smsResult = await notificationService.notifyVendorNewOrder(vendorNotificationData);
+            
+            if (smsResult) {
+              console.log(`✅ Vendor SMS notification sent for order ${order.id}`);
+            } else {
+              console.error(`❌ Failed to send vendor SMS notification for order ${order.id}`);
+            }
+          } catch (smsError) {
+            console.error(`❌ Error sending vendor SMS for order ${order.id}:`, smsError);
+            // Don't fail the payment verification if SMS fails
+          }
         }
 
         // Clear the user's cart
