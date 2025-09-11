@@ -189,6 +189,9 @@ export const orders = pgTable("orders", {
   customerConfirmedAt: timestamp("customer_confirmed_at"),
   disputeReason: text("dispute_reason"),
   paymentReference: varchar("payment_reference").notNull(), // Paystack payment reference
+  publicToken: varchar("public_token", { length: 32 }).unique(), // Secure token for public order access
+  publicTokenCreatedAt: timestamp("public_token_created_at"),
+  publicTokenExpiresAt: timestamp("public_token_expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -513,6 +516,9 @@ export type ServiceBookingData = z.infer<typeof serviceBookingSchema>;
 
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
+  publicToken: true,
+  publicTokenCreatedAt: true,
+  publicTokenExpiresAt: true,
   createdAt: true,
   updatedAt: true,
 });
