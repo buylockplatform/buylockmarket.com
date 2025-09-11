@@ -30,6 +30,7 @@ import AdminDashboard from "@/pages/admin-portal/dashboard";
 import VendorTasks from "@/pages/vendor-tasks";
 import Payment from "@/pages/payment";
 import DeliveryConfirmation from "@/pages/customer-portal/DeliveryConfirmation";
+import PublicOrder from "@/pages/public-order";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -60,6 +61,9 @@ function Router() {
       <Route path="/vendor-portal" component={VendorPortal} />
       <Route path="/delivery-portal" component={DeliveryPortal} />
       <Route path="/test-delivery" component={TestDeliveryWorkflow} />
+      
+      {/* Public order access - no authentication required */}
+      <Route path="/o/:token" component={PublicOrder} />
       
       {/* Vendor dashboard routes */}
       <Route path="/vendor-dashboard/login" component={VendorLogin} />
