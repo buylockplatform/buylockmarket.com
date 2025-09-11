@@ -145,16 +145,7 @@ export class NotificationService {
     try {
       // Create SMS message for courier
       const orderIdShort = data.orderId.slice(-8).toUpperCase();
-      const message = `🚚 NEW DELIVERY ORDER!
-Order #${orderIdShort}
-Customer: ${data.customerName}
-Vendor: ${data.vendorName} (${data.vendorPhone})
-Pickup: ${data.pickupAddress}
-Deliver to: ${data.deliveryAddress}
-Fee: KES ${Number(data.deliveryFee).toLocaleString()}
-
-Please coordinate pickup with vendor.
-- BuyLock Delivery`;
+      const message = `NEW DELIVERY ORDER! Order #${orderIdShort} from ${data.customerName}. Pickup from ${data.vendorName} (${data.vendorPhone}) at ${data.pickupAddress}. Deliver to: ${data.deliveryAddress}. Fee: KES ${Number(data.deliveryFee).toLocaleString()}. Please coordinate pickup with vendor. - BuyLock Delivery`;
 
       console.log(`📱 Sending courier SMS to: ${provider.contactPhone}`);
       
@@ -254,14 +245,7 @@ Please coordinate pickup with vendor.
       const amount = Number(data.totalAmount).toLocaleString();
       const itemText = data.itemCount ? `${data.itemCount} item${data.itemCount > 1 ? 's' : ''}` : 'items';
       
-      const message = `🛍️ NEW ORDER ALERT!
-Order #${orderIdShort}
-Customer: ${data.customerName}
-Total: KES ${amount} (${itemText})
-Type: ${data.orderType.toUpperCase()}
-
-Login to your vendor dashboard to accept this order.
-- BuyLock Marketplace`;
+      const message = `NEW ORDER ALERT! Order #${orderIdShort} from ${data.customerName}. Total: KES ${amount} (${itemText}). Type: ${data.orderType.toUpperCase()}. Login to your vendor dashboard to accept this order. - BuyLock Marketplace`;
 
       console.log(`📱 Sending new order SMS to vendor: ${data.vendorPhone}`);
       
