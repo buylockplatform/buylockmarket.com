@@ -83,7 +83,7 @@ export function useGuestCart() {
 
   const getGuestCartTotal = () => {
     return guestCartItems.reduce((total, item) => {
-      const price = item.product?.price || item.service?.basePrice || "0";
+      const price = item.product?.price || item.service?.price || "0";
       const itemPrice = typeof price === 'string' ? parseFloat(price) : price;
       return total + (itemPrice * item.quantity);
     }, 0);

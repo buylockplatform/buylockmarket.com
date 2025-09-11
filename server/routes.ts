@@ -3328,7 +3328,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const [vendorId, items] of Object.entries(vendorGroups)) {
           const vendorItems = items as any[];
           const totalAmount = vendorItems.reduce((sum, item) => {
-            const itemPrice = parseFloat(item.price || item.product?.price || item.service?.price || '0');
+            // Prioritize product/service price over cart item price to ensure correct pricing
+            const itemPrice = parseFloat(item.product?.price || item.service?.price || item.price || '0');
             const itemQuantity = item.quantity || 1;
             console.log(`💰 Item ${item.id}: price=${itemPrice}, quantity=${itemQuantity}, subtotal=${itemPrice * itemQuantity}`);
             return sum + (itemPrice * itemQuantity);
