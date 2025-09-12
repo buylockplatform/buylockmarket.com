@@ -82,6 +82,13 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
     retry: false,
   });
 
+  // Fetch delivered orders eligible for payout
+  const { data: deliveredOrders = [], isLoading: deliveredOrdersLoading } = useQuery({
+    queryKey: [`/api/vendor/${vendorId}/orders/delivered`],
+    queryFn: () => vendorApiRequest(`/api/vendor/${vendorId}/orders/delivered`),
+    retry: false,
+  });
+
   // Request payout mutation
   const requestPayout = useMutation({
     mutationFn: async (data: { amount: string; bankDetails: string }) => {
@@ -235,9 +242,10 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
 
       {/* Detailed Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="earnings">Order Earnings</TabsTrigger>
+          <TabsTrigger value="payout-requests">Payout Requests</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -334,6 +342,197 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                   <div className="text-center py-8 text-gray-500">
                     <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                     <p>No order earnings data available</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="payout-requests" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Banknote className="w-5 h-5 text-green-600" />
+                <span>Delivered Orders - Request Payout</span>
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Orders delivered by admin and eligible for payout requests
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {deliveredOrdersLoading ? (
+                  <div className="flex justify-center py-8">
+                    <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
+                  </div>
+                ) : deliveredOrders.length > 0 ? (
+                  deliveredOrders.map((order: any) => (
+                    <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg bg-green-50">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-4">
+                          <div>
+                            <p className="font-semibold text-gray-900">Order #{order.id ? order.id.slice(0, 8) : 'N/A'}</p>
+                            <p className="text-sm text-gray-600">{order.userName || order.userEmail || 'Customer'}</p>
+                            <p className="text-xs text-gray-500">Delivered: {new Date(order.updatedAt).toLocaleDateString()}</p>
+                            <p className="text-xs text-gray-500">Address: {order.deliveryAddress}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-green-600">
+                          {formatPrice(order.totalAmount)}
+                        </p>
+                        <Badge variant="default" className="bg-green-600">
+                          Delivered
+                        </Badge>
+                        <div className="mt-2">
+                          <Button 
+                            size="sm" 
+                            className="bg-buylock-primary hover:bg-buylock-primary/90"
+                            data-testid={`button-request-payout-${order.id}`}
+                            onClick={() => {
+                              setPayoutAmount(order.totalAmount.toString());
+                              setBankDetails("");
+                              setActiveTab("payout-form");
+                            }}
+                          >
+                            <Send className="w-4 h-4 mr-1" />
+                            Request Payout
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Banknote className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No delivered orders available for payout</p>
+                    <p className="text-sm">Orders delivered by admin will appear here</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Payout Request Form */}
+          {activeTab === "payout-form" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <CreditCard className="w-5 h-5 text-blue-600" />
+                  <span>Submit Payout Request</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Payout Amount
+                  </label>
+                  <Input
+                    type="number"
+                    value={payoutAmount}
+                    onChange={(e) => setPayoutAmount(e.target.value)}
+                    placeholder="Enter amount"
+                    data-testid="input-payout-amount"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Bank Account Details
+                  </label>
+                  <Textarea
+                    value={bankDetails}
+                    onChange={(e) => setBankDetails(e.target.value)}
+                    placeholder="Enter your bank account details (Bank name, Account number, Account name)"
+                    rows={3}
+                    data-testid="input-bank-details"
+                  />
+                </div>
+                <div className="flex space-x-3">
+                  <Button 
+                    onClick={handlePayoutRequest}
+                    disabled={requestPayout.isPending}
+                    className="bg-buylock-primary hover:bg-buylock-primary/90"
+                    data-testid="button-submit-payout"
+                  >
+                    {requestPayout.isPending ? (
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4 mr-2" />
+                    )}
+                    Submit Request
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setActiveTab("payout-requests")}
+                    data-testid="button-cancel-payout"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Payout Requests History */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Clock className="w-5 h-5 text-gray-600" />
+                <span>Payout Requests History</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {payoutsLoading ? (
+                  <div className="flex justify-center py-4">
+                    <RefreshCw className="w-5 h-5 animate-spin text-gray-400" />
+                  </div>
+                ) : payoutRequests.length > 0 ? (
+                  payoutRequests.map((request: PayoutRequest) => (
+                    <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-4">
+                          <div>
+                            <p className="font-semibold text-gray-900">Request #{request.id.slice(0, 8)}</p>
+                            <p className="text-sm text-gray-600">
+                              {request.bankAccount || 'Bank details provided'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Requested: {new Date(request.requestDate).toLocaleDateString()}
+                            </p>
+                            {request.processedDate && (
+                              <p className="text-xs text-gray-500">
+                                Processed: {new Date(request.processedDate).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-buylock-primary">
+                          {formatPrice(request.amount)}
+                        </p>
+                        <Badge 
+                          variant={request.status === 'completed' ? 'default' : 
+                                 request.status === 'pending' ? 'secondary' : 
+                                 request.status === 'processing' ? 'secondary' : 'destructive'}
+                        >
+                          {request.status}
+                        </Badge>
+                        {request.failureReason && (
+                          <p className="text-xs text-red-500 mt-1">
+                            {request.failureReason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No payout requests yet</p>
                   </div>
                 )}
               </div>
