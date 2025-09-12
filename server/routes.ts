@@ -1805,6 +1805,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get vendor delivered orders (fulfilled in admin deliveries, ready for payout)
+  app.get('/api/vendor/:vendorId/orders/delivered', isVendorAuthenticated, async (req, res) => {
+    try {
+      const { vendorId } = req.params;
+      
+      // Get orders that have delivery status 'delivered' and belong to this vendor
+      const deliveredOrders = await storage.getVendorDeliveredOrders(vendorId);
+      res.json(deliveredOrders);
+    } catch (error) {
+      console.error('Error fetching delivered orders:', error);
+      res.status(500).json({ message: 'Failed to fetch delivered orders' });
+    }
+  });
+
   // Get vendor fulfilled orders (ready for payout)
   app.get('/api/vendor/:vendorId/orders/fulfilled', isVendorAuthenticated, async (req, res) => {
     try {

@@ -1062,6 +1062,37 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  // Get vendor orders that have been delivered (fulfilled in admin deliveries)
+  async getVendorDeliveredOrders(vendorId: string): Promise<Order[]> {
+    const deliveredOrders = await db.select({
+      ...orders,
+      userEmail: users.email,
+      userName: sql<string>`TRIM(CONCAT(${users.firstName}, ' ', ${users.lastName}))`,
+      deliveryStatus: deliveries.status,
+      actualDeliveryTime: deliveries.actualDeliveryTime
+    })
+    .from(orders)
+    .leftJoin(users, eq(orders.userId, users.id))
+    .leftJoin(deliveries, eq(deliveries.orderId, orders.id))
+    .where(
+      and(
+        eq(orders.vendorId, vendorId),
+        eq(deliveries.status, 'delivered'),
+        eq(orders.status, 'delivered')
+      )
+    )
+    .orderBy(desc(orders.updatedAt));
+
+    return deliveredOrders.map(order => ({
+      ...order,
+      totalAmount: parseFloat(order.totalAmount.toString()),
+      deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
+      shippingAddress: order.deliveryAddress || '',
+      orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
+      orderItems: []
+    }));
+  }
+
   // Removed duplicate getOrderById method - using the enhanced one above
 
   async getOrderWithItems(id: string): Promise<(Order & { orderItems: OrderItem[] }) | undefined> {
