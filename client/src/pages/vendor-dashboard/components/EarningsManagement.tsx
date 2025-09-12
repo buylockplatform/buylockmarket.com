@@ -68,11 +68,22 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
     retry: false,
   });
 
-  // Fetch order earnings breakdown
+  // Fetch order earnings breakdown (only orders with completed payout requests)
   const { data: orderEarnings = [], isLoading: ordersLoading } = useQuery({
     queryKey: [`/api/vendor/${vendorId}/order-earnings`],
     queryFn: () => vendorApiRequest(`/api/vendor/${vendorId}/order-earnings`),
     retry: false,
+  });
+
+  // Filter order earnings to show only those with completed payout requests
+  const completedPayoutEarnings = orderEarnings.filter((earning: OrderEarning) => {
+    // Check if there's a completed payout request for this order
+    return payoutRequests.some((request: PayoutRequest) => 
+      request.status === 'completed' && 
+      // Since we don't have orderId in payout requests, we'll use amount matching as a proxy
+      // This is a simplified approach - in production, you'd want to link payout requests to specific orders
+      request.amount === earning.amount
+    );
   });
 
   // Fetch payout requests history
@@ -130,9 +141,10 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
     disputedOrders: 0
   };
 
-  const confirmedEarnings = orderEarnings?.filter((e: OrderEarning) => e.status === 'confirmed') || [];
-  const pendingEarnings = orderEarnings?.filter((e: OrderEarning) => e.status === 'pending') || [];
-  const disputedEarnings = orderEarnings?.filter((e: OrderEarning) => e.status === 'disputed') || [];
+  // Use completed payout earnings for overview stats
+  const confirmedEarnings = completedPayoutEarnings?.filter((e: OrderEarning) => e.status === 'confirmed') || [];
+  const pendingEarnings = completedPayoutEarnings?.filter((e: OrderEarning) => e.status === 'pending') || [];
+  const disputedEarnings = completedPayoutEarnings?.filter((e: OrderEarning) => e.status === 'disputed') || [];
 
   const handlePayoutRequest = () => {
     const amount = parseFloat(payoutAmount);
@@ -307,11 +319,14 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
           <Card>
             <CardHeader>
               <CardTitle>Order Earnings Breakdown</CardTitle>
+              <p className="text-sm text-gray-600">
+                Orders with completed payout requests only
+              </p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {orderEarnings.length > 0 ? (
-                  orderEarnings.map((earning: OrderEarning) => (
+                {completedPayoutEarnings.length > 0 ? (
+                  completedPayoutEarnings.map((earning: OrderEarning) => (
                     <div key={earning.orderId} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center space-x-4">
