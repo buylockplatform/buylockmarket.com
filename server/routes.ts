@@ -73,11 +73,12 @@ import { sortByDistance, filterByRadius, getDefaultKenyaLocation, calculateDista
 import { seedDatabase } from "./seedDatabase";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Initialize Paystack SDK
-  const paystack = Paystack(process.env.PAYSTACK_SECRET_KEY!);
+  // Initialize Paystack SDK (only if credentials available)
+  const secret = process.env.PAYSTACK_SECRET_KEY;
+  const paystack = secret ? Paystack(secret) : null;
   
   // Initialize PaystackService for subaccounts
-  const paystackService = new PaystackService();
+  const paystackService = new PaystackService(secret);
 
   // Auth middleware
   await setupAuth(app);

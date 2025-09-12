@@ -36,19 +36,29 @@ interface PaystackTransferRecipientData {
 
 export class PaystackService {
   private config: PaystackConfig;
+  private isConfigured: boolean;
 
   constructor(secretKey?: string) {
+    const key = secretKey ?? process.env.PAYSTACK_SECRET_KEY ?? '';
     this.config = {
-      secretKey: secretKey || process.env.PAYSTACK_SECRET_KEY || '',
+      secretKey: key,
       baseUrl: 'https://api.paystack.co',
     };
-
-    if (!this.config.secretKey) {
-      throw new Error('Paystack secret key is required');
+    this.isConfigured = !!key;
+    
+    if (!this.isConfigured && process.env.NODE_ENV === 'production') {
+      throw new Error('Paystack secret key is required in production');
+    }
+    
+    if (!this.isConfigured) {
+      console.warn('Paystack disabled: missing PAYSTACK_SECRET_KEY');
     }
   }
 
   private async makeRequest(endpoint: string, method: 'GET' | 'POST' = 'GET', data?: any): Promise<any> {
+    if (!this.isConfigured) {
+      throw new Error('Paystack not configured');
+    }
     const url = `${this.config.baseUrl}${endpoint}`;
     const headers = {
       'Authorization': `Bearer ${this.config.secretKey}`,
