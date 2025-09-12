@@ -213,7 +213,7 @@ export default function EarningsManagementAdmin() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {platformEarnings?.topEarningVendors?.length > 0 ? (
+                {platformEarnings?.topEarningVendors && platformEarnings.topEarningVendors.length > 0 ? (
                   platformEarnings.topEarningVendors.map((vendor, index) => (
                     <div key={vendor.vendorId} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`card-top-vendor-${vendor.vendorId}`}>
                       <div className="flex items-center space-x-4">
@@ -242,124 +242,6 @@ export default function EarningsManagementAdmin() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="payouts" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                Payout Request Management
-              </CardTitle>
-              <div className="flex space-x-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search vendors or request ID..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-64"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-48">
-                    <Filter className="w-4 h-4 mr-2" />
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/admin/payout-requests'] })}
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Refresh
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {filteredPayouts.length > 0 ? (
-                  filteredPayouts.map((request) => {
-                    const StatusIcon = getStatusIcon(request.status);
-                    return (
-                      <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                        <div className="flex items-center space-x-4">
-                          <div className="p-2 rounded-full bg-blue-100">
-                            <StatusIcon className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-gray-900">{request.vendorName || request.businessName}</h3>
-                            <p className="text-sm text-gray-600">Request ID: {request.id.slice(0, 8)}...</p>
-                            <p className="text-sm text-gray-500">
-                              Requested: {formatDate(request.createdAt)}
-                            </p>
-                            {request.bankName && (
-                              <p className="text-xs text-gray-500">{request.bankName} - {request.accountNumber}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="text-right">
-                            <p className="font-bold text-buylock-primary text-lg">
-                              {formatPrice(request.requestedAmount)}
-                            </p>
-                            <Badge variant={getStatusBadgeVariant(request.status)}>
-                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                            </Badge>
-                            {request.reviewedAt && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                Processed: {formatDate(request.reviewedAt)}
-                              </p>
-                            )}
-                          </div>
-                          {request.status === 'pending' && (
-                            <div className="flex space-x-2">
-                              <Button
-                                size="sm"
-                                onClick={() => handleProcessPayout(request, 'approve')}
-                                disabled={processPayoutMutation.isPending}
-                                className="bg-green-600 hover:bg-green-700"
-                                data-testid={`button-approve-${request.id}`}
-                              >
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleProcessPayout(request, 'reject')}
-                                disabled={processPayoutMutation.isPending}
-                                data-testid={`button-reject-${request.id}`}
-                              >
-                                <XCircle className="w-4 h-4 mr-1" />
-                                Reject
-                              </Button>
-                            </div>
-                          )}
-                          <Button variant="outline" size="sm" data-testid={`button-view-${request.id}`}>
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No payout requests found</p>
-                    <p className="text-sm">Payout requests will appear here when vendors request payouts</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="vendors" className="space-y-6">
           <Card>
@@ -386,9 +268,9 @@ export default function EarningsManagementAdmin() {
                         </div>
                       </div>
                       <div className="text-right space-y-1">
-                        <p className="font-bold text-buylock-primary text-lg">{formatPrice(vendor.totalEarnings)}</p>
-                        <p className="text-sm text-green-600">Available: {formatPrice(vendor.availableBalance)}</p>
-                        {parseFloat(vendor.pendingBalance) > 0 && (
+                        <p className="font-bold text-buylock-primary text-lg">{formatPrice(vendor.totalEarnings || '0')}</p>
+                        <p className="text-sm text-green-600">Available: {formatPrice(vendor.availableBalance || '0')}</p>
+                        {vendor.pendingBalance && parseFloat(vendor.pendingBalance) > 0 && (
                           <p className="text-sm text-orange-600">Pending: {formatPrice(vendor.pendingBalance)}</p>
                         )}
                       </div>
@@ -406,87 +288,6 @@ export default function EarningsManagementAdmin() {
         </TabsContent>
       </Tabs>
 
-      {/* Payout Processing Dialog */}
-      <Dialog open={isPayoutDialogOpen} onOpenChange={setIsPayoutDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>
-              {payoutAction === 'approve' ? 'Approve' : 'Reject'} Payout Request
-            </DialogTitle>
-            <DialogDescription>
-              {selectedPayoutRequest && (
-                <>
-                  Processing payout request for <strong>{selectedPayoutRequest.vendorName || selectedPayoutRequest.businessName}</strong> 
-                  in the amount of <strong>{formatPrice(selectedPayoutRequest.requestedAmount)}</strong>
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {payoutAction === 'approve' && (
-              <div className="space-y-2">
-                <Label htmlFor="payment-reference">Payment Reference *</Label>
-                <Input
-                  id="payment-reference"
-                  placeholder="Enter payment transaction reference"
-                  value={paymentReference}
-                  onChange={(e) => setPaymentReference(e.target.value)}
-                  data-testid="input-payment-reference"
-                />
-                <p className="text-sm text-gray-500">
-                  Provide the bank transfer or payment reference number
-                </p>
-              </div>
-            )}
-            
-            <div className="space-y-2">
-              <Label htmlFor="admin-notes">Admin Notes</Label>
-              <Textarea
-                id="admin-notes"
-                placeholder="Add notes about this decision (optional)"
-                value={adminNotes}
-                onChange={(e) => setAdminNotes(e.target.value)}
-                rows={3}
-                data-testid="input-admin-notes"
-              />
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setIsPayoutDialogOpen(false)}
-              disabled={processPayoutMutation.isPending}
-              data-testid="button-cancel-payout"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSubmitPayout}
-              disabled={processPayoutMutation.isPending}
-              className={payoutAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : ''}
-              data-testid="button-submit-payout"
-            >
-              {processPayoutMutation.isPending ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  {payoutAction === 'approve' ? (
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                  ) : (
-                    <XCircle className="w-4 h-4 mr-2" />
-                  )}
-                  {payoutAction === 'approve' ? 'Approve Payout' : 'Reject Payout'}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

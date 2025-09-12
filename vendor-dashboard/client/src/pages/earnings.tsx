@@ -85,7 +85,7 @@ export default function Earnings() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Earnings</h1>
           <p className="text-gray-600 mt-1">
-            Manage your earnings and payout requests
+            Manage your earnings and view fulfillment status
           </p>
         </div>
 
