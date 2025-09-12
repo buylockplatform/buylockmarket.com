@@ -310,7 +310,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                       <div className="flex-1">
                         <div className="flex items-center space-x-4">
                           <div>
-                            <p className="font-semibold text-gray-900">Order #{earning.orderId.slice(0, 8)}</p>
+                            <p className="font-semibold text-gray-900">Order #{earning.orderId ? earning.orderId.slice(0, 8) : 'N/A'}</p>
                             <p className="text-sm text-gray-600">{earning.customerName || 'Customer'}</p>
                             <p className="text-xs text-gray-500">{earning.items}</p>
                           </div>
