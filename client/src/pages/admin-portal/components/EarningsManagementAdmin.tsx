@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   DollarSign, 
   TrendingUp, 
@@ -16,45 +21,60 @@ import {
   Eye,
   Filter,
   Search,
-  ArrowUpDown
+  ArrowUpDown,
+  AlertCircle,
+  CreditCard,
+  RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface VendorEarnings {
   vendorId: string;
   businessName: string;
-  totalEarnings: number;
-  availableBalance: number;
-  pendingBalance: number;
+  totalEarnings: string;
+  availableBalance: string;
+  pendingBalance: string;
   confirmedOrders: number;
   pendingOrders: number;
   disputedOrders: number;
   lastPayoutDate?: string;
-  lastPayoutAmount?: number;
+  lastPayoutAmount?: string;
 }
 
 interface PayoutRequest {
   id: string;
   vendorId: string;
   vendorName: string;
-  amount: number;
-  requestDate: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  bankAccount: string;
-  processedDate?: string;
-  failureReason?: string;
+  businessName: string;
+  requestedAmount: string;
+  availableBalance: string;
+  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'failed';
+  requestReason?: string;
+  adminNotes?: string;
+  transferFailureReason?: string;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  completedAt?: string;
+  failedAt?: string;
+  paystackTransferId?: string;
+  paystackTransferCode?: string;
+  transferStatus?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
 }
 
 interface PlatformEarnings {
-  totalPlatformEarnings: number;
-  totalVendorEarnings: number;
+  totalPlatformEarnings: string;
+  totalVendorEarnings: string;
   platformFeePercentage: number;
   totalOrders: number;
-  avgOrderValue: number;
+  avgOrderValue: string;
   topEarningVendors: Array<{
     vendorId: string;
     businessName: string;
-    earnings: number;
+    earnings: string;
   }>;
 }
 
@@ -63,52 +83,72 @@ export default function EarningsManagementAdmin() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPeriod, setSelectedPeriod] = useState("month");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [selectedPayoutRequest, setSelectedPayoutRequest] = useState<PayoutRequest | null>(null);
+  const [isPayoutDialogOpen, setIsPayoutDialogOpen] = useState(false);
+  const [payoutAction, setPayoutAction] = useState<'approve' | 'reject'>('approve');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [adminNotes, setAdminNotes] = useState('');
 
   // Fetch platform earnings overview
-  const { data: platformEarnings, isLoading: platformLoading } = useQuery({
+  const { data: platformEarnings, isLoading: platformLoading } = useQuery<PlatformEarnings>({
     queryKey: ['/api/admin/platform-earnings', { period: selectedPeriod }],
     queryFn: getAdminQueryFn({ on401: "returnNull" }),
   });
 
   // Fetch vendor earnings data
-  const { data: vendorEarnings = [], isLoading: vendorLoading } = useQuery({
+  const { data: vendorEarnings = [], isLoading: vendorLoading } = useQuery<VendorEarnings[]>({
     queryKey: ['/api/admin/vendor-earnings'],
     queryFn: getAdminQueryFn({ on401: "returnNull" }),
   });
 
   // Fetch payout requests
-  const { data: payoutRequests = [], isLoading: payoutLoading } = useQuery({
-    queryKey: ['/api/admin/payout-requests', { status: statusFilter !== 'all' ? statusFilter : '' }],
+  const { data: payoutRequests = [], isLoading: payoutLoading } = useQuery<PayoutRequest[]>({
+    queryKey: ['/api/admin/payout-requests', statusFilter !== 'all' ? statusFilter : undefined],
     queryFn: getAdminQueryFn({ on401: "returnNull" }),
+    refetchInterval: 30000 // Refresh every 30 seconds
   });
 
   // Process payout request mutation
   const processPayoutMutation = useMutation({
-    mutationFn: async ({ requestId, action, reason }: { requestId: string; action: 'approve' | 'reject'; reason?: string }) => {
-      return adminApiRequest('/api/admin/process-payout', 'POST', { requestId, action, reason });
+    mutationFn: async ({ requestId, action, paymentReference, adminNotes }: { 
+      requestId: string; 
+      action: 'approve' | 'reject'; 
+      paymentReference?: string;
+      adminNotes?: string;
+    }) => {
+      return adminApiRequest(`/api/admin/payout-requests/${requestId}/${action}`, 'POST', { 
+        paymentReference,
+        adminNotes 
+      });
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/payout-requests'] });
       toast({
         title: "Success",
-        description: "Payout request processed successfully",
+        description: `Payout request ${variables.action}d successfully`,
       });
+      setIsPayoutDialogOpen(false);
+      setSelectedPayoutRequest(null);
+      setPaymentReference('');
+      setAdminNotes('');
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to process payout request",
+        description: `Failed to ${payoutAction} payout request: ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
-  const formatPrice = (amount: number) => {
+  const formatPrice = (amount: string | number) => {
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-KE', {
       style: 'currency',
       currency: 'KES',
       minimumFractionDigits: 0,
-    }).format(amount);
+    }).format(numAmount);
   };
 
   const formatDate = (dateString: string) => {
@@ -119,23 +159,57 @@ export default function EarningsManagementAdmin() {
     });
   };
 
-  const handleProcessPayout = (requestId: string, action: 'approve' | 'reject', reason?: string) => {
-    processPayoutMutation.mutate({ requestId, action, reason });
+  const handleProcessPayout = (request: PayoutRequest, action: 'approve' | 'reject') => {
+    setSelectedPayoutRequest(request);
+    setPayoutAction(action);
+    setIsPayoutDialogOpen(true);
+  };
+
+  const handleSubmitPayout = () => {
+    if (!selectedPayoutRequest) return;
+    
+    if (payoutAction === 'approve' && !paymentReference.trim()) {
+      toast({
+        title: "Payment Reference Required",
+        description: "Please provide a payment reference for approval.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    processPayoutMutation.mutate({
+      requestId: selectedPayoutRequest.id,
+      action: payoutAction,
+      paymentReference: paymentReference.trim() || undefined,
+      adminNotes: adminNotes.trim() || undefined
+    });
   };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'completed': return 'default';
-      case 'processing': return 'secondary';
+      case 'approved': return 'secondary';
       case 'pending': return 'outline';
+      case 'rejected':
       case 'failed': return 'destructive';
       default: return 'outline';
     }
   };
 
-  // Filter payout requests - with safe property access
-  const filteredPayouts = payoutRequests.filter((request: any) => {
-    const vendorName = request.vendorName || request.vendor?.businessName || request.businessName || '';
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return CheckCircle;
+      case 'approved': return TrendingUp;
+      case 'pending': return Clock;
+      case 'rejected':
+      case 'failed': return XCircle;
+      default: return AlertCircle;
+    }
+  };
+
+  // Filter payout requests
+  const filteredPayouts = payoutRequests.filter((request) => {
+    const vendorName = request.vendorName || request.businessName || '';
     const requestId = request.id || '';
     
     const matchesSearch = searchTerm === '' || 
@@ -163,232 +237,382 @@ export default function EarningsManagementAdmin() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Earnings Management</h2>
-          <p className="text-gray-600">Monitor platform earnings and manage vendor payouts</p>
-        </div>
-        <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Select period" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="week">This Week</SelectItem>
-            <SelectItem value="month">This Month</SelectItem>
-            <SelectItem value="quarter">This Quarter</SelectItem>
-            <SelectItem value="year">This Year</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-gray-900">Earnings Management</h1>
+        <Badge variant="outline" className="text-sm">
+          Financial Overview & Payment Processing
+        </Badge>
       </div>
 
-      {/* Platform Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="bg-green-100 p-3 rounded-full">
-                <DollarSign className="w-6 h-6 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Platform Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {formatPrice(platformEarnings?.totalPlatformEarnings || 0)}
-                </p>
-                <p className="text-sm text-gray-500">
-                  {platformEarnings?.platformFeePercentage || 20}% platform fee
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" />
+            Financial Overview
+          </TabsTrigger>
+          <TabsTrigger value="payouts" className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4" />
+            Payout Management
+          </TabsTrigger>
+          <TabsTrigger value="vendors" className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            Vendor Earnings
+          </TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="bg-blue-100 p-3 rounded-full">
-                <TrendingUp className="w-6 h-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Vendor Earnings</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {formatPrice(platformEarnings?.totalVendorEarnings || 0)}
-                </p>
-                <p className="text-sm text-gray-500">
-                  {platformEarnings?.totalOrders || 0} orders
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="bg-purple-100 p-3 rounded-full">
-                <Users className="w-6 h-6 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Vendors</p>
-                <p className="text-2xl font-bold text-gray-900">{vendorEarnings.length}</p>
-                <p className="text-sm text-gray-500">Earning vendors</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="bg-yellow-100 p-3 rounded-full">
-                <CheckCircle className="w-6 h-6 text-yellow-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {formatPrice(platformEarnings?.avgOrderValue || 0)}
-                </p>
-                <p className="text-sm text-gray-500">Per transaction</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Top Earning Vendors */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Earning Vendors</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {platformEarnings?.topEarningVendors?.length > 0 ? (
-              platformEarnings.topEarningVendors.map((vendor: any, index: number) => (
-                <div key={vendor.vendorId} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center justify-center w-8 h-8 bg-buylock-primary text-white rounded-full text-sm font-bold">
-                      {index + 1}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{vendor.businessName}</h3>
-                      <p className="text-sm text-gray-600">Vendor ID: {vendor.vendorId.slice(0, 8)}</p>
-                    </div>
+        <TabsContent value="overview" className="space-y-6">
+          {/* Platform Overview Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Platform Earnings</p>
+                    <p className="text-2xl font-bold text-buylock-primary">
+                      {formatPrice(platformEarnings?.totalPlatformEarnings || '0')}
+                    </p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-buylock-primary text-lg">{formatPrice(vendor.earnings)}</p>
-                    <Badge variant="outline">Top {index + 1}</Badge>
-                  </div>
+                  <DollarSign className="w-8 h-8 text-buylock-primary" />
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <TrendingUp className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>No vendor earnings data available</p>
+                <p className="text-xs text-gray-500 mt-2">
+                  {platformEarnings?.platformFeePercentage || 20}% commission from sales
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Vendor Earnings</p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {formatPrice(platformEarnings?.totalVendorEarnings || '0')}
+                    </p>
+                  </div>
+                  <Users className="w-8 h-8 text-green-600" />
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Total earned by vendors
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Orders</p>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {platformEarnings?.totalOrders?.toLocaleString() || '0'}
+                    </p>
+                  </div>
+                  <TrendingUp className="w-8 h-8 text-blue-600" />
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Completed transactions
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
+                    <p className="text-2xl font-bold text-purple-600">
+                      {formatPrice(platformEarnings?.avgOrderValue || '0')}
+                    </p>
+                  </div>
+                  <ArrowUpDown className="w-8 h-8 text-purple-600" />
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Average transaction size
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Top Earning Vendors */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Earning Vendors</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {platformEarnings?.topEarningVendors?.length > 0 ? (
+                  platformEarnings.topEarningVendors.map((vendor, index) => (
+                    <div key={vendor.vendorId} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center justify-center w-8 h-8 bg-buylock-primary text-white rounded-full text-sm font-bold">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{vendor.businessName}</h3>
+                          <p className="text-sm text-gray-600">Vendor ID: {vendor.vendorId.slice(0, 8)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-buylock-primary text-lg">{formatPrice(vendor.earnings)}</p>
+                        <Badge variant="outline">Top {index + 1}</Badge>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <TrendingUp className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No vendor earnings data available</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="payouts" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5" />
+                Payout Request Management
+              </CardTitle>
+              <div className="flex space-x-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search vendors or request ID..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 w-64"
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-48">
+                    <Filter className="w-4 h-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/admin/payout-requests'] })}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {filteredPayouts.length > 0 ? (
+                  filteredPayouts.map((request) => {
+                    const StatusIcon = getStatusIcon(request.status);
+                    return (
+                      <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                        <div className="flex items-center space-x-4">
+                          <div className="p-2 rounded-full bg-blue-100">
+                            <StatusIcon className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{request.vendorName || request.businessName}</h3>
+                            <p className="text-sm text-gray-600">Request ID: {request.id.slice(0, 8)}...</p>
+                            <p className="text-sm text-gray-500">
+                              Requested: {formatDate(request.createdAt)}
+                            </p>
+                            {request.bankName && (
+                              <p className="text-xs text-gray-500">{request.bankName} - {request.accountNumber}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right">
+                            <p className="font-bold text-buylock-primary text-lg">
+                              {formatPrice(request.requestedAmount)}
+                            </p>
+                            <Badge variant={getStatusBadgeVariant(request.status)}>
+                              {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                            </Badge>
+                            {request.reviewedAt && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Processed: {formatDate(request.reviewedAt)}
+                              </p>
+                            )}
+                          </div>
+                          {request.status === 'pending' && (
+                            <div className="flex space-x-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleProcessPayout(request, 'approve')}
+                                disabled={processPayoutMutation.isPending}
+                                className="bg-green-600 hover:bg-green-700"
+                                data-testid={`button-approve-${request.id}`}
+                              >
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleProcessPayout(request, 'reject')}
+                                disabled={processPayoutMutation.isPending}
+                                data-testid={`button-reject-${request.id}`}
+                              >
+                                <XCircle className="w-4 h-4 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
+                          )}
+                          <Button variant="outline" size="sm" data-testid={`button-view-${request.id}`}>
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No payout requests found</p>
+                    <p className="text-sm">Payout requests will appear here when vendors request payouts</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="vendors" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Vendor Earnings Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {vendorEarnings.length > 0 ? (
+                  vendorEarnings.map((vendor) => (
+                    <div key={vendor.vendorId} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center space-x-4">
+                        <div className="p-2 rounded-full bg-green-100">
+                          <Users className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{vendor.businessName}</h3>
+                          <p className="text-sm text-gray-600">ID: {vendor.vendorId.slice(0, 8)}</p>
+                          <div className="flex space-x-4 text-xs text-gray-500 mt-1">
+                            <span>Orders: {vendor.confirmedOrders}</span>
+                            <span>Pending: {vendor.pendingOrders}</span>
+                            {vendor.disputedOrders > 0 && <span>Disputes: {vendor.disputedOrders}</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <p className="font-bold text-buylock-primary text-lg">{formatPrice(vendor.totalEarnings)}</p>
+                        <p className="text-sm text-green-600">Available: {formatPrice(vendor.availableBalance)}</p>
+                        {parseFloat(vendor.pendingBalance) > 0 && (
+                          <p className="text-sm text-orange-600">Pending: {formatPrice(vendor.pendingBalance)}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No vendor earnings data available</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Payout Processing Dialog */}
+      <Dialog open={isPayoutDialogOpen} onOpenChange={setIsPayoutDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              {payoutAction === 'approve' ? 'Approve' : 'Reject'} Payout Request
+            </DialogTitle>
+            <DialogDescription>
+              {selectedPayoutRequest && (
+                <>
+                  Processing payout request for <strong>{selectedPayoutRequest.vendorName || selectedPayoutRequest.businessName}</strong> 
+                  in the amount of <strong>{formatPrice(selectedPayoutRequest.requestedAmount)}</strong>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {payoutAction === 'approve' && (
+              <div className="space-y-2">
+                <Label htmlFor="payment-reference">Payment Reference *</Label>
+                <Input
+                  id="payment-reference"
+                  placeholder="Enter payment transaction reference"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  data-testid="input-payment-reference"
+                />
+                <p className="text-sm text-gray-500">
+                  Provide the bank transfer or payment reference number
+                </p>
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Payout Requests */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Payout Requests</CardTitle>
-          <div className="flex space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search vendors or request ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-64"
+            
+            <div className="space-y-2">
+              <Label htmlFor="admin-notes">Admin Notes</Label>
+              <Textarea
+                id="admin-notes"
+                placeholder="Add notes about this decision (optional)"
+                value={adminNotes}
+                onChange={(e) => setAdminNotes(e.target.value)}
+                rows={3}
+                data-testid="input-admin-notes"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="processing">Processing</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="failed">Failed</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredPayouts.length > 0 ? (
-              filteredPayouts.map((request: PayoutRequest) => (
-                <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 rounded-full bg-blue-100">
-                      <DollarSign className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{request.vendorName}</h3>
-                      <p className="text-sm text-gray-600">Request ID: {request.id}</p>
-                      <p className="text-sm text-gray-500">
-                        Requested: {formatDate(request.requestDate)}
-                      </p>
-                      <p className="text-xs text-gray-500">{request.bankAccount}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <p className="font-bold text-buylock-primary text-lg">
-                        {formatPrice(request.amount)}
-                      </p>
-                      <Badge variant={getStatusBadgeVariant(request.status)}>
-                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                      </Badge>
-                      {request.processedDate && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Processed: {formatDate(request.processedDate)}
-                        </p>
-                      )}
-                    </div>
-                    {request.status === 'pending' && (
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleProcessPayout(request.id, 'approve')}
-                          disabled={processPayoutMutation.isPending}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleProcessPayout(request.id, 'reject', 'Administrative review required')}
-                          disabled={processPayoutMutation.isPending}
-                        >
-                          <XCircle className="w-4 h-4 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    )}
-                    <Button variant="outline" size="sm">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>No payout requests found</p>
-                <p className="text-sm">Payout requests will appear here when vendors request payouts</p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsPayoutDialogOpen(false)}
+              disabled={processPayoutMutation.isPending}
+              data-testid="button-cancel-payout"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitPayout}
+              disabled={processPayoutMutation.isPending}
+              className={payoutAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : ''}
+              data-testid="button-submit-payout"
+            >
+              {processPayoutMutation.isPending ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  {payoutAction === 'approve' ? (
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                  ) : (
+                    <XCircle className="w-4 h-4 mr-2" />
+                  )}
+                  {payoutAction === 'approve' ? 'Approve Payout' : 'Reject Payout'}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -12,7 +12,6 @@ import ServicesManagement from "./components/ServicesManagement";
 import OrdersManagement from "./components/OrdersManagement";
 import ServiceCategoryManagement from "../admin/ServiceCategoryManagement";
 import EarningsManagementAdmin from "./components/EarningsManagementAdmin";
-import PayoutManagement from "../admin/components/PayoutManagement";
 import { CommissionSettings } from "../admin/components/CommissionSettings";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import CourierConfiguration from "./components/CourierConfiguration";
@@ -97,7 +96,6 @@ export default function AdminDashboard() {
     { id: "categories", label: "Categories", icon: FolderOpen },
     { id: "orders", label: "Orders", icon: TrendingUp },
     { id: "earnings", label: "Earnings Management", icon: DollarSign },
-    { id: "payouts", label: "Payout Management", icon: CreditCard },
     { id: "commission", label: "Commission Settings", icon: Settings },
     { id: "deliveries", label: "Delivery", icon: Truck },
     { id: "courier-config", label: "Courier Configuration", icon: Settings },
@@ -405,7 +403,6 @@ export default function AdminDashboard() {
           {activeSection === "orders" && <OrdersManagement />}
 
           {activeSection === "earnings" && <EarningsManagementAdmin />}
-          {activeSection === "payouts" && <PayoutManagement />}
           {activeSection === "commission" && <CommissionSettings />}
 
           {activeSection === "deliveries" && <DeliveryPortalContent />}
