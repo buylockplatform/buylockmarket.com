@@ -83,6 +83,49 @@ export const services = pgTable("services", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Vendor Earnings
+export const vendorEarnings = pgTable("vendor_earnings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: varchar("vendor_id").references(() => vendors.id).notNull(),
+  orderId: varchar("order_id").notNull(),
+  grossAmount: decimal("gross_amount", { precision: 10, scale: 2 }).notNull(),
+  platformFee: decimal("platform_fee", { precision: 10, scale: 2 }).notNull(),
+  netEarnings: decimal("net_earnings", { precision: 10, scale: 2 }).notNull(),
+  status: varchar("status").notNull().default("pending"), // pending, available, paid_out
+  earningDate: timestamp("earning_date").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payout Requests
+export const payoutRequests = pgTable("payout_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: varchar("vendor_id").references(() => vendors.id).notNull(),
+  requestedAmount: decimal("requested_amount", { precision: 10, scale: 2 }).notNull(),
+  status: varchar("status").notNull().default("pending"), // pending, approved, processing, completed, rejected, failed
+  requestReason: text("request_reason"),
+  adminNotes: text("admin_notes"),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  completedAt: timestamp("completed_at"),
+  rejectedAt: timestamp("rejected_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Orders (simplified for vendor dashboard)
+export const orders = pgTable("orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: varchar("vendor_id").references(() => vendors.id).notNull(),
+  customerId: varchar("customer_id").notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  status: varchar("status").notNull(),
+  deliveryAddress: text("delivery_address"),
+  notes: text("notes"),
+  vendorNotes: text("vendor_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Export types
 export type Vendor = typeof vendors.$inferSelect;
 export type InsertVendor = typeof vendors.$inferInsert;
@@ -92,6 +135,12 @@ export type Product = typeof products.$inferSelect;
 export type InsertProduct = typeof products.$inferInsert;
 export type Service = typeof services.$inferSelect;
 export type InsertService = typeof services.$inferInsert;
+export type VendorEarning = typeof vendorEarnings.$inferSelect;
+export type InsertVendorEarning = typeof vendorEarnings.$inferInsert;
+export type PayoutRequest = typeof payoutRequests.$inferSelect;
+export type InsertPayoutRequest = typeof payoutRequests.$inferInsert;
+export type Order = typeof orders.$inferSelect;
+export type InsertOrder = typeof orders.$inferInsert;
 
 // Zod schemas for validation
 export const insertVendorSchema = createInsertSchema(vendors).omit({
@@ -120,7 +169,32 @@ export const insertServiceSchema = createInsertSchema(services).omit({
   updatedAt: true,
 });
 
+export const insertVendorEarningSchema = createInsertSchema(vendorEarnings).omit({
+  id: true,
+  earningDate: true,
+  createdAt: true,
+});
+
+export const insertPayoutRequestSchema = createInsertSchema(payoutRequests).omit({
+  id: true,
+  approvedBy: true,
+  approvedAt: true,
+  completedAt: true,
+  rejectedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOrderSchema = createInsertSchema(orders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertVendorInput = z.infer<typeof insertVendorSchema>;
 export type LoginVendorInput = z.infer<typeof loginVendorSchema>;
 export type InsertProductInput = z.infer<typeof insertProductSchema>;
 export type InsertServiceInput = z.infer<typeof insertServiceSchema>;
+export type InsertVendorEarningInput = z.infer<typeof insertVendorEarningSchema>;
+export type InsertPayoutRequestInput = z.infer<typeof insertPayoutRequestSchema>;
+export type InsertOrderInput = z.infer<typeof insertOrderSchema>;

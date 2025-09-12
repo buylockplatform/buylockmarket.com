@@ -17,43 +17,21 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import type { Vendor } from "@shared/schema";
+import { 
+  parseMoneyToNumber, 
+  formatMoney, 
+  formatMoneyNumber, 
+  isMoneyGreater, 
+  isValidMoneyInput 
+} from "@/lib/money";
+import type { Vendor, VendorEarning, PayoutRequest, Order } from "@shared/schema";
 
-interface Order {
-  id: string;
-  vendorId: string;
-  status: string;
-  totalAmount: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface VendorEarning {
-  id: string;
-  vendorId: string;
-  orderId: string;
-  orderItemId: string;
-  grossAmount: string;
-  platformFee: string;
-  netEarnings: string;
-  status: string;
-  earningDate: Date;
-}
-
-interface PayoutRequest {
-  id: string;
-  vendorId: string;
-  requestedAmount: string;
-  status: string;
-  requestReason?: string;
-  createdAt: Date;
-  completedAt?: Date;
-}
 
 interface EarningsData {
-  totalEarnings: number;
-  availableBalance: number;
-  pendingBalance: number;
+  totalEarnings: string;
+  availableBalance: string;
+  pendingBalance: string;
+  totalPaidOut: string;
   recentEarnings: VendorEarning[];
 }
 
@@ -111,9 +89,8 @@ export default function Earnings() {
 
   const handlePayoutRequest = (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseFloat(payoutAmount);
     
-    if (!amount || amount <= 0) {
+    if (!isValidMoneyInput(payoutAmount)) {
       toast({
         title: "Invalid Amount",
         description: "Please enter a valid payout amount",
@@ -122,7 +99,9 @@ export default function Earnings() {
       return;
     }
 
-    if (earnings && amount > earnings.availableBalance) {
+    const amount = parseMoneyToNumber(payoutAmount);
+    
+    if (earnings && isMoneyGreater(amount, earnings.availableBalance)) {
       toast({
         title: "Insufficient Balance",
         description: "Payout amount cannot exceed available balance",
@@ -182,7 +161,7 @@ export default function Earnings() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Total Earnings</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    KES {earnings?.totalEarnings?.toLocaleString() || "0"}
+                    {formatMoney(earnings?.totalEarnings)}
                   </p>
                 </div>
               </div>
@@ -198,7 +177,7 @@ export default function Earnings() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Available Balance</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    KES {earnings?.availableBalance?.toLocaleString() || "0"}
+                    {formatMoney(earnings?.availableBalance)}
                   </p>
                 </div>
               </div>
@@ -214,7 +193,7 @@ export default function Earnings() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Pending Balance</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    KES {earnings?.pendingBalance?.toLocaleString() || "0"}
+                    {formatMoney(earnings?.pendingBalance)}
                   </p>
                 </div>
               </div>
@@ -290,9 +269,9 @@ export default function Earnings() {
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium text-gray-900">KES {parseFloat(earning.netEarnings).toLocaleString()}</p>
+                          <p className="font-medium text-gray-900">{formatMoney(earning.netEarnings)}</p>
                           <p className="text-sm text-gray-600">
-                            Platform fee: KES {parseFloat(earning.platformFee).toLocaleString()}
+                            Platform fee: {formatMoney(earning.platformFee)}
                           </p>
                         </div>
                         <div className="ml-4">
@@ -331,14 +310,15 @@ export default function Earnings() {
                       id="amount"
                       type="number"
                       min="1"
-                      max={earnings?.availableBalance || 0}
+                      max={parseMoneyToNumber(earnings?.availableBalance)}
                       value={payoutAmount}
                       onChange={(e) => setPayoutAmount(e.target.value)}
                       placeholder="Enter amount"
                       required
+                      data-testid="input-payout-amount"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Available: KES {earnings?.availableBalance?.toLocaleString() || "0"}
+                      Available: {formatMoney(earnings?.availableBalance)}
                     </p>
                   </div>
                   <div>
@@ -352,8 +332,9 @@ export default function Earnings() {
                   </div>
                   <Button 
                     type="submit" 
-                    disabled={requestPayoutMutation.isPending || !earnings?.availableBalance}
+                    disabled={requestPayoutMutation.isPending || parseMoneyToNumber(earnings?.availableBalance) <= 0}
                     className="w-full"
+                    data-testid="button-request-payout"
                   >
                     {requestPayoutMutation.isPending ? "Processing..." : "Request Payout"}
                   </Button>
@@ -378,7 +359,7 @@ export default function Earnings() {
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium text-gray-900">KES {parseFloat(order.totalAmount).toLocaleString()}</p>
+                          <p className="font-medium text-gray-900">{formatMoney(order.totalAmount)}</p>
                           <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                             Fulfilled
                           </span>
@@ -419,7 +400,7 @@ export default function Earnings() {
                           )}
                         </div>
                         <div className="text-right">
-                          <p className="font-medium text-gray-900">KES {parseFloat(payout.requestedAmount).toLocaleString()}</p>
+                          <p className="font-medium text-gray-900">{formatMoney(payout.requestedAmount)}</p>
                           {payout.completedAt && (
                             <p className="text-sm text-gray-600">
                               Completed: {new Date(payout.completedAt).toLocaleDateString()}
