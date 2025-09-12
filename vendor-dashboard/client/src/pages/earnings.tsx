@@ -36,7 +36,7 @@ interface EarningsData {
 }
 
 export default function Earnings() {
-  const [activeTab, setActiveTab] = useState<"overview" | "fulfilled-orders" | "paid-orders">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "order-earnings" | "request-payout">("overview");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -51,14 +51,14 @@ export default function Earnings() {
 
   const { data: fulfilledOrders = [] } = useQuery<Order[]>({
     queryKey: [`/api/vendor/${vendor?.id}/orders/fulfilled`],
-    enabled: !!vendor?.id && activeTab === "fulfilled-orders",
+    enabled: !!vendor?.id && activeTab === "request-payout",
   });
 
 
   const tabs = [
     { id: "overview", label: "Overview", icon: TrendingUp },
-    { id: "fulfilled-orders", label: "Fulfilled Orders", icon: CreditCard },
-    { id: "paid-orders", label: "Paid Out Orders", icon: CheckCircle },
+    { id: "order-earnings", label: "Order Earnings", icon: DollarSign },
+    { id: "request-payout", label: "Request Payout", icon: CreditCard },
   ];
 
   const getStatusBadge = (status: string) => {
@@ -231,14 +231,57 @@ export default function Earnings() {
           </div>
         )}
 
-        {activeTab === "fulfilled-orders" && (
+        {activeTab === "order-earnings" && (
           <div className="space-y-6">
-            {/* Fulfilled Orders Ready for Payout */}
             <Card>
               <CardHeader>
-                <CardTitle>Fulfilled Orders Ready for Payout</CardTitle>
+                <CardTitle>Order Earnings Breakdown</CardTitle>
                 <p className="text-sm text-gray-600">
-                  Orders that have been fulfilled and are ready for earning payouts
+                  Detailed breakdown of your earnings from individual orders
+                </p>
+              </CardHeader>
+              <CardContent>
+                {earnings?.recentEarnings && earnings.recentEarnings.length > 0 ? (
+                  <div className="space-y-4">
+                    {earnings.recentEarnings.map((earning) => (
+                      <div key={earning.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">Order #{earning.orderId.slice(-8)}</p>
+                          <p className="text-sm text-gray-600">
+                            {new Date(earning.earningDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-gray-900">{formatMoney(earning.netEarnings)}</p>
+                          <p className="text-sm text-gray-600">
+                            Platform fee: {formatMoney(earning.platformFee)}
+                          </p>
+                        </div>
+                        <div className="ml-4">
+                          {getStatusBadge(earning.status)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No order earnings data available</p>
+                    <p className="text-sm">Earnings from completed orders will appear here</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === "request-payout" && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Request Payout</CardTitle>
+                <p className="text-sm text-gray-600">
+                  Fulfilled orders ready for payout request
                 </p>
               </CardHeader>
               <CardContent>
@@ -267,11 +310,12 @@ export default function Earnings() {
                               Your Earnings
                             </span>
                           </div>
-                          <div className="text-center">
-                            <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
-                              Ready for Payout
-                            </span>
-                          </div>
+                          <Button 
+                            className="bg-green-600 hover:bg-green-700"
+                            data-testid={`button-request-payout-${order.id}`}
+                          >
+                            Request Payout
+                          </Button>
                         </div>
                       );
                     })}
@@ -283,23 +327,6 @@ export default function Earnings() {
                     <p className="text-sm">Orders will appear here when they're delivered and fulfilled</p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {activeTab === "paid-orders" && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Earnings Available for Payout</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-gray-500">
-                  <CheckCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>Contact admin for payout processing</p>
-                  <p className="text-sm">Direct payout processing has been simplified</p>
-                </div>
               </CardContent>
             </Card>
           </div>
