@@ -82,9 +82,16 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
     retry: false,
   });
 
-  // For now, show all order earnings until proper backend linkage is implemented
-  // TODO: Implement proper order-to-payout-request linkage in backend
-  const completedPayoutEarnings = orderEarnings;
+  // Filter to show only orders with completed payout requests
+  // Orders should move from Payout Requests tab to Order Earnings tab after payout completion
+  const completedPayoutEarnings = orderEarnings.filter((earning: OrderEarning) => {
+    // Check if there's a completed payout request for this order
+    return payoutRequests.some((request: PayoutRequest) => 
+      request.status === 'completed' && 
+      // Using amount matching as proxy until proper order-payout linkage is implemented
+      Math.abs(request.amount - earning.amount) < 0.01
+    );
+  });
 
   // Fetch delivered orders eligible for payout
   const { data: deliveredOrders = [], isLoading: deliveredOrdersLoading } = useQuery({
