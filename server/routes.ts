@@ -136,6 +136,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/auth/vendor', isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const vendor = req.vendor;
+      
+      if (!vendor) {
+        return res.status(401).json({ message: "Invalid vendor session" });
+      }
+
+      // Return vendor data (without password hash)
+      const { passwordHash, ...vendorData } = vendor;
+      res.json(vendorData);
+    } catch (error) {
+      console.error("Vendor auth check error:", error);
+      res.status(500).json({ message: "Failed to verify vendor authentication" });
+    }
+  });
+
   app.put('/api/auth/profile', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -2361,6 +2378,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching vendor earnings:', error);
       res.status(500).json({ message: 'Failed to fetch earnings data' });
+    }
+  });
+
+  // Get vendor order earnings - orders with calculated payouts
+  app.get('/api/vendor/:vendorId/order-earnings', isVendorAuthenticated, async (req, res) => {
+    try {
+      const { vendorId } = req.params;
+      
+      // Get all orders for this vendor that have earnings calculated
+      const orders = await storage.getVendorOrders(vendorId);
+      const orderEarnings = await storage.getVendorEarnings(vendorId);
+      
+      // Group earnings by order ID
+      const earningsByOrder = new Map();
+      orderEarnings.forEach(earning => {
+        if (!earningsByOrder.has(earning.orderId)) {
+          earningsByOrder.set(earning.orderId, []);
+        }
+        earningsByOrder.get(earning.orderId).push(earning);
+      });
+      
+      // Filter orders that have earnings and combine with their earnings data
+      const ordersWithEarnings = orders
+        .filter(order => earningsByOrder.has(order.id))
+        .map(order => {
+          const earnings = earningsByOrder.get(order.id);
+          const totalEarnings = earnings.reduce((sum, earning) => sum + parseFloat(earning.netEarnings), 0);
+          const totalPlatformFee = earnings.reduce((sum, earning) => sum + parseFloat(earning.platformFee), 0);
+          const totalGrossAmount = earnings.reduce((sum, earning) => sum + parseFloat(earning.grossAmount), 0);
+          
+          return {
+            ...order,
+            earnings: earnings,
+            totalEarnings: totalEarnings.toFixed(2),
+            totalPlatformFee: totalPlatformFee.toFixed(2),
+            totalGrossAmount: totalGrossAmount.toFixed(2),
+            earningsCount: earnings.length
+          };
+        })
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+      res.json(ordersWithEarnings);
+    } catch (error) {
+      console.error('Error fetching vendor order earnings:', error);
+      res.status(500).json({ message: 'Failed to fetch order earnings data' });
     }
   });
 

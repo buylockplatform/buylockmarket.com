@@ -35,10 +35,50 @@ interface EarningsData {
   recentEarnings: VendorEarning[];
 }
 
+interface OrderWithEarnings extends Order {
+  earnings: VendorEarning[];
+  totalEarnings: string;
+  totalPlatformFee: string;
+  totalGrossAmount: string;
+  earningsCount: number;
+}
+
 export default function Earnings() {
   const [activeTab, setActiveTab] = useState<"overview" | "order-earnings" | "request-payout">("overview");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Request payout mutation
+  const requestPayoutMutation = useMutation({
+    mutationFn: async ({ orderId, amount }: { orderId: string; amount: string }) => {
+      return apiRequest(`/api/vendor/${vendor?.id}/payout-request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amount,
+          reason: `Payout request for fulfilled order #${orderId.slice(-8)}`
+        }),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Payout request submitted",
+        description: "Your payout request has been submitted for review.",
+      });
+      // Refresh earnings data
+      queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendor?.id}/earnings`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendor?.id}/orders/fulfilled`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Payout request failed",
+        description: error.message || "Failed to submit payout request. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const { data: vendor } = useQuery<Vendor>({
     queryKey: ["/api/auth/vendor"],
@@ -47,6 +87,11 @@ export default function Earnings() {
   const { data: earnings } = useQuery<EarningsData>({
     queryKey: [`/api/vendor/${vendor?.id}/earnings`],
     enabled: !!vendor?.id,
+  });
+
+  const { data: orderEarnings = [] } = useQuery<OrderWithEarnings[]>({
+    queryKey: [`/api/vendor/${vendor?.id}/order-earnings`],
+    enabled: !!vendor?.id && activeTab === "order-earnings",
   });
 
   const { data: fulfilledOrders = [] } = useQuery<Order[]>({
@@ -235,30 +280,59 @@ export default function Earnings() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Order Earnings Breakdown</CardTitle>
+                <CardTitle>Order Earnings - Payout Sorted</CardTitle>
                 <p className="text-sm text-gray-600">
-                  Detailed breakdown of your earnings from individual orders
+                  Orders with calculated payouts and earnings breakdown
                 </p>
               </CardHeader>
               <CardContent>
-                {earnings?.recentEarnings && earnings.recentEarnings.length > 0 ? (
+                {orderEarnings && orderEarnings.length > 0 ? (
                   <div className="space-y-4">
-                    {earnings.recentEarnings.map((earning) => (
-                      <div key={earning.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">Order #{earning.orderId.slice(-8)}</p>
-                          <p className="text-sm text-gray-600">
-                            {new Date(earning.earningDate).toLocaleDateString()}
-                          </p>
+                    {orderEarnings.map((order) => (
+                      <div key={order.id} className="border rounded-lg overflow-hidden">
+                        <div className="bg-gray-50 p-4 border-b">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-gray-900">Order #{order.id.slice(-8)}</p>
+                              <p className="text-sm text-gray-600">
+                                Fulfilled: {new Date(order.updatedAt).toLocaleDateString()}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Status: <span className="capitalize">{order.status}</span> • Items: {order.earningsCount}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <div className="space-y-1">
+                                <p className="text-sm text-gray-600">Order Total: {formatMoney(order.totalGrossAmount)}</p>
+                                <p className="text-sm text-gray-600">Platform Fee: {formatMoney(order.totalPlatformFee)}</p>
+                                <p className="font-medium text-green-600 text-lg">Your Earnings: {formatMoney(order.totalEarnings)}</p>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-medium text-gray-900">{formatMoney(earning.netEarnings)}</p>
-                          <p className="text-sm text-gray-600">
-                            Platform fee: {formatMoney(earning.platformFee)}
-                          </p>
-                        </div>
-                        <div className="ml-4">
-                          {getStatusBadge(earning.status)}
+                        
+                        {/* Earnings breakdown */}
+                        <div className="p-4">
+                          <h4 className="text-sm font-medium text-gray-700 mb-3">Earnings Breakdown</h4>
+                          <div className="space-y-2">
+                            {order.earnings.map((earning) => (
+                              <div key={earning.id} className="flex items-center justify-between text-sm p-3 bg-gray-50 rounded">
+                                <div className="flex-1">
+                                  <p className="text-gray-900">Item Earning</p>
+                                  <p className="text-xs text-gray-500">
+                                    Recorded: {new Date(earning.earningDate).toLocaleDateString()}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-medium text-gray-900">{formatMoney(earning.netEarnings)}</p>
+                                  <p className="text-xs text-gray-600">Fee: {formatMoney(earning.platformFee)}</p>
+                                </div>
+                                <div className="ml-4">
+                                  {getStatusBadge(earning.status)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -266,8 +340,8 @@ export default function Earnings() {
                 ) : (
                   <div className="text-center py-8 text-gray-500">
                     <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No order earnings data available</p>
-                    <p className="text-sm">Earnings from completed orders will appear here</p>
+                    <p>No orders with calculated earnings</p>
+                    <p className="text-sm">Orders with calculated payouts will appear here once fulfilled</p>
                   </div>
                 )}
               </CardContent>
@@ -313,8 +387,13 @@ export default function Earnings() {
                           <Button 
                             className="bg-green-600 hover:bg-green-700"
                             data-testid={`button-request-payout-${order.id}`}
+                            onClick={() => requestPayoutMutation.mutate({ 
+                              orderId: order.id, 
+                              amount: vendorEarnings.toString() 
+                            })}
+                            disabled={requestPayoutMutation.isPending}
                           >
-                            Request Payout
+                            {requestPayoutMutation.isPending ? "Processing..." : "Request Payout"}
                           </Button>
                         </div>
                       );
