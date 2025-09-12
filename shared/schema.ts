@@ -592,6 +592,7 @@ export const couriers = pgTable("couriers", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+
 export type Courier = typeof couriers.$inferSelect;
 export type InsertCourier = typeof couriers.$inferInsert;
 export type Category = typeof categories.$inferSelect;

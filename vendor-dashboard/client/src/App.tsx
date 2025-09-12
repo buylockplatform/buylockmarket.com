@@ -6,6 +6,7 @@ import Register from "@/pages/register";
 import Dashboard from "@/pages/dashboard";
 import Products from "@/pages/products";
 import Services from "@/pages/services";
+import Earnings from "@/pages/earnings";
 import Settings from "@/pages/settings";
 import type { Vendor } from "@shared/schema";
 
@@ -40,6 +41,7 @@ function App() {
               <Route path="/" component={Dashboard} />
               <Route path="/products" component={Products} />
               <Route path="/services" component={Services} />
+              <Route path="/earnings" component={Earnings} />
               <Route path="/settings" component={Settings} />
               <Route component={() => <div>Page not found</div>} />
             </>

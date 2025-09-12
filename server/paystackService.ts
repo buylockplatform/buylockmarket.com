@@ -220,7 +220,7 @@ export class PaystackService {
 
     // Verify the account details
     try {
-      await this.resolveAccountNumber(vendor.accountNumber, bankCode);
+      await this.resolveAccountNumber(vendor.accountNumber, bankCode!);
     } catch (error) {
       throw new Error(`Invalid account details: ${error}`);
     }
@@ -228,7 +228,7 @@ export class PaystackService {
     // Create the subaccount
     const subaccountData: PaystackSubaccountData = {
       business_name: vendor.businessName,
-      settlement_bank: bankCode,
+      settlement_bank: bankCode!,
       account_number: vendor.accountNumber,
       percentage_charge: 80, // Vendor gets 80%, platform gets 20%
       description: `Subaccount for ${vendor.businessName}`,
@@ -278,7 +278,7 @@ export class PaystackService {
       type: 'nuban',
       name: vendor.accountName,
       account_number: vendor.accountNumber,
-      bank_code: bankCode,
+      bank_code: bankCode!,
       currency: 'KES',
       description: `Transfer recipient for ${vendor.businessName}`,
       metadata: {

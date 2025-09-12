@@ -75,6 +75,9 @@ import { seedDatabase } from "./seedDatabase";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize Paystack SDK
   const paystack = Paystack(process.env.PAYSTACK_SECRET_KEY!);
+  
+  // Initialize PaystackService for subaccounts
+  const paystackService = new PaystackService();
 
   // Auth middleware
   await setupAuth(app);
@@ -297,6 +300,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bcrypt = await import("bcrypt");
       const passwordHash = await bcrypt.hash(password, 10);
 
+      // Extract bank details if provided
+      const { 
+        bankName, 
+        bankCode, 
+        accountNumber, 
+        accountName 
+      } = req.body;
+
       // Create vendor with pending approval status
       const newVendor = await storage.createVendor({
         email,
@@ -317,7 +328,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nationalIdUrl,
         taxCertificateUrl: vendorType === 'registered' ? taxCertificateUrl : null,
         verificationStatus: 'pending',
+        // Add bank details if provided
+        bankName,
+        bankCode,
+        accountNumber,
+        accountName,
       });
+
+      // Create Paystack subaccount if bank details are complete
+      let subaccountInfo = null;
+      if (bankName && accountNumber && accountName) {
+        try {
+          console.log(`Creating Paystack subaccount for vendor: ${businessName}`);
+          subaccountInfo = await paystackService.createVendorSubaccount({
+            businessName,
+            contactName,
+            email,
+            bankName,
+            bankCode,
+            accountNumber,
+            accountName,
+          });
+
+          // Update vendor with subaccount information
+          await storage.updateVendor(newVendor.id, {
+            paystackSubaccountId: subaccountInfo.subaccountId,
+            paystackSubaccountCode: subaccountInfo.subaccountCode,
+            subaccountActive: true,
+          });
+
+          console.log(`✅ Paystack subaccount created: ${subaccountInfo.subaccountCode}`);
+        } catch (error) {
+          console.error("Failed to create Paystack subaccount:", error);
+          // Continue registration even if subaccount creation fails
+          // The vendor can add bank details later and create subaccount then
+        }
+      }
 
       // Send registration confirmation email
       try {
@@ -332,12 +378,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { passwordHash: _, ...vendorData } = newVendor;
       res.status(201).json({
         ...vendorData,
-        message: "Vendor registration successful. Your application and documents are now pending admin approval."
+        subaccountCreated: !!subaccountInfo,
+        subaccountCode: subaccountInfo?.subaccountCode,
+        message: subaccountInfo 
+          ? "Vendor registration successful with Paystack subaccount. Your application and documents are now pending admin approval."
+          : "Vendor registration successful. Your application and documents are now pending admin approval."
       });
 
     } catch (error) {
       console.error("Vendor registration error:", error);
       res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
+  // Order fulfillment and earnings calculation
+  app.put("/api/orders/:orderId/fulfill", async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      
+      // Get the order with items
+      const order = await storage.getOrderWithItems(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      // Verify order can be fulfilled (must be delivered)
+      if (order.status !== 'delivered') {
+        return res.status(400).json({ 
+          message: "Order must be delivered before it can be fulfilled for payout" 
+        });
+      }
+
+      // Update order status to fulfilled
+      await storage.updateOrder(orderId, { status: 'fulfilled' });
+
+      // Calculate vendor earnings for each order item
+      const platformFeePercentage = 20; // 20% platform fee
+      
+      for (const item of order.items) {
+        const grossAmount = parseFloat(item.price) * item.quantity;
+        const platformFee = grossAmount * (platformFeePercentage / 100);
+        const netEarnings = grossAmount - platformFee;
+
+        // Create vendor earning record
+        await storage.createVendorEarning({
+          vendorId: order.vendorId,
+          orderId: order.id,
+          orderItemId: item.id,
+          grossAmount: grossAmount.toString(),
+          platformFeePercentage: platformFeePercentage.toString(),
+          platformFee: platformFee.toString(),
+          netEarnings: netEarnings.toString(),
+          status: 'available',
+          availableDate: new Date(),
+        });
+
+        // Update vendor's available balance
+        await storage.updateVendorBalance(order.vendorId, netEarnings);
+      }
+
+      console.log(`✅ Order ${orderId} fulfilled and earnings calculated for vendor ${order.vendorId}`);
+      
+      res.json({ 
+        message: "Order fulfilled and vendor earnings calculated",
+        orderId,
+        status: 'fulfilled'
+      });
+
+    } catch (error) {
+      console.error("Order fulfillment error:", error);
+      res.status(500).json({ message: "Failed to fulfill order" });
     }
   });
 

@@ -1,0 +1,449 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import VendorLayout from "@/components/vendor-layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  DollarSign, 
+  TrendingUp, 
+  Clock, 
+  CheckCircle, 
+  AlertCircle,
+  Calendar,
+  FileText,
+  CreditCard
+} from "lucide-react";
+import { apiRequest } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import type { Vendor } from "@shared/schema";
+
+interface Order {
+  id: string;
+  vendorId: string;
+  status: string;
+  totalAmount: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface VendorEarning {
+  id: string;
+  vendorId: string;
+  orderId: string;
+  orderItemId: string;
+  grossAmount: string;
+  platformFee: string;
+  netEarnings: string;
+  status: string;
+  earningDate: Date;
+}
+
+interface PayoutRequest {
+  id: string;
+  vendorId: string;
+  requestedAmount: string;
+  status: string;
+  requestReason?: string;
+  createdAt: Date;
+  completedAt?: Date;
+}
+
+interface EarningsData {
+  totalEarnings: number;
+  availableBalance: number;
+  pendingBalance: number;
+  recentEarnings: VendorEarning[];
+}
+
+export default function Earnings() {
+  const [activeTab, setActiveTab] = useState<"overview" | "request-payout" | "paid-orders">("overview");
+  const [payoutAmount, setPayoutAmount] = useState("");
+  const [payoutReason, setPayoutReason] = useState("");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: vendor } = useQuery<Vendor>({
+    queryKey: ["/api/auth/vendor"],
+  });
+
+  const { data: earnings } = useQuery<EarningsData>({
+    queryKey: [`/api/vendor/${vendor?.id}/earnings`],
+    enabled: !!vendor?.id,
+  });
+
+  const { data: fulfilledOrders = [] } = useQuery<Order[]>({
+    queryKey: [`/api/vendor/${vendor?.id}/orders/fulfilled`],
+    enabled: !!vendor?.id && activeTab === "request-payout",
+  });
+
+  const { data: payoutRequests = [] } = useQuery<PayoutRequest[]>({
+    queryKey: [`/api/vendor/${vendor?.id}/payout-requests`],
+    enabled: !!vendor?.id,
+  });
+
+  const requestPayoutMutation = useMutation({
+    mutationFn: (data: { amount: number; reason?: string }) =>
+      apiRequest(`/api/vendor/${vendor?.id}/payout-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Payout Requested",
+        description: "Your payout request has been submitted for review.",
+      });
+      setPayoutAmount("");
+      setPayoutReason("");
+      queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendor?.id}/earnings`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendor?.id}/payout-requests`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to request payout",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handlePayoutRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = parseFloat(payoutAmount);
+    
+    if (!amount || amount <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid payout amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (earnings && amount > earnings.availableBalance) {
+      toast({
+        title: "Insufficient Balance",
+        description: "Payout amount cannot exceed available balance",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    requestPayoutMutation.mutate({
+      amount,
+      reason: payoutReason.trim() || undefined,
+    });
+  };
+
+  const tabs = [
+    { id: "overview", label: "Overview", icon: TrendingUp },
+    { id: "request-payout", label: "Request Payout", icon: CreditCard },
+    { id: "paid-orders", label: "Paid Out Orders", icon: CheckCircle },
+  ];
+
+  const getStatusBadge = (status: string) => {
+    const statusColors: { [key: string]: string } = {
+      pending: "bg-yellow-100 text-yellow-800",
+      approved: "bg-blue-100 text-blue-800",
+      processing: "bg-purple-100 text-purple-800",
+      completed: "bg-green-100 text-green-800",
+      rejected: "bg-red-100 text-red-800",
+      failed: "bg-red-100 text-red-800",
+    };
+
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[status] || "bg-gray-100 text-gray-800"}`}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </span>
+    );
+  };
+
+  return (
+    <VendorLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Earnings</h1>
+          <p className="text-gray-600 mt-1">
+            Manage your earnings and payout requests
+          </p>
+        </div>
+
+        {/* Earnings Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-green-100">
+                  <DollarSign className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Earnings</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    KES {earnings?.totalEarnings?.toLocaleString() || "0"}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-blue-100">
+                  <TrendingUp className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Available Balance</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    KES {earnings?.availableBalance?.toLocaleString() || "0"}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-yellow-100">
+                  <Clock className="w-6 h-6 text-yellow-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Pending Balance</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    KES {earnings?.pendingBalance?.toLocaleString() || "0"}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Bank Account Info */}
+        {vendor && (vendor as any).bankName && (
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <div className="p-2 rounded bg-blue-100">
+                  <CreditCard className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-blue-900">Bank Account</p>
+                  <p className="text-sm text-blue-700">
+                    {(vendor as any).bankName} - {(vendor as any).accountNumber} ({(vendor as any).accountName})
+                  </p>
+                </div>
+                {(vendor as any).paystackSubaccountCode && (
+                  <div className="ml-auto">
+                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                      Paystack Ready
+                    </span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Tabs */}
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === tab.id
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 mr-2" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === "overview" && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Earnings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {earnings?.recentEarnings && earnings.recentEarnings.length > 0 ? (
+                  <div className="space-y-4">
+                    {earnings.recentEarnings.map((earning) => (
+                      <div key={earning.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">Order #{earning.orderId.slice(-8)}</p>
+                          <p className="text-sm text-gray-600">
+                            {new Date(earning.earningDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-gray-900">KES {parseFloat(earning.netEarnings).toLocaleString()}</p>
+                          <p className="text-sm text-gray-600">
+                            Platform fee: KES {parseFloat(earning.platformFee).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="ml-4">
+                          {getStatusBadge(earning.status)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No earnings yet</p>
+                    <p className="text-sm">Complete orders to start earning</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === "request-payout" && (
+          <div className="space-y-6">
+            {/* Payout Request Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Request Payout</CardTitle>
+                <p className="text-sm text-gray-600">
+                  Request a payout from your available balance
+                </p>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handlePayoutRequest} className="space-y-4">
+                  <div>
+                    <Label htmlFor="amount">Amount (KES)</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      min="1"
+                      max={earnings?.availableBalance || 0}
+                      value={payoutAmount}
+                      onChange={(e) => setPayoutAmount(e.target.value)}
+                      placeholder="Enter amount"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Available: KES {earnings?.availableBalance?.toLocaleString() || "0"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="reason">Reason (Optional)</Label>
+                    <Input
+                      id="reason"
+                      value={payoutReason}
+                      onChange={(e) => setPayoutReason(e.target.value)}
+                      placeholder="e.g., Monthly payout, Emergency withdrawal"
+                    />
+                  </div>
+                  <Button 
+                    type="submit" 
+                    disabled={requestPayoutMutation.isPending || !earnings?.availableBalance}
+                    className="w-full"
+                  >
+                    {requestPayoutMutation.isPending ? "Processing..." : "Request Payout"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Fulfilled Orders */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Fulfilled Orders Ready for Payout</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {fulfilledOrders.length > 0 ? (
+                  <div className="space-y-4">
+                    {fulfilledOrders.map((order) => (
+                      <div key={order.id} className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">Order #{order.id.slice(-8)}</p>
+                          <p className="text-sm text-gray-600">
+                            Completed: {new Date(order.updatedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-gray-900">KES {parseFloat(order.totalAmount).toLocaleString()}</p>
+                          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                            Fulfilled
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <CheckCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No fulfilled orders</p>
+                    <p className="text-sm">Orders will appear here when they're delivered and fulfilled</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === "paid-orders" && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Payout History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {payoutRequests.length > 0 ? (
+                  <div className="space-y-4">
+                    {payoutRequests.map((payout) => (
+                      <div key={payout.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">Payout #{payout.id.slice(-8)}</p>
+                          <p className="text-sm text-gray-600">
+                            Requested: {new Date(payout.createdAt).toLocaleDateString()}
+                          </p>
+                          {payout.requestReason && (
+                            <p className="text-sm text-gray-500 mt-1">{payout.requestReason}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-gray-900">KES {parseFloat(payout.requestedAmount).toLocaleString()}</p>
+                          {payout.completedAt && (
+                            <p className="text-sm text-gray-600">
+                              Completed: {new Date(payout.completedAt).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                        <div className="ml-4">
+                          {getStatusBadge(payout.status)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                    <p>No payout history</p>
+                    <p className="text-sm">Your payout requests will appear here</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+    </VendorLayout>
+  );
+}

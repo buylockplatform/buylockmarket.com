@@ -10,7 +10,8 @@ import {
   LogOut,
   Menu,
   X,
-  Home
+  Home,
+  DollarSign
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import type { Vendor } from "@shared/schema";
@@ -23,6 +24,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
   { name: "Products", href: "/products", icon: Package },
   { name: "Services", href: "/services", icon: Users },
+  { name: "Earnings", href: "/earnings", icon: DollarSign },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
