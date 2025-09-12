@@ -189,6 +189,7 @@ export interface IStorage {
   
   // Vendor order management
   getVendorOrders(vendorId: string): Promise<Order[]>;
+  getVendorDeliveredOrders(vendorId: string): Promise<Order[]>;
   acceptOrder(orderId: string, vendorNotes?: string): Promise<Order>;
   updateOrderStatusByVendor(orderId: string, status: string, notes?: string): Promise<Order>;
 

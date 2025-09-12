@@ -75,23 +75,16 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
     retry: false,
   });
 
-  // Filter order earnings to show only those with completed payout requests
-  const completedPayoutEarnings = orderEarnings.filter((earning: OrderEarning) => {
-    // Check if there's a completed payout request for this order
-    return payoutRequests.some((request: PayoutRequest) => 
-      request.status === 'completed' && 
-      // Since we don't have orderId in payout requests, we'll use amount matching as a proxy
-      // This is a simplified approach - in production, you'd want to link payout requests to specific orders
-      request.amount === earning.amount
-    );
-  });
-
   // Fetch payout requests history
   const { data: payoutRequests = [], isLoading: payoutsLoading } = useQuery({
     queryKey: [`/api/vendor/${vendorId}/payout-requests`],
     queryFn: () => vendorApiRequest(`/api/vendor/${vendorId}/payout-requests`),
     retry: false,
   });
+
+  // For now, show all order earnings until proper backend linkage is implemented
+  // TODO: Implement proper order-to-payout-request linkage in backend
+  const completedPayoutEarnings = orderEarnings;
 
   // Fetch delivered orders eligible for payout
   const { data: deliveredOrders = [], isLoading: deliveredOrdersLoading } = useQuery({
