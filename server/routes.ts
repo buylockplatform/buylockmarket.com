@@ -410,25 +410,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Update order status to fulfilled
-      await storage.updateOrder(orderId, { status: 'fulfilled' });
+      // Check if order has already been fulfilled
+      if (order.status === 'fulfilled') {
+        return res.status(400).json({ 
+          message: "Order has already been fulfilled" 
+        });
+      }
 
-      // Calculate vendor earnings for each order item
-      const platformFeePercentage = 20; // 20% platform fee
-      
+      // Validate vendor exists
+      if (!order.vendorId) {
+        return res.status(400).json({ 
+          message: "Order has no associated vendor" 
+        });
+      }
+
+      // Validate order items exist and have valid data
       if (!order.orderItems || order.orderItems.length === 0) {
         return res.status(400).json({ 
           message: "Order has no items to calculate earnings for" 
         });
       }
+
+      // Validate all order items have valid price and quantity data
+      for (const item of order.orderItems) {
+        if (!item.price || isNaN(parseFloat(item.price)) || parseFloat(item.price) <= 0) {
+          return res.status(400).json({ 
+            message: `Invalid price for order item: ${item.name || item.id}` 
+          });
+        }
+        if (!item.quantity || item.quantity <= 0) {
+          return res.status(400).json({ 
+            message: `Invalid quantity for order item: ${item.name || item.id}` 
+          });
+        }
+        if (!item.id) {
+          return res.status(400).json({ 
+            message: "Order item missing ID" 
+          });
+        }
+      }
+
+      // Calculate vendor earnings for each order item using precise decimal arithmetic
+      const platformFeePercentage = 20; // 20% platform fee
+      let totalNetEarnings = 0;
+      
+      // Prepare earning records (but don't insert yet)
+      const earningRecords = [];
       
       for (const item of order.orderItems) {
-        const grossAmount = parseFloat(item.price) * item.quantity;
-        const platformFee = grossAmount * (platformFeePercentage / 100);
-        const netEarnings = grossAmount - platformFee;
+        // Use parseFloat for calculations but validate first
+        const price = parseFloat(item.price);
+        const quantity = parseInt(item.quantity.toString());
+        
+        // Calculate with proper rounding for financial precision
+        const grossAmount = Math.round((price * quantity) * 100) / 100; // Round to 2 decimal places
+        const platformFee = Math.round((grossAmount * (platformFeePercentage / 100)) * 100) / 100;
+        const netEarnings = Math.round((grossAmount - platformFee) * 100) / 100;
+        
+        totalNetEarnings += netEarnings;
 
-        // Create vendor earning record
-        await storage.createVendorEarning({
+        earningRecords.push({
           vendorId: order.vendorId,
           orderId: order.id,
           orderItemId: item.id,
@@ -439,17 +480,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'available',
           availableDate: new Date(),
         });
-
-        // Update vendor's available balance
-        await storage.updateVendorBalance(order.vendorId, netEarnings);
       }
 
+      // Now perform all database operations
+      // First update order status to fulfilled
+      await storage.updateOrder(orderId, { status: 'fulfilled' });
+
+      // Create all vendor earning records
+      for (const earningRecord of earningRecords) {
+        await storage.createVendorEarning(earningRecord);
+      }
+
+      // Update vendor's available balance with total earnings
+      await storage.updateVendorBalance(order.vendorId, totalNetEarnings);
+
       console.log(`✅ Order ${orderId} fulfilled and earnings calculated for vendor ${order.vendorId}`);
+      console.log(`💰 Total net earnings: ${totalNetEarnings.toFixed(2)} from ${earningRecords.length} items`);
       
       res.json({ 
         message: "Order fulfilled and vendor earnings calculated",
         orderId,
-        status: 'fulfilled'
+        status: 'fulfilled',
+        totalEarnings: totalNetEarnings.toFixed(2),
+        itemCount: earningRecords.length
       });
 
     } catch (error) {
