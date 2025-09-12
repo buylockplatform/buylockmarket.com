@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { adminApiRequest, queryClient, getAdminQueryFn } from "@/lib/queryClient";
+import type { PayoutRequest as BasePayoutRequest, Vendor, VendorEarning } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,42 +29,24 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-interface VendorEarnings {
+// Type combining vendor data with aggregated earnings information
+type VendorEarnings = Pick<Vendor, 'id' | 'businessName' | 'totalEarnings' | 'availableBalance' | 'pendingBalance'> & {
   vendorId: string;
-  businessName: string;
-  totalEarnings: string;
-  availableBalance: string;
-  pendingBalance: string;
   confirmedOrders: number;
   pendingOrders: number;
   disputedOrders: number;
   lastPayoutDate?: string;
   lastPayoutAmount?: string;
-}
+};
 
-interface PayoutRequest {
-  id: string;
-  vendorId: string;
-  vendorName: string;
-  businessName: string;
-  requestedAmount: string;
-  availableBalance: string;
-  status: 'pending' | 'approved' | 'rejected' | 'completed' | 'failed';
-  requestReason?: string;
-  adminNotes?: string;
-  transferFailureReason?: string;
-  createdAt: string;
-  reviewedAt?: string;
-  reviewedBy?: string;
-  completedAt?: string;
-  failedAt?: string;
-  paystackTransferId?: string;
-  paystackTransferCode?: string;
-  transferStatus?: string;
+// Type extending base payout request with vendor information
+type PayoutRequest = BasePayoutRequest & {
+  vendorName?: string;
+  businessName?: string;
   bankName?: string;
   accountNumber?: string;
   accountName?: string;
-}
+};
 
 interface PlatformEarnings {
   totalPlatformEarnings: string;
@@ -123,7 +106,10 @@ export default function EarningsManagementAdmin() {
       });
     },
     onSuccess: (data, variables) => {
+      // Invalidate all related queries to ensure UI consistency
       queryClient.invalidateQueries({ queryKey: ['/api/admin/payout-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/vendor-earnings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/platform-earnings'] });
       toast({
         title: "Success",
         description: `Payout request ${variables.action}d successfully`,
@@ -238,23 +224,23 @@ export default function EarningsManagementAdmin() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Earnings Management</h1>
-        <Badge variant="outline" className="text-sm">
+        <h1 className="text-3xl font-bold text-gray-900" data-testid="text-earnings-title">Earnings Management</h1>
+        <Badge variant="outline" className="text-sm" data-testid="badge-page-description">
           Financial Overview & Payment Processing
         </Badge>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-3" data-testid="tabs-earnings-management">
+          <TabsTrigger value="overview" className="flex items-center gap-2" data-testid="tab-financial-overview">
             <TrendingUp className="w-4 h-4" />
             Financial Overview
           </TabsTrigger>
-          <TabsTrigger value="payouts" className="flex items-center gap-2">
+          <TabsTrigger value="payouts" className="flex items-center gap-2" data-testid="tab-payout-management">
             <CreditCard className="w-4 h-4" />
             Payout Management
           </TabsTrigger>
-          <TabsTrigger value="vendors" className="flex items-center gap-2">
+          <TabsTrigger value="vendors" className="flex items-center gap-2" data-testid="tab-vendor-earnings">
             <Users className="w-4 h-4" />
             Vendor Earnings
           </TabsTrigger>
@@ -268,7 +254,7 @@ export default function EarningsManagementAdmin() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Platform Earnings</p>
-                    <p className="text-2xl font-bold text-buylock-primary">
+                    <p className="text-2xl font-bold text-buylock-primary" data-testid="text-platform-earnings">
                       {formatPrice(platformEarnings?.totalPlatformEarnings || '0')}
                     </p>
                   </div>
@@ -285,7 +271,7 @@ export default function EarningsManagementAdmin() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Vendor Earnings</p>
-                    <p className="text-2xl font-bold text-green-600">
+                    <p className="text-2xl font-bold text-green-600" data-testid="text-vendor-earnings">
                       {formatPrice(platformEarnings?.totalVendorEarnings || '0')}
                     </p>
                   </div>
@@ -302,7 +288,7 @@ export default function EarningsManagementAdmin() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Total Orders</p>
-                    <p className="text-2xl font-bold text-blue-600">
+                    <p className="text-2xl font-bold text-blue-600" data-testid="text-total-orders">
                       {platformEarnings?.totalOrders?.toLocaleString() || '0'}
                     </p>
                   </div>
@@ -319,7 +305,7 @@ export default function EarningsManagementAdmin() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
-                    <p className="text-2xl font-bold text-purple-600">
+                    <p className="text-2xl font-bold text-purple-600" data-testid="text-avg-order-value">
                       {formatPrice(platformEarnings?.avgOrderValue || '0')}
                     </p>
                   </div>
@@ -335,25 +321,25 @@ export default function EarningsManagementAdmin() {
           {/* Top Earning Vendors */}
           <Card>
             <CardHeader>
-              <CardTitle>Top Earning Vendors</CardTitle>
+              <CardTitle data-testid="text-top-vendors-title">Top Earning Vendors</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {platformEarnings?.topEarningVendors?.length > 0 ? (
                   platformEarnings.topEarningVendors.map((vendor, index) => (
-                    <div key={vendor.vendorId} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div key={vendor.vendorId} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`card-top-vendor-${vendor.vendorId}`}>
                       <div className="flex items-center space-x-4">
-                        <div className="flex items-center justify-center w-8 h-8 bg-buylock-primary text-white rounded-full text-sm font-bold">
+                        <div className="flex items-center justify-center w-8 h-8 bg-buylock-primary text-white rounded-full text-sm font-bold" data-testid={`badge-vendor-rank-${index + 1}`}>
                           {index + 1}
                         </div>
                         <div>
-                          <h3 className="font-semibold text-gray-900">{vendor.businessName}</h3>
-                          <p className="text-sm text-gray-600">Vendor ID: {vendor.vendorId.slice(0, 8)}</p>
+                          <h3 className="font-semibold text-gray-900" data-testid={`text-vendor-business-name-${vendor.vendorId}`}>{vendor.businessName}</h3>
+                          <p className="text-sm text-gray-600" data-testid={`text-vendor-id-${vendor.vendorId}`}>Vendor ID: {vendor.vendorId.slice(0, 8)}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-buylock-primary text-lg">{formatPrice(vendor.earnings)}</p>
-                        <Badge variant="outline">Top {index + 1}</Badge>
+                        <p className="font-bold text-buylock-primary text-lg" data-testid={`text-vendor-earnings-${vendor.vendorId}`}>{formatPrice(vendor.earnings)}</p>
+                        <Badge variant="outline" data-testid={`badge-vendor-top-${index + 1}`}>Top {index + 1}</Badge>
                       </div>
                     </div>
                   ))
