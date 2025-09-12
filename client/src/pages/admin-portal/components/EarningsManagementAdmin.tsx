@@ -63,15 +63,8 @@ interface PlatformEarnings {
 
 export default function EarningsManagementAdmin() {
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [activeTab, setActiveTab] = useState("overview");
-  const [selectedPayoutRequest, setSelectedPayoutRequest] = useState<PayoutRequest | null>(null);
-  const [isPayoutDialogOpen, setIsPayoutDialogOpen] = useState(false);
-  const [payoutAction, setPayoutAction] = useState<'approve' | 'reject'>('approve');
-  const [paymentReference, setPaymentReference] = useState('');
-  const [adminNotes, setAdminNotes] = useState('');
 
   // Fetch platform earnings overview
   const { data: platformEarnings, isLoading: platformLoading } = useQuery<PlatformEarnings>({
@@ -83,49 +76,6 @@ export default function EarningsManagementAdmin() {
   const { data: vendorEarnings = [], isLoading: vendorLoading } = useQuery<VendorEarnings[]>({
     queryKey: ['/api/admin/vendor-earnings'],
     queryFn: getAdminQueryFn({ on401: "returnNull" }),
-  });
-
-  // Fetch payout requests
-  const { data: payoutRequests = [], isLoading: payoutLoading } = useQuery<PayoutRequest[]>({
-    queryKey: ['/api/admin/payout-requests', statusFilter !== 'all' ? statusFilter : undefined],
-    queryFn: getAdminQueryFn({ on401: "returnNull" }),
-    refetchInterval: 30000 // Refresh every 30 seconds
-  });
-
-  // Process payout request mutation
-  const processPayoutMutation = useMutation({
-    mutationFn: async ({ requestId, action, paymentReference, adminNotes }: { 
-      requestId: string; 
-      action: 'approve' | 'reject'; 
-      paymentReference?: string;
-      adminNotes?: string;
-    }) => {
-      return adminApiRequest(`/api/admin/payout-requests/${requestId}/${action}`, 'POST', { 
-        paymentReference,
-        adminNotes 
-      });
-    },
-    onSuccess: (data, variables) => {
-      // Invalidate all related queries to ensure UI consistency
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/payout-requests'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/vendor-earnings'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/platform-earnings'] });
-      toast({
-        title: "Success",
-        description: `Payout request ${variables.action}d successfully`,
-      });
-      setIsPayoutDialogOpen(false);
-      setSelectedPayoutRequest(null);
-      setPaymentReference('');
-      setAdminNotes('');
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: `Failed to ${payoutAction} payout request: ${error.message}`,
-        variant: "destructive",
-      });
-    },
   });
 
   const formatPrice = (amount: string | number) => {
@@ -145,67 +95,9 @@ export default function EarningsManagementAdmin() {
     });
   };
 
-  const handleProcessPayout = (request: PayoutRequest, action: 'approve' | 'reject') => {
-    setSelectedPayoutRequest(request);
-    setPayoutAction(action);
-    setIsPayoutDialogOpen(true);
-  };
 
-  const handleSubmitPayout = () => {
-    if (!selectedPayoutRequest) return;
-    
-    if (payoutAction === 'approve' && !paymentReference.trim()) {
-      toast({
-        title: "Payment Reference Required",
-        description: "Please provide a payment reference for approval.",
-        variant: "destructive"
-      });
-      return;
-    }
 
-    processPayoutMutation.mutate({
-      requestId: selectedPayoutRequest.id,
-      action: payoutAction,
-      paymentReference: paymentReference.trim() || undefined,
-      adminNotes: adminNotes.trim() || undefined
-    });
-  };
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'completed': return 'default';
-      case 'approved': return 'secondary';
-      case 'pending': return 'outline';
-      case 'rejected':
-      case 'failed': return 'destructive';
-      default: return 'outline';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return CheckCircle;
-      case 'approved': return TrendingUp;
-      case 'pending': return Clock;
-      case 'rejected':
-      case 'failed': return XCircle;
-      default: return AlertCircle;
-    }
-  };
-
-  // Filter payout requests
-  const filteredPayouts = payoutRequests.filter((request) => {
-    const vendorName = request.vendorName || request.businessName || '';
-    const requestId = request.id || '';
-    
-    const matchesSearch = searchTerm === '' || 
-                         vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         requestId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || request.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  if (platformLoading || vendorLoading || payoutLoading) {
+  if (platformLoading || vendorLoading) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -231,14 +123,10 @@ export default function EarningsManagementAdmin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3" data-testid="tabs-earnings-management">
+        <TabsList className="grid w-full grid-cols-2" data-testid="tabs-earnings-management">
           <TabsTrigger value="overview" className="flex items-center gap-2" data-testid="tab-financial-overview">
             <TrendingUp className="w-4 h-4" />
             Financial Overview
-          </TabsTrigger>
-          <TabsTrigger value="payouts" className="flex items-center gap-2" data-testid="tab-payout-management">
-            <CreditCard className="w-4 h-4" />
-            Payout Management
           </TabsTrigger>
           <TabsTrigger value="vendors" className="flex items-center gap-2" data-testid="tab-vendor-earnings">
             <Users className="w-4 h-4" />

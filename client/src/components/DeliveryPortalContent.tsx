@@ -89,33 +89,26 @@ export default function DeliveryPortalContent() {
     queryKey: ['/api/delivery/providers'],
   });
 
-  const createDeliveryMutation = useMutation({
+  const fulfillOrderMutation = useMutation({
     mutationFn: async (data: { 
       orderId: string; 
-      providerId: string;
     }) => {
-      return await apiRequest('/api/deliveries/create', 'POST', {
-        orderId: data.orderId,
-        providerId: data.providerId,
-      });
+      return await apiRequest(`/api/orders/${data.orderId}/fulfill`, 'PUT');
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/deliveries'] });
       queryClient.invalidateQueries({ queryKey: ['/api/deliveries/pickup-orders'] });
-      
-      const courier = providers?.find(p => p.id === variables.providerId);
-      const courierName = courier?.name || 'Selected courier';
-      const estimatedTime = courier?.estimatedDeliveryTime || '2-4 hours';
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
       
       toast({
-        title: "Courier Notified Successfully! 🚚",
-        description: `${courierName} has been notified to pickup from vendor. Expected pickup within ${estimatedTime}.`,
+        title: "Order Fulfilled Successfully! ✅",
+        description: "Order has been marked as fulfilled and moved to completed orders. Vendor earnings have been calculated.",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to notify courier for pickup",
+        description: "Failed to fulfill order",
         variant: "destructive",
       });
     },
@@ -287,72 +280,54 @@ export default function DeliveryPortalContent() {
                     </div>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                          <Truck className="w-4 h-4 mr-1" />
-                          Notify Courier
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Order Fulfilled
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>
-                          <DialogTitle>Notify Courier for Pickup - Order #{order.trackingNumber}</DialogTitle>
+                          <DialogTitle>Mark Order as Fulfilled - Order #{order.trackingNumber}</DialogTitle>
                         </DialogHeader>
                         
                         <div className="space-y-4">
-                          <div className="bg-blue-50 p-4 rounded-lg">
-                            <h4 className="font-semibold text-blue-900 mb-2">Pre-Selected Courier (from checkout)</h4>
+                          <div className="bg-green-50 p-4 rounded-lg">
+                            <h4 className="font-semibold text-green-900 mb-2">Order Fulfillment Confirmation</h4>
                             <div className="space-y-2">
-                              <p className="text-blue-800">
-                                <strong>{order.courierName || 'BuyLock Dispatch'}</strong>
+                              <p className="text-green-800">
+                                Marking this order as <strong>fulfilled</strong> will:
                               </p>
-                              <div className="text-sm text-blue-700 space-y-1">
-                                <p><strong>Courier ID:</strong> {order.courierId || 'dispatch_service'}</p>
-                                <p><strong>ETA:</strong> {order.estimatedDeliveryTime || '2-4 hours'}</p>
-                                {(() => {
-                                  const courier = providers?.find(p => p.id === (order.courierId || 'dispatch_service'));
-                                  return courier && (
-                                    <>
-                                      <p><strong>Contact:</strong> {courier.contactPhone || 'Contact via platform'}</p>
-                                      <p><strong>Email:</strong> {courier.contactEmail || 'orders@buylock.co.ke'}</p>
-                                    </>
-                                  );
-                                })()}
+                              <div className="text-sm text-green-700 space-y-1">
+                                <p>• Move order to completed orders section</p>
+                                <p>• Calculate vendor earnings (80% of order value)</p>
+                                <p>• Make earnings available for payout request</p>
+                                <p>• Update order status to "Fulfilled"</p>
                               </div>
                             </div>
                           </div>
 
                           <div className="bg-gray-50 p-3 rounded-lg">
-                            <h5 className="font-medium text-gray-900 mb-1">Tracking Information</h5>
+                            <h5 className="font-medium text-gray-900 mb-1">Order Summary</h5>
                             <div className="text-sm text-gray-600 space-y-1">
-                              <p><strong>Internal ID:</strong> {order.internalTrackingId || order.trackingNumber}</p>
+                              <p><strong>Order ID:</strong> {order.trackingNumber}</p>
                               <p><strong>Order Total:</strong> {formatPrice(order.totalAmount)}</p>
+                              <p><strong>Customer:</strong> {order.user?.firstName} {order.user?.lastName}</p>
                               <p><strong>Delivery Address:</strong> {order.deliveryAddress}</p>
                             </div>
-                          </div>
-                          
-                          <div>
-                            <Label>Pickup Instructions</Label>
-                            <textarea 
-                              className="w-full mt-1 p-2 border rounded-md" 
-                              rows={3}
-                              placeholder="Add any special pickup instructions for the courier..."
-                            />
                           </div>
                           
                           <div className="pt-4">
                             <Button 
                               onClick={() => {
-                                // Use the courier that was selected during checkout
-                                const selectedCourierId = order.courierId || 'dispatch_service';
-                                createDeliveryMutation.mutate({
+                                fulfillOrderMutation.mutate({
                                   orderId: order.id,
-                                  providerId: selectedCourierId,
                                 });
                               }}
-                              disabled={createDeliveryMutation.isPending}
-                              className="w-full bg-blue-600 hover:bg-blue-700"
+                              disabled={fulfillOrderMutation.isPending}
+                              className="w-full bg-green-600 hover:bg-green-700"
                             >
-                              <Truck className="w-4 h-4 mr-2" />
-                              {createDeliveryMutation.isPending ? 'Notifying...' : `Notify ${order.courierName || 'BuyLock Dispatch'} to Pickup`}
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              {fulfillOrderMutation.isPending ? 'Fulfilling Order...' : 'Confirm Order Fulfilled'}
                             </Button>
                           </div>
                         </div>

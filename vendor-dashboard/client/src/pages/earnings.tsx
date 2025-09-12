@@ -36,9 +36,7 @@ interface EarningsData {
 }
 
 export default function Earnings() {
-  const [activeTab, setActiveTab] = useState<"overview" | "request-payout" | "paid-orders">("overview");
-  const [payoutAmount, setPayoutAmount] = useState("");
-  const [payoutReason, setPayoutReason] = useState("");
+  const [activeTab, setActiveTab] = useState<"overview" | "fulfilled-orders" | "paid-orders">("overview");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -53,7 +51,7 @@ export default function Earnings() {
 
   const { data: fulfilledOrders = [] } = useQuery<Order[]>({
     queryKey: [`/api/vendor/${vendor?.id}/orders/fulfilled`],
-    enabled: !!vendor?.id && activeTab === "request-payout",
+    enabled: !!vendor?.id && activeTab === "fulfilled-orders",
   });
 
   const { data: payoutRequests = [] } = useQuery<PayoutRequest[]>({
@@ -62,7 +60,7 @@ export default function Earnings() {
   });
 
   const requestPayoutMutation = useMutation({
-    mutationFn: (data: { amount: number; reason?: string }) =>
+    mutationFn: (data: { orderId: string; amount: number }) =>
       apiRequest(`/api/vendor/${vendor?.id}/payout-request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -73,10 +71,9 @@ export default function Earnings() {
         title: "Payout Requested",
         description: "Your payout request has been submitted for review.",
       });
-      setPayoutAmount("");
-      setPayoutReason("");
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendor?.id}/earnings`] });
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendor?.id}/payout-requests`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendor?.id}/orders/fulfilled`] });
     },
     onError: (error: any) => {
       toast({
@@ -87,38 +84,21 @@ export default function Earnings() {
     },
   });
 
-  const handlePayoutRequest = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOrderPayout = (order: Order) => {
+    // Calculate vendor earnings (80% of order value)
+    const platformFeePercentage = 20;
+    const totalOrderValue = parseMoneyToNumber(order.totalAmount.toString());
+    const vendorEarnings = totalOrderValue * (1 - platformFeePercentage / 100);
     
-    if (!isValidMoneyInput(payoutAmount)) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid payout amount",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const amount = parseMoneyToNumber(payoutAmount);
-    
-    if (earnings && isMoneyGreater(amount, earnings.availableBalance)) {
-      toast({
-        title: "Insufficient Balance",
-        description: "Payout amount cannot exceed available balance",
-        variant: "destructive",
-      });
-      return;
-    }
-
     requestPayoutMutation.mutate({
-      amount,
-      reason: payoutReason.trim() || undefined,
+      orderId: order.id,
+      amount: vendorEarnings,
     });
   };
 
   const tabs = [
     { id: "overview", label: "Overview", icon: TrendingUp },
-    { id: "request-payout", label: "Request Payout", icon: CreditCard },
+    { id: "fulfilled-orders", label: "Fulfilled Orders", icon: CreditCard },
     { id: "paid-orders", label: "Paid Out Orders", icon: CheckCircle },
   ];
 
@@ -292,80 +272,53 @@ export default function Earnings() {
           </div>
         )}
 
-        {activeTab === "request-payout" && (
+        {activeTab === "fulfilled-orders" && (
           <div className="space-y-6">
-            {/* Payout Request Form */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Request Payout</CardTitle>
-                <p className="text-sm text-gray-600">
-                  Request a payout from your available balance
-                </p>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handlePayoutRequest} className="space-y-4">
-                  <div>
-                    <Label htmlFor="amount">Amount (KES)</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      min="1"
-                      max={parseMoneyToNumber(earnings?.availableBalance)}
-                      value={payoutAmount}
-                      onChange={(e) => setPayoutAmount(e.target.value)}
-                      placeholder="Enter amount"
-                      required
-                      data-testid="input-payout-amount"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Available: {formatMoney(earnings?.availableBalance)}
-                    </p>
-                  </div>
-                  <div>
-                    <Label htmlFor="reason">Reason (Optional)</Label>
-                    <Input
-                      id="reason"
-                      value={payoutReason}
-                      onChange={(e) => setPayoutReason(e.target.value)}
-                      placeholder="e.g., Monthly payout, Emergency withdrawal"
-                    />
-                  </div>
-                  <Button 
-                    type="submit" 
-                    disabled={requestPayoutMutation.isPending || parseMoneyToNumber(earnings?.availableBalance) <= 0}
-                    className="w-full"
-                    data-testid="button-request-payout"
-                  >
-                    {requestPayoutMutation.isPending ? "Processing..." : "Request Payout"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            {/* Fulfilled Orders */}
+            {/* Fulfilled Orders Ready for Payout */}
             <Card>
               <CardHeader>
                 <CardTitle>Fulfilled Orders Ready for Payout</CardTitle>
+                <p className="text-sm text-gray-600">
+                  Orders that have been fulfilled and are ready for earning payouts
+                </p>
               </CardHeader>
               <CardContent>
                 {fulfilledOrders.length > 0 ? (
                   <div className="space-y-4">
-                    {fulfilledOrders.map((order) => (
-                      <div key={order.id} className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">Order #{order.id.slice(-8)}</p>
-                          <p className="text-sm text-gray-600">
-                            Completed: {new Date(order.updatedAt).toLocaleDateString()}
-                          </p>
+                    {fulfilledOrders.map((order) => {
+                      const platformFeePercentage = 20;
+                      const totalOrderValue = parseMoneyToNumber(order.totalAmount.toString());
+                      const vendorEarnings = totalOrderValue * (1 - platformFeePercentage / 100);
+                      const platformFee = totalOrderValue * (platformFeePercentage / 100);
+                      
+                      return (
+                        <div key={order.id} className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">Order #{order.id.slice(-8)}</p>
+                            <p className="text-sm text-gray-600">
+                              Fulfilled: {new Date(order.updatedAt).toLocaleDateString()}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Total: {formatMoneyNumber(totalOrderValue)} | Platform Fee: {formatMoneyNumber(platformFee)}
+                            </p>
+                          </div>
+                          <div className="text-right mr-4">
+                            <p className="font-medium text-green-600 text-lg">{formatMoneyNumber(vendorEarnings)}</p>
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                              Your Earnings
+                            </span>
+                          </div>
+                          <Button 
+                            onClick={() => handleOrderPayout(order)}
+                            disabled={requestPayoutMutation.isPending}
+                            className="bg-green-600 hover:bg-green-700"
+                            data-testid={`button-payout-${order.id}`}
+                          >
+                            {requestPayoutMutation.isPending ? "Processing..." : "Request Payout"}
+                          </Button>
                         </div>
-                        <div className="text-right">
-                          <p className="font-medium text-gray-900">{formatMoney(order.totalAmount)}</p>
-                          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                            Fulfilled
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
