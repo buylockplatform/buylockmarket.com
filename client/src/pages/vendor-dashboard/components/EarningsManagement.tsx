@@ -235,11 +235,9 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
 
       {/* Detailed Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="earnings">Order Earnings</TabsTrigger>
-          <TabsTrigger value="payouts">Payout Requests</TabsTrigger>
-          <TabsTrigger value="request">Request Payout</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -343,109 +341,6 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="payouts" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Payout Request History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {payoutRequests.length > 0 ? (
-                  payoutRequests.map((payout: PayoutRequest) => (
-                    <div key={payout.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-4">
-                          <div className="p-2 rounded-full bg-blue-100">
-                            <CreditCard className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">Payout Request</p>
-                            <p className="text-sm text-gray-600">{payout.bankAccount}</p>
-                            <p className="text-xs text-gray-500">
-                              Requested: {new Date(payout.requestDate).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-buylock-primary text-lg">
-                          {formatPrice(payout.amount)}
-                        </p>
-                        <Badge 
-                          variant={payout.status === 'completed' ? 'default' : 
-                                 payout.status === 'processing' ? 'secondary' : 
-                                 payout.status === 'pending' ? 'outline' : 'destructive'}
-                        >
-                          {payout.status}
-                        </Badge>
-                        {payout.processedDate && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Processed: {new Date(payout.processedDate).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Banknote className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No payout requests found</p>
-                    <p className="text-sm">Your payout requests will appear here</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="request" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Request Payout</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Payout Amount
-                  </label>
-                  <Input
-                    type="number"
-                    placeholder="Enter amount"
-                    value={payoutAmount}
-                    onChange={(e) => setPayoutAmount(e.target.value)}
-                    max={earningsData.availableBalance}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Available: {formatPrice(earningsData.availableBalance)}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bank Account Details
-                  </label>
-                  <Textarea
-                    placeholder="Enter your bank account details..."
-                    value={bankDetails}
-                    onChange={(e) => setBankDetails(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-              </div>
-              
-              <div className="flex justify-end">
-                <Button
-                  onClick={handlePayoutRequest}
-                  disabled={requestPayout.isPending || !payoutAmount || !bankDetails}
-                  className="bg-buylock-primary hover:bg-buylock-primary/90"
-                >
-                  <Send className="w-4 h-4 mr-2" />
-                  {requestPayout.isPending ? 'Requesting...' : 'Request Payout'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   );
