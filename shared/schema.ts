@@ -161,7 +161,7 @@ export const cartItems = pgTable("cart_items", {
 
 // Orders
 // Simplified order status enum
-export const orderStatusEnum = pgEnum("order_status", ["paid", "ready_for_pickup", "cancelled", "completed"]);
+export const orderStatusEnum = pgEnum("order_status", ["paid", "ready_for_pickup", "fulfilled", "cancelled", "completed"]);
 
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
