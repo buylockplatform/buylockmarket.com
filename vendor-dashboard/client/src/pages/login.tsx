@@ -20,7 +20,7 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: (data: LoginVendorInput) =>
-      apiRequest("/api/auth/login", {
+      apiRequest("/api/vendor/login", {
         method: "POST",
         body: JSON.stringify(data),
       }),
