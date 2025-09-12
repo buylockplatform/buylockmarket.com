@@ -402,10 +402,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
 
-      // Verify order can be fulfilled (must be delivered)
-      if (order.status !== 'delivered') {
+      // Verify order can be fulfilled (must be ready for pickup)
+      if (order.status !== 'ready_for_pickup') {
         return res.status(400).json({ 
-          message: "Order must be delivered before it can be fulfilled for payout" 
+          message: "Order must be ready for pickup before it can be fulfilled for payout" 
         });
       }
 

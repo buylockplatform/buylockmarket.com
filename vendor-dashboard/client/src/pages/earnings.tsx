@@ -54,47 +54,6 @@ export default function Earnings() {
     enabled: !!vendor?.id && activeTab === "fulfilled-orders",
   });
 
-  const { data: payoutRequests = [] } = useQuery<PayoutRequest[]>({
-    queryKey: [`/api/vendor/${vendor?.id}/payout-requests`],
-    enabled: !!vendor?.id,
-  });
-
-  const requestPayoutMutation = useMutation({
-    mutationFn: (data: { orderId: string; amount: number }) =>
-      apiRequest(`/api/vendor/${vendor?.id}/payout-request`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
-    onSuccess: () => {
-      toast({
-        title: "Payout Requested",
-        description: "Your payout request has been submitted for review.",
-      });
-      queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendor?.id}/earnings`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendor?.id}/payout-requests`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendor?.id}/orders/fulfilled`] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to request payout",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleOrderPayout = (order: Order) => {
-    // Calculate vendor earnings (80% of order value)
-    const platformFeePercentage = 20;
-    const totalOrderValue = parseMoneyToNumber(order.totalAmount.toString());
-    const vendorEarnings = totalOrderValue * (1 - platformFeePercentage / 100);
-    
-    requestPayoutMutation.mutate({
-      orderId: order.id,
-      amount: vendorEarnings,
-    });
-  };
 
   const tabs = [
     { id: "overview", label: "Overview", icon: TrendingUp },
@@ -308,14 +267,11 @@ export default function Earnings() {
                               Your Earnings
                             </span>
                           </div>
-                          <Button 
-                            onClick={() => handleOrderPayout(order)}
-                            disabled={requestPayoutMutation.isPending}
-                            className="bg-green-600 hover:bg-green-700"
-                            data-testid={`button-payout-${order.id}`}
-                          >
-                            {requestPayoutMutation.isPending ? "Processing..." : "Request Payout"}
-                          </Button>
+                          <div className="text-center">
+                            <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
+                              Ready for Payout
+                            </span>
+                          </div>
                         </div>
                       );
                     })}
@@ -336,43 +292,14 @@ export default function Earnings() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Payout History</CardTitle>
+                <CardTitle>Earnings Available for Payout</CardTitle>
               </CardHeader>
               <CardContent>
-                {payoutRequests.length > 0 ? (
-                  <div className="space-y-4">
-                    {payoutRequests.map((payout) => (
-                      <div key={payout.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">Payout #{payout.id.slice(-8)}</p>
-                          <p className="text-sm text-gray-600">
-                            Requested: {new Date(payout.createdAt).toLocaleDateString()}
-                          </p>
-                          {payout.requestReason && (
-                            <p className="text-sm text-gray-500 mt-1">{payout.requestReason}</p>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium text-gray-900">{formatMoney(payout.requestedAmount)}</p>
-                          {payout.completedAt && (
-                            <p className="text-sm text-gray-600">
-                              Completed: {new Date(payout.completedAt).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                        <div className="ml-4">
-                          {getStatusBadge(payout.status)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No payout history</p>
-                    <p className="text-sm">Your payout requests will appear here</p>
-                  </div>
-                )}
+                <div className="text-center py-8 text-gray-500">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>Contact admin for payout processing</p>
+                  <p className="text-sm">Direct payout processing has been simplified</p>
+                </div>
               </CardContent>
             </Card>
           </div>
