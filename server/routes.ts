@@ -416,7 +416,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate vendor earnings for each order item
       const platformFeePercentage = 20; // 20% platform fee
       
-      for (const item of order.items) {
+      if (!order.orderItems || order.orderItems.length === 0) {
+        return res.status(400).json({ 
+          message: "Order has no items to calculate earnings for" 
+        });
+      }
+      
+      for (const item of order.orderItems) {
         const grossAmount = parseFloat(item.price) * item.quantity;
         const platformFee = grossAmount * (platformFeePercentage / 100);
         const netEarnings = grossAmount - platformFee;
