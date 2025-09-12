@@ -1728,6 +1728,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get vendor fulfilled orders (ready for payout)
+  app.get('/api/vendor/:vendorId/orders/fulfilled', isVendorAuthenticated, async (req, res) => {
+    try {
+      const { vendorId } = req.params;
+      const fulfilledOrders = await storage.getVendorOrdersByStatus(vendorId, 'fulfilled');
+      res.json(fulfilledOrders);
+    } catch (error) {
+      console.error('Error fetching fulfilled orders:', error);
+      res.status(500).json({ message: 'Failed to fetch fulfilled orders' });
+    }
+  });
+
   // Create vendor product
   app.post('/api/vendor/products', isVendorAuthenticated, async (req, res) => {
     try {
