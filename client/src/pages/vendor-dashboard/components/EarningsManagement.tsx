@@ -409,10 +409,15 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                             className="bg-buylock-primary hover:bg-buylock-primary/90"
                             data-testid={`button-request-payout-${order.id}`}
                             onClick={() => {
+                              console.log("Request Payout button clicked for order:", order.id);
+                              console.log("Setting payout amount to:", order.totalAmount.toString());
                               setPayoutAmount(order.totalAmount.toString());
                               setBankDetails("");
+                              console.log("Setting showPayoutForm to true");
                               setShowPayoutForm(true);
+                              console.log("Setting active tab to payout-requests");
                               setActiveTab("payout-requests");
+                              console.log("showPayoutForm state after click should be true");
                             }}
                           >
                             <Send className="w-4 h-4 mr-1" />
