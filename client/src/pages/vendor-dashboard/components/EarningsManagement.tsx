@@ -107,8 +107,10 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
       return vendorApiRequest(`/api/vendor/${vendorId}/request-payout`, 'POST', data);
     },
     onSuccess: () => {
+      alert("Payout Request Submitted! Your payout request is being processed. You'll be notified once it's approved by admin.");
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/payout-requests`] });
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/earnings`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/orders/delivered`] });
       setPayoutAmount("");
       setBankDetails("");
       setShowPayoutForm(false);
@@ -384,7 +386,14 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                     <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
                   </div>
                 ) : deliveredOrders.length > 0 ? (
-                  deliveredOrders.map((order: any) => (
+                  deliveredOrders.map((order: any) => {
+                    // Check if this order already has a pending payout request
+                    const hasPendingPayout = payoutRequests.some((request: PayoutRequest) => 
+                      (request.status === 'pending' || request.status === 'processing') && 
+                      Math.abs(request.amount - order.totalAmount) < 0.01
+                    );
+                    
+                    return (
                     <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg bg-green-50">
                       <div className="flex-1">
                         <div className="flex items-center space-x-4">
@@ -404,29 +413,37 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                           Delivered
                         </Badge>
                         <div className="mt-2">
-                          <Button 
-                            size="sm" 
-                            className="bg-buylock-primary hover:bg-buylock-primary/90"
-                            data-testid={`button-request-payout-${order.id}`}
-                            onClick={() => {
-                              console.log("Request Payout button clicked for order:", order.id);
-                              console.log("Setting payout amount to:", order.totalAmount.toString());
-                              setPayoutAmount(order.totalAmount.toString());
-                              setBankDetails("");
-                              console.log("Setting showPayoutForm to true");
-                              setShowPayoutForm(true);
-                              console.log("Setting active tab to payout-requests");
-                              setActiveTab("payout-requests");
-                              console.log("showPayoutForm state after click should be true");
-                            }}
-                          >
-                            <Send className="w-4 h-4 mr-1" />
-                            Request Payout
-                          </Button>
+                          {hasPendingPayout ? (
+                            <Button 
+                              size="sm" 
+                              disabled
+                              className="bg-gray-400 cursor-not-allowed"
+                              data-testid={`button-request-payout-disabled-${order.id}`}
+                            >
+                              <Clock className="w-4 h-4 mr-1" />
+                              Payout Pending
+                            </Button>
+                          ) : (
+                            <Button 
+                              size="sm" 
+                              className="bg-buylock-primary hover:bg-buylock-primary/90"
+                              data-testid={`button-request-payout-${order.id}`}
+                              onClick={() => {
+                                setPayoutAmount(order.totalAmount.toString());
+                                setBankDetails("");
+                                setShowPayoutForm(true);
+                                setActiveTab("payout-requests");
+                              }}
+                            >
+                              <Send className="w-4 h-4 mr-1" />
+                              Request Payout
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="text-center py-8 text-gray-500">
                     <Banknote className="w-12 h-12 mx-auto mb-4 text-gray-300" />
