@@ -78,6 +78,38 @@ export default function EarningsManagementAdmin() {
     queryFn: getAdminQueryFn({ on401: "returnNull" }),
   });
 
+  // Fetch payout requests data
+  const { data: payoutRequests = [], isLoading: payoutLoading, refetch: refetchPayouts } = useQuery<PayoutRequest[]>({
+    queryKey: ['/api/admin/payout-requests'],
+    queryFn: getAdminQueryFn({ on401: "returnNull" }),
+  });
+
+  // Mutation for approving payout requests
+  const approvePayoutMutation = useMutation({
+    mutationFn: async ({ requestId, adminNotes }: { requestId: string; adminNotes?: string }) => {
+      return adminApiRequest(`/api/admin/payout-requests/${requestId}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ adminNotes }),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Payout Approved",
+        description: "The payout request has been approved and processed successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/payout-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/vendor-earnings'] });
+      refetchPayouts();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Approval Failed", 
+        description: error.message || "Failed to approve payout request. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const formatPrice = (amount: string | number) => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-KE', {
@@ -97,7 +129,7 @@ export default function EarningsManagementAdmin() {
 
 
 
-  if (platformLoading || vendorLoading) {
+  if (platformLoading || vendorLoading || payoutLoading) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -123,7 +155,7 @@ export default function EarningsManagementAdmin() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2" data-testid="tabs-earnings-management">
+        <TabsList className="grid w-full grid-cols-3" data-testid="tabs-earnings-management">
           <TabsTrigger value="overview" className="flex items-center gap-2" data-testid="tab-financial-overview">
             <TrendingUp className="w-4 h-4" />
             Financial Overview
@@ -131,6 +163,10 @@ export default function EarningsManagementAdmin() {
           <TabsTrigger value="vendors" className="flex items-center gap-2" data-testid="tab-vendor-earnings">
             <Users className="w-4 h-4" />
             Vendor Earnings
+          </TabsTrigger>
+          <TabsTrigger value="payouts" className="flex items-center gap-2" data-testid="tab-requested-payouts">
+            <CreditCard className="w-4 h-4" />
+            Requested Payouts
           </TabsTrigger>
         </TabsList>
 
@@ -283,6 +319,85 @@ export default function EarningsManagementAdmin() {
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="payouts" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5" />
+                Requested Payouts
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {payoutLoading ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-8 h-8 mx-auto mb-4 text-gray-400 animate-spin" />
+                  <p className="text-gray-500">Loading payout requests...</p>
+                </div>
+              ) : payoutRequests.filter(req => req.status === 'pending').length > 0 ? (
+                <div className="space-y-4">
+                  {payoutRequests
+                    .filter(req => req.status === 'pending')
+                    .map((request) => (
+                      <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg bg-orange-50" data-testid={`card-payout-request-${request.id}`}>
+                        <div className="flex items-center space-x-4">
+                          <div className="p-2 rounded-full bg-orange-100">
+                            <Clock className="w-5 h-5 text-orange-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900" data-testid={`text-vendor-business-name-${request.id}`}>
+                              {request.businessName || request.vendorName || 'Unknown Vendor'}
+                            </h3>
+                            <p className="text-sm text-gray-600" data-testid={`text-vendor-id-${request.id}`}>
+                              Vendor ID: {request.vendorId.slice(0, 8)}
+                            </p>
+                            <p className="text-sm text-gray-500" data-testid={`text-request-date-${request.id}`}>
+                              Requested: {formatDate(request.createdAt)}
+                            </p>
+                            {request.bankName && request.accountNumber && (
+                              <p className="text-xs text-gray-500" data-testid={`text-bank-details-${request.id}`}>
+                                {request.bankName} - ****{request.accountNumber.slice(-4)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right space-y-2">
+                          <p className="font-bold text-buylock-primary text-lg" data-testid={`text-request-amount-${request.id}`}>
+                            {formatPrice(request.requestedAmount)}
+                          </p>
+                          <Badge variant="outline" className="bg-orange-100 text-orange-700" data-testid={`badge-status-${request.id}`}>
+                            Pending Approval
+                          </Badge>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              onClick={() => approvePayoutMutation.mutate({ requestId: request.id })}
+                              disabled={approvePayoutMutation.isPending}
+                              data-testid={`button-approve-payout-${request.id}`}
+                            >
+                              {approvePayoutMutation.isPending ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <CheckCircle className="w-4 h-4" />
+                              )}
+                              Approve Payout
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <CreditCard className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>No pending payout requests</p>
+                  <p className="text-sm mt-2">Payout requests will appear here when vendors request withdrawals</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
