@@ -60,6 +60,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
   const [payoutAmount, setPayoutAmount] = useState("");
   const [bankDetails, setBankDetails] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
+  const [showPayoutForm, setShowPayoutForm] = useState(false);
 
   // Fetch vendor earnings data
   const { data: earnings, isLoading: earningsLoading } = useQuery({
@@ -110,6 +111,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/earnings`] });
       setPayoutAmount("");
       setBankDetails("");
+      setShowPayoutForm(false);
     },
   });
 
@@ -409,7 +411,8 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                             onClick={() => {
                               setPayoutAmount(order.totalAmount.toString());
                               setBankDetails("");
-                              setActiveTab("payout-form");
+                              setShowPayoutForm(true);
+                              setActiveTab("payout-requests");
                             }}
                           >
                             <Send className="w-4 h-4 mr-1" />
@@ -431,7 +434,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
           </Card>
 
           {/* Payout Request Form */}
-          {activeTab === "payout-form" && (
+          {showPayoutForm && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -480,7 +483,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                   </Button>
                   <Button 
                     variant="outline" 
-                    onClick={() => setActiveTab("payout-requests")}
+                    onClick={() => setShowPayoutForm(false)}
                     data-testid="button-cancel-payout"
                   >
                     Cancel
