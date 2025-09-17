@@ -2743,6 +2743,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update vendor balances
         await storage.updateVendorPendingBalance(request.vendorId, parseFloat(request.requestedAmount), 'subtract');
 
+        // Create earnings record for the order so it appears in order-earnings
+        if (request.orderId) {
+          try {
+            const payoutAmount = parseFloat(request.requestedAmount);
+            // Calculate platform fee (20% by default)
+            const platformFeePercentage = 0.20; // 20%
+            const platformFee = payoutAmount * (platformFeePercentage / (1 - platformFeePercentage)); // Reverse calculate from net amount
+            const grossAmount = payoutAmount + platformFee;
+            
+            await storage.createVendorEarning({
+              vendorId: request.vendorId,
+              orderId: request.orderId,
+              grossAmount: grossAmount.toString(),
+              platformFee: platformFee.toString(),
+              netEarnings: payoutAmount.toString(),
+              payoutDate: new Date(),
+              status: 'paid'
+            });
+            
+            console.log(`✅ Created earnings record for order ${request.orderId}: KES ${payoutAmount.toLocaleString()}`);
+          } catch (earningsError) {
+            console.error('Failed to create earnings record:', earningsError);
+            // Don't fail the payout approval if earnings creation fails
+          }
+        }
+
         // Send approval notification to vendor
         try {
           const notificationData: PayoutNotificationData = {
