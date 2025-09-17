@@ -2463,21 +2463,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const payoutAmount = parseFloat(amount.toString());
       const availableBalance = parseFloat(vendor.availableBalance || '0');
 
-      if (payoutAmount > availableBalance) {
-        return res.status(400).json({ 
-          message: 'Insufficient available balance',
-          availableBalance: availableBalance,
-          requestedAmount: payoutAmount
-        });
-      }
-
-      // Ensure vendor has bank details for Paystack
-      if (!vendor.bankName || !vendor.accountNumber || !vendor.accountName) {
-        return res.status(400).json({ 
-          message: 'Bank details required. Please update your profile with complete bank information.' 
-        });
-      }
-
       // Create payout request
       const payoutRequest = await storage.createPayoutRequest({
         vendorId,
