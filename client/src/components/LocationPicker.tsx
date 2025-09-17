@@ -235,7 +235,7 @@ export function LocationPicker({ onLocationSelect, initialLocation, className }:
           
           {/* Search Suggestions Dropdown */}
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 z-10 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+            <div className="absolute top-full left-0 right-0 z-[1000] mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
               {suggestions.map((suggestion) => (
                 <div
                   key={suggestion.place_id}
