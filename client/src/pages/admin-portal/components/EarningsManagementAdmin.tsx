@@ -93,13 +93,25 @@ export default function EarningsManagementAdmin() {
     mutationFn: async ({ requestId, adminNotes }: { requestId: string; adminNotes?: string }) => {
       return adminApiRequest(`/api/admin/payout-requests/${requestId}/approve`, 'POST', { adminNotes });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast({
         title: "Payout Approved",
         description: "The payout request has been approved and processed successfully.",
       });
+      
+      // Invalidate admin cache
       queryClient.invalidateQueries({ queryKey: ['/api/admin/payout-requests'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/vendor-earnings'] });
+      
+      // Find the vendor ID from the payout request and invalidate vendor cache
+      const approvedRequest = payoutRequests.find(req => req.id === variables.requestId);
+      if (approvedRequest?.vendorId) {
+        // Invalidate vendor cache so they see updated data immediately
+        queryClient.invalidateQueries({ queryKey: [`/api/vendor/${approvedRequest.vendorId}/payout-requests`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/vendor/${approvedRequest.vendorId}/order-earnings`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/vendor/${approvedRequest.vendorId}/earnings`] });
+      }
+      
       refetchPayouts();
     },
     onError: (error: any) => {
