@@ -104,7 +104,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
   // Request payout mutation
   const requestPayout = useMutation({
     mutationFn: async (data: { amount: string; bankDetails: string }) => {
-      return vendorApiRequest(`/api/vendor/${vendorId}/request-payout`, 'POST', data);
+      return vendorApiRequest(`/api/vendor/${vendorId}/payout-request`, 'POST', data);
     },
     onSuccess: () => {
       alert("Payout Request Submitted! Your payout request is being processed. You'll be notified once it's approved by admin.");
