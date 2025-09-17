@@ -2510,8 +2510,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/vendor/:vendorId/payout-requests', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
+      // Only return pending payout requests for vendors
+      // Approved/failed requests should not show up since they're no longer actionable
       const payoutRequests = await storage.getVendorPayoutRequests(vendorId);
-      res.json(payoutRequests);
+      const pendingRequests = payoutRequests.filter(request => request.status === 'pending');
+      res.json(pendingRequests);
     } catch (error) {
       console.error('Error fetching payout requests:', error);
       res.status(500).json({ message: 'Failed to fetch payout requests' });
@@ -3164,8 +3167,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/vendor/:vendorId/payout-requests', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
+      // Only return pending payout requests for vendors
+      // Approved/failed requests should not show up since they're no longer actionable
       const payoutRequests = await storage.getVendorPayoutRequests(vendorId);
-      res.json(payoutRequests);
+      const pendingRequests = payoutRequests.filter(request => request.status === 'pending');
+      res.json(pendingRequests);
     } catch (error) {
       console.error('Error fetching payout requests:', error);
       res.status(500).json({ message: 'Failed to fetch payout requests' });
