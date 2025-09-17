@@ -269,6 +269,32 @@ export class PaystackService {
     accountNumber: string;
     accountName: string;
   }, amount: number, reason?: string): Promise<{ transferId: string; transferCode: string }> {
+    // Check if we're in demo mode (development environment)
+    const isDemoMode = process.env.NODE_ENV === 'development' || process.env.PAYSTACK_DEMO_MODE === 'true';
+    
+    if (isDemoMode) {
+      // Simulate payout processing for demo purposes
+      console.log(`🎭 DEMO MODE: Simulating payout to ${vendor.businessName}`);
+      console.log(`💰 Amount: KES ${amount.toLocaleString()}`);
+      console.log(`🏦 Bank: ${vendor.bankName} - Account: ****${vendor.accountNumber.slice(-4)}`);
+      console.log(`📝 Reason: ${reason || `Payout to ${vendor.businessName}`}`);
+      
+      // Generate mock transfer data
+      const mockTransferId = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const mockTransferCode = `TRF_${Math.random().toString(36).substr(2, 12)}`;
+      
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log(`✅ DEMO: Mock transfer created - ID: ${mockTransferId}, Code: ${mockTransferCode}`);
+      
+      return {
+        transferId: mockTransferId,
+        transferCode: mockTransferCode
+      };
+    }
+
+    // Production mode - actual Paystack integration
     // First, resolve the bank code if not provided
     let bankCode = vendor.bankCode;
     if (!bankCode) {
