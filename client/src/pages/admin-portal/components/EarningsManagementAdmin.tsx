@@ -44,8 +44,12 @@ type PayoutRequest = BasePayoutRequest & {
   vendorName?: string;
   businessName?: string;
   bankName?: string;
+  bankCode?: string;
   accountNumber?: string;
   accountName?: string;
+  paystackSubaccountId?: string;
+  paystackSubaccountCode?: string;
+  subaccountActive?: boolean;
 };
 
 interface PlatformEarnings {
@@ -355,11 +359,37 @@ export default function EarningsManagementAdmin() {
                             <p className="text-sm text-gray-500" data-testid={`text-request-date-${request.id}`}>
                               Requested: {request.createdAt ? formatDate(request.createdAt) : 'Unknown date'}
                             </p>
-                            {request.bankName && request.accountNumber && (
-                              <p className="text-xs text-gray-500" data-testid={`text-bank-details-${request.id}`}>
-                                {request.bankName} - ****{request.accountNumber.slice(-4)}
-                              </p>
-                            )}
+                            
+                            {/* Enhanced Bank Details Section */}
+                            <div className="mt-2 p-2 bg-gray-50 rounded border" data-testid={`bank-details-section-${request.id}`}>
+                              <p className="text-xs font-medium text-gray-700 mb-1">Bank Account Details:</p>
+                              {request.bankName && request.accountNumber ? (
+                                <div className="space-y-1">
+                                  <p className="text-xs text-gray-600" data-testid={`text-bank-name-${request.id}`}>
+                                    <span className="font-medium">Bank:</span> {request.bankName}
+                                  </p>
+                                  <p className="text-xs text-gray-600" data-testid={`text-account-number-${request.id}`}>
+                                    <span className="font-medium">Account:</span> ****{request.accountNumber.slice(-4)}
+                                  </p>
+                                  {request.accountName && (
+                                    <p className="text-xs text-gray-600" data-testid={`text-account-name-${request.id}`}>
+                                      <span className="font-medium">Account Name:</span> {request.accountName}
+                                    </p>
+                                  )}
+                                  {request.paystackSubaccountCode ? (
+                                    <p className="text-xs text-green-600" data-testid={`text-paystack-subaccount-${request.id}`}>
+                                      <span className="font-medium">✓ Paystack Subaccount:</span> {request.paystackSubaccountCode}
+                                    </p>
+                                  ) : (
+                                    <p className="text-xs text-orange-600" data-testid={`text-no-subaccount-${request.id}`}>
+                                      <span className="font-medium">⚠ No Paystack Subaccount</span>
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-red-600">⚠ Bank details incomplete</p>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <div className="text-right space-y-2">
