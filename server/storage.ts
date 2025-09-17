@@ -2254,8 +2254,12 @@ export class DatabaseStorage implements IStorage {
         contactName: vendors.contactName,
         email: vendors.email,
         bankName: vendors.bankName,
+        bankCode: vendors.bankCode,
         accountNumber: vendors.accountNumber,
-        accountName: vendors.accountName
+        accountName: vendors.accountName,
+        paystackSubaccountId: vendors.paystackSubaccountId,
+        paystackSubaccountCode: vendors.paystackSubaccountCode,
+        subaccountActive: vendors.subaccountActive
       }
     })
     .from(payoutRequests)
