@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 interface ObjectUploaderProps {
   maxNumberOfFiles?: number;
   maxFileSize?: number;
+  allowedFileTypes?: string[];
   onGetUploadParameters: () => Promise<{
     method: "PUT";
     url: string;
@@ -41,6 +42,7 @@ interface ObjectUploaderProps {
  * @param props.maxNumberOfFiles - Maximum number of files allowed to be uploaded
  *   (default: 1)
  * @param props.maxFileSize - Maximum file size in bytes (default: 10MB)
+ * @param props.allowedFileTypes - Array of allowed file types (default: ['image/*'])
  * @param props.onGetUploadParameters - Function to get upload parameters (method and URL).
  *   Typically used to fetch a presigned URL from the backend server for direct-to-S3
  *   uploads.
@@ -53,6 +55,7 @@ interface ObjectUploaderProps {
 export function ObjectUploader({
   maxNumberOfFiles = 1,
   maxFileSize = 10485760, // 10MB default
+  allowedFileTypes = ['image/*'], // Default to images for backward compatibility
   onGetUploadParameters,
   onComplete,
   buttonClassName,
@@ -64,7 +67,7 @@ export function ObjectUploader({
       restrictions: {
         maxNumberOfFiles,
         maxFileSize,
-        allowedFileTypes: ['image/*'], // Only allow images for product/service uploads
+        allowedFileTypes,
       },
       autoProceed: false,
     })
