@@ -2445,10 +2445,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/vendor/:vendorId/payout-request', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
-      const { amount, reason } = req.body;
+      const { orderId, amount, reason } = req.body;
       
       if (!amount || amount <= 0) {
         return res.status(400).json({ message: 'Valid amount is required' });
+      }
+
+      if (!orderId) {
+        return res.status(400).json({ message: 'Order ID is required' });
       }
 
       const vendor = await storage.getVendorById(vendorId);
@@ -2477,6 +2481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create payout request
       const payoutRequest = await storage.createPayoutRequest({
         vendorId,
+        orderId,
         requestedAmount: payoutAmount.toString(),
         availableBalance: availableBalance.toString(),
         status: 'pending',

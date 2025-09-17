@@ -22,6 +22,7 @@ import {
   Banknote
 } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface EarningsData {
   totalEarnings: number;
@@ -47,6 +48,7 @@ interface OrderEarning {
 interface PayoutRequest {
   id: string;
   amount: number;
+  orderId?: string;
   requestDate: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   bankAccount?: string;
@@ -58,6 +60,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
+  const { toast } = useToast();
 
   // Fetch vendor earnings data
   const { data: earnings, isLoading: earningsLoading } = useQuery({
@@ -100,14 +103,29 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
 
   // Request payout mutation
   const requestPayout = useMutation({
-    mutationFn: async (data: { amount: string }) => {
-      return vendorApiRequest(`/api/vendor/${vendorId}/payout-request`, 'POST', { amount: data.amount });
+    mutationFn: async (data: { orderId: string; amount: string }) => {
+      return vendorApiRequest(`/api/vendor/${vendorId}/payout-request`, 'POST', { 
+        orderId: data.orderId,
+        amount: data.amount 
+      });
     },
     onSuccess: () => {
-      alert("Payout Request Submitted! Your payout request is being processed. You'll be notified once it's approved by admin.");
+      toast({
+        title: "Payout Request Submitted!",
+        description: "Your payout request is being processed. You'll be notified once it's approved by admin.",
+        variant: "default"
+      });
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/payout-requests`] });
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/earnings`] });
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/orders/delivered`] });
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to submit payout request";
+      toast({
+        title: "Payout Request Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
     },
   });
 
@@ -144,19 +162,37 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
   const pendingEarnings = completedPayoutEarnings?.filter((e: OrderEarning) => e.status === 'pending') || [];
   const disputedEarnings = completedPayoutEarnings?.filter((e: OrderEarning) => e.status === 'disputed') || [];
 
-  const handlePayoutRequest = (amount: number) => {
+  const handlePayoutRequest = (orderId: string, amount: number) => {
     if (!amount || amount <= 0) {
-      alert('Invalid amount for payout request');
+      toast({
+        title: "Invalid Amount",
+        description: "Please provide a valid amount for payout request",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!orderId) {
+      toast({
+        title: "Missing Order ID",
+        description: "Order ID is required for payout request",
+        variant: "destructive"
+      });
       return;
     }
     
     const maxAmount = earningsData.availableBalance;
     if (amount > maxAmount) {
-      alert(`Amount cannot exceed available balance of ${formatPrice(maxAmount)}`);
+      toast({
+        title: "Amount Exceeds Balance",
+        description: `Amount cannot exceed available balance of ${formatPrice(maxAmount)}`,
+        variant: "destructive"
+      });
       return;
     }
     
     requestPayout.mutate({
+      orderId: orderId,
       amount: amount.toString()
     });
   };
@@ -376,7 +412,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                     // Check if this order already has a pending payout request
                     const hasPendingPayout = payoutRequests.some((request: PayoutRequest) => 
                       (request.status === 'pending' || request.status === 'processing') && 
-                      Math.abs(request.amount - order.totalAmount) < 0.01
+                      request.orderId === order.id
                     );
                     
                     return (
@@ -414,7 +450,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                               size="sm" 
                               className="bg-buylock-primary hover:bg-buylock-primary/90"
                               data-testid={`button-request-payout-${order.id}`}
-                              onClick={() => handlePayoutRequest(order.totalAmount)}
+                              onClick={() => handlePayoutRequest(order.id, order.totalAmount)}
                               disabled={requestPayout.isPending}
                             >
                               {requestPayout.isPending ? (

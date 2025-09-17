@@ -747,6 +747,7 @@ export const vendorEarnings = pgTable("vendor_earnings", {
 export const payoutRequests = pgTable("payout_requests", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   vendorId: varchar("vendor_id").references(() => vendors.id).notNull(),
+  orderId: uuid("order_id").references(() => orders.id).notNull(), // Link to specific order
   requestedAmount: decimal("requested_amount", { precision: 10, scale: 2 }).notNull(),
   availableBalance: decimal("available_balance", { precision: 10, scale: 2 }).notNull(), // Balance at time of request
   status: varchar("status", { length: 20 }).default("pending"), // pending, approved, rejected, processing, completed, failed
