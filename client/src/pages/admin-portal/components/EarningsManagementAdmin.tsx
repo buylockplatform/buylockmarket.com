@@ -111,6 +111,29 @@ export default function EarningsManagementAdmin() {
     },
   });
 
+  // Mutation for creating Paystack subaccount
+  const createSubaccountMutation = useMutation({
+    mutationFn: async (vendorId: string) => {
+      return adminApiRequest(`/api/admin/vendor/${vendorId}/create-subaccount`, 'POST', {});
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Subaccount Created",
+        description: `Paystack subaccount ${data.subaccountCode} created successfully.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/payout-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/vendor-earnings'] });
+      refetchPayouts();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Subaccount Creation Failed", 
+        description: error.message || "Failed to create Paystack subaccount. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const formatPrice = (amount: string | number) => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-KE', {
@@ -381,9 +404,25 @@ export default function EarningsManagementAdmin() {
                                       <span className="font-medium">✓ Paystack Subaccount:</span> {request.paystackSubaccountCode}
                                     </p>
                                   ) : (
-                                    <p className="text-xs text-orange-600" data-testid={`text-no-subaccount-${request.id}`}>
-                                      <span className="font-medium">⚠ No Paystack Subaccount</span>
-                                    </p>
+                                    <div className="space-y-1">
+                                      <p className="text-xs text-orange-600" data-testid={`text-no-subaccount-${request.id}`}>
+                                        <span className="font-medium">⚠ No Paystack Subaccount</span>
+                                      </p>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-xs h-6 px-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                                        onClick={() => createSubaccountMutation.mutate(request.vendorId)}
+                                        disabled={createSubaccountMutation.isPending}
+                                        data-testid={`button-create-subaccount-${request.id}`}
+                                      >
+                                        {createSubaccountMutation.isPending ? (
+                                          <RefreshCw className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          "Create Subaccount"
+                                        )}
+                                      </Button>
+                                    </div>
                                   )}
                                 </div>
                               ) : (
