@@ -189,6 +189,7 @@ export interface IStorage {
   
   // Vendor order management
   getVendorOrders(vendorId: string): Promise<Order[]>;
+  getVendorDeliveredOrders(vendorId: string): Promise<Order[]>;
   acceptOrder(orderId: string, vendorNotes?: string): Promise<Order>;
   updateOrderStatusByVendor(orderId: string, status: string, notes?: string): Promise<Order>;
 
@@ -1053,6 +1054,28 @@ export class DatabaseStorage implements IStorage {
     .orderBy(desc(orders.createdAt));
 
     return vendorOrders.map(order => ({
+      ...order,
+      totalAmount: parseFloat(order.totalAmount.toString()),
+      deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
+      shippingAddress: order.deliveryAddress || '',
+      orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
+      orderItems: []
+    }));
+  }
+
+  // Get vendor orders that have been delivered (fulfilled orders ready for payout)
+  async getVendorDeliveredOrders(vendorId: string): Promise<Order[]> {
+    const deliveredOrders = await db.select()
+    .from(orders)
+    .where(
+      and(
+        eq(orders.vendorId, vendorId),
+        eq(orders.status, 'fulfilled') // Look for fulfilled orders (ready for payout)
+      )
+    )
+    .orderBy(desc(orders.updatedAt));
+
+    return deliveredOrders.map(order => ({
       ...order,
       totalAmount: parseFloat(order.totalAmount.toString()),
       deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
