@@ -43,6 +43,19 @@ interface CustomerOrderConfirmationData {
   }>;
 }
 
+interface VendorAccountUnderReviewData {
+  vendorEmail: string;
+  vendorName: string;
+  businessName: string;
+}
+
+interface VendorAccountApprovedData {
+  vendorEmail: string;
+  vendorName: string;
+  businessName: string;
+  loginUrl: string;
+}
+
 export async function sendCourierNotification(data: CourierNotificationData): Promise<boolean> {
   try {
     const htmlContent = `
@@ -321,6 +334,243 @@ export async function sendCustomerOrderConfirmation(data: CustomerOrderConfirmat
     return true;
   } catch (error) {
     console.error('Error sending order confirmation:', error);
+    return false;
+  }
+}
+
+export async function sendVendorAccountUnderReviewNotification(data: VendorAccountUnderReviewData): Promise<boolean> {
+  try {
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .header { background: #FF4705; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; }
+            .status-box { background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #FFC107; }
+            .next-steps { background: #e8f4fd; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 0.9em; }
+            .highlight { color: #FF4705; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>📋 Account Under Review - BuyLock</h1>
+            <p>Your vendor application is being processed</p>
+          </div>
+          
+          <div class="content">
+            <h2>Hello ${data.vendorName},</h2>
+            <p>Thank you for registering <strong>${data.businessName}</strong> on BuyLock marketplace!</p>
+            
+            <div class="status-box">
+              <h3>⏳ Application Status: Under Review</h3>
+              <p>Your vendor account application has been successfully submitted and is currently being reviewed by our team.</p>
+              <p><strong>Business Name:</strong> ${data.businessName}</p>
+              <p><strong>Submitted documents:</strong> National ID and Tax Certificate</p>
+            </div>
+            
+            <div class="next-steps">
+              <h3>🔍 What's Next?</h3>
+              <ul>
+                <li><strong>Document Verification:</strong> Our team will verify your submitted documents (National ID and Tax Certificate)</li>
+                <li><strong>Business Validation:</strong> We'll validate your business information and compliance</li>
+                <li><strong>Account Approval:</strong> Once verified, you'll receive an approval email with login instructions</li>
+              </ul>
+              <p><span class="highlight">Estimated Review Time:</span> 1-3 business days</p>
+            </div>
+            
+            <div style="margin: 20px 0; padding: 15px; background: #d4edda; border-radius: 5px;">
+              <h3>📞 Need Help?</h3>
+              <p>If you have any questions about your application or need to update your information, please contact our vendor support team.</p>
+              <p><strong>Important:</strong> You will receive another email once your account is approved with login instructions.</p>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>© 2025 BuyLock Marketplace | Kenya's Premier E-commerce Platform</p>
+            <p>This is an automated notification. Please do not reply to this email.</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const textContent = `
+      ACCOUNT UNDER REVIEW - BUYLOCK
+      
+      Hello ${data.vendorName},
+      
+      Thank you for registering ${data.businessName} on BuyLock marketplace!
+      
+      APPLICATION STATUS: Under Review
+      
+      Your vendor account application has been successfully submitted and is currently being reviewed by our team.
+      
+      Business Name: ${data.businessName}
+      Submitted documents: National ID and Tax Certificate
+      
+      WHAT'S NEXT:
+      1. Document Verification: Our team will verify your submitted documents
+      2. Business Validation: We'll validate your business information and compliance
+      3. Account Approval: Once verified, you'll receive an approval email with login instructions
+      
+      Estimated Review Time: 1-3 business days
+      
+      NEED HELP?
+      If you have any questions about your application or need to update your information, please contact our vendor support team.
+      
+      Important: You will receive another email once your account is approved with login instructions.
+      
+      © 2025 BuyLock Marketplace | Kenya's Premier E-commerce Platform
+    `;
+
+    await transporter.sendMail({
+      from: `"BuyLock Marketplace" <${process.env.GMAIL_USER}>`,
+      to: data.vendorEmail,
+      subject: `📋 Account Under Review - ${data.businessName} | BuyLock`,
+      text: textContent,
+      html: htmlContent,
+    });
+
+    console.log(`Vendor account under review notification sent successfully to ${data.vendorEmail} for business ${data.businessName}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending vendor account under review notification:', error);
+    return false;
+  }
+}
+
+export async function sendVendorAccountApprovedNotification(data: VendorAccountApprovedData): Promise<boolean> {
+  try {
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .header { background: #28a745; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; }
+            .approval-box { background: #d4edda; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745; }
+            .login-button { 
+              background: #FF4705; 
+              color: white; 
+              padding: 15px 30px; 
+              text-decoration: none; 
+              border-radius: 5px; 
+              display: inline-block; 
+              font-weight: bold; 
+              margin: 20px 0;
+              text-align: center;
+            }
+            .next-steps { background: #e8f4fd; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 0.9em; }
+            .highlight { color: #FF4705; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>🎉 Account Approved - BuyLock</h1>
+            <p>Welcome to BuyLock Marketplace!</p>
+          </div>
+          
+          <div class="content">
+            <h2>Congratulations ${data.vendorName}!</h2>
+            <p>Your vendor account for <strong>${data.businessName}</strong> has been approved and is now active on BuyLock marketplace!</p>
+            
+            <div class="approval-box">
+              <h3>✅ Account Status: Approved & Active</h3>
+              <p>Your business documents have been verified and your vendor account is now ready to use.</p>
+              <p><strong>Business Name:</strong> ${data.businessName}</p>
+              <p><strong>Approval Date:</strong> ${new Date().toLocaleDateString('en-KE')}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <h3>🚀 Start Selling Today!</h3>
+              <p>Click the button below to access your vendor dashboard and begin listing your products or services:</p>
+              <a href="${data.loginUrl}" class="login-button" data-testid="button-vendor-login">
+                Access Vendor Dashboard
+              </a>
+            </div>
+            
+            <div class="next-steps">
+              <h3>📈 Getting Started Guide</h3>
+              <ol>
+                <li><strong>Complete Your Profile:</strong> Add business description, logo, and contact details</li>
+                <li><strong>List Products/Services:</strong> Start adding your inventory to the marketplace</li>
+                <li><strong>Set Up Payment:</strong> Configure your Paystack account for automatic payments</li>
+                <li><strong>Manage Orders:</strong> Use the dashboard to track and fulfill customer orders</li>
+              </ol>
+              <p><span class="highlight">Pro Tip:</span> Complete listings with high-quality images perform better!</p>
+            </div>
+            
+            <div style="margin: 20px 0; padding: 15px; background: #fff3cd; border-radius: 5px;">
+              <h3>📚 Vendor Resources</h3>
+              <ul>
+                <li><strong>Commission Rate:</strong> Platform commission is deducted automatically from sales</li>
+                <li><strong>Payment Schedule:</strong> Earnings are processed and paid out regularly</li>
+                <li><strong>Support:</strong> Access help documentation and vendor support in your dashboard</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>© 2025 BuyLock Marketplace | Kenya's Premier E-commerce Platform</p>
+            <p>Welcome to the BuyLock family! Let's grow your business together.</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const textContent = `
+      ACCOUNT APPROVED - BUYLOCK
+      
+      Congratulations ${data.vendorName}!
+      
+      Your vendor account for ${data.businessName} has been approved and is now active on BuyLock marketplace!
+      
+      ACCOUNT STATUS: Approved & Active
+      
+      Your business documents have been verified and your vendor account is now ready to use.
+      
+      Business Name: ${data.businessName}
+      Approval Date: ${new Date().toLocaleDateString('en-KE')}
+      
+      START SELLING TODAY!
+      
+      Access your vendor dashboard: ${data.loginUrl}
+      
+      GETTING STARTED GUIDE:
+      1. Complete Your Profile: Add business description, logo, and contact details
+      2. List Products/Services: Start adding your inventory to the marketplace
+      3. Set Up Payment: Configure your Paystack account for automatic payments
+      4. Manage Orders: Use the dashboard to track and fulfill customer orders
+      
+      Pro Tip: Complete listings with high-quality images perform better!
+      
+      VENDOR RESOURCES:
+      - Commission Rate: Platform commission is deducted automatically from sales
+      - Payment Schedule: Earnings are processed and paid out regularly
+      - Support: Access help documentation and vendor support in your dashboard
+      
+      © 2025 BuyLock Marketplace | Kenya's Premier E-commerce Platform
+      Welcome to the BuyLock family! Let's grow your business together.
+    `;
+
+    await transporter.sendMail({
+      from: `"BuyLock Marketplace" <${process.env.GMAIL_USER}>`,
+      to: data.vendorEmail,
+      subject: `🎉 Account Approved - Welcome to BuyLock | ${data.businessName}`,
+      text: textContent,
+      html: htmlContent,
+    });
+
+    console.log(`Vendor account approved notification sent successfully to ${data.vendorEmail} for business ${data.businessName}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending vendor account approved notification:', error);
     return false;
   }
 }

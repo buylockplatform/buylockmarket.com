@@ -5,6 +5,7 @@ import { appointments } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { sendVendorAccountUnderReviewNotification, sendVendorAccountApprovedNotification } from "./emailService";
 // import { sendPayoutStatusNotification, PayoutNotificationData } from "./emailService";
 type PayoutNotificationData = any;
 const sendPayoutStatusNotification = async (..._args: any[]) => {}; // no-op placeholder
@@ -384,12 +385,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Send registration confirmation email
+      // Send vendor account under review notification email
       try {
-        // Vendor registration confirmation will be implemented with the new email service
-        console.log(`Vendor registration confirmation would be sent to ${email}`);
+        await sendVendorAccountUnderReviewNotification({
+          vendorEmail: email,
+          vendorName: contactName,
+          businessName: businessName,
+        });
+        console.log(`✅ Vendor account under review notification sent to ${email}`);
       } catch (emailError) {
-        console.error("Failed to send registration confirmation email:", emailError);
+        console.error("Failed to send vendor account under review notification:", emailError);
         // Continue with registration even if email fails
       }
 
@@ -4629,11 +4634,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send approval notification email
       try {
-        await vendorEmailService.sendApprovalNotification({
+        await sendVendorAccountApprovedNotification({
+          vendorEmail: application.email,
+          vendorName: application.contactName,
           businessName: application.businessName,
-          email: application.email,
-          ownerName: application.contactName
+          loginUrl: "https://buylockmarket.com/vendor-dashboard/login"
         });
+        console.log(`✅ Vendor account approved notification sent to ${application.email}`);
       } catch (emailError) {
         console.error("Failed to send approval notification email:", emailError);
         // Continue with approval even if email fails
@@ -4657,11 +4664,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send rejection notification email
       try {
-        await vendorEmailService.sendRejectionNotification({
-          businessName: application.businessName,
-          email: application.email,
-          ownerName: application.contactName
-        }, reason);
+        // TODO: Implement rejection email notification if needed
+        console.log(`Vendor rejection notification would be sent to ${application.email} (reason: ${reason})`);
       } catch (emailError) {
         console.error("Failed to send rejection notification email:", emailError);
         // Continue with rejection even if email fails
