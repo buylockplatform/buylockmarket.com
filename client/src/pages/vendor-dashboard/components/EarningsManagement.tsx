@@ -57,10 +57,7 @@ interface PayoutRequest {
 export default function EarningsManagement({ vendorId }: { vendorId: string }) {
   const { formatPrice } = useCurrency();
   const queryClient = useQueryClient();
-  const [payoutAmount, setPayoutAmount] = useState("");
-  const [bankDetails, setBankDetails] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
-  const [showPayoutForm, setShowPayoutForm] = useState(false);
 
   // Fetch vendor earnings data
   const { data: earnings, isLoading: earningsLoading } = useQuery({
@@ -103,17 +100,14 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
 
   // Request payout mutation
   const requestPayout = useMutation({
-    mutationFn: async (data: { amount: string; bankDetails: string }) => {
-      return vendorApiRequest(`/api/vendor/${vendorId}/payout-request`, 'POST', data);
+    mutationFn: async (data: { amount: string }) => {
+      return vendorApiRequest(`/api/vendor/${vendorId}/payout-request`, 'POST', { amount: data.amount });
     },
     onSuccess: () => {
       alert("Payout Request Submitted! Your payout request is being processed. You'll be notified once it's approved by admin.");
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/payout-requests`] });
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/earnings`] });
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/orders/delivered`] });
-      setPayoutAmount("");
-      setBankDetails("");
-      setShowPayoutForm(false);
     },
   });
 
@@ -150,28 +144,20 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
   const pendingEarnings = completedPayoutEarnings?.filter((e: OrderEarning) => e.status === 'pending') || [];
   const disputedEarnings = completedPayoutEarnings?.filter((e: OrderEarning) => e.status === 'disputed') || [];
 
-  const handlePayoutRequest = () => {
-    const amount = parseFloat(payoutAmount);
-    const maxAmount = earningsData.availableBalance;
-    
+  const handlePayoutRequest = (amount: number) => {
     if (!amount || amount <= 0) {
-      alert('Please enter a valid amount');
+      alert('Invalid amount for payout request');
       return;
     }
     
+    const maxAmount = earningsData.availableBalance;
     if (amount > maxAmount) {
       alert(`Amount cannot exceed available balance of ${formatPrice(maxAmount)}`);
       return;
     }
     
-    if (!bankDetails.trim()) {
-      alert('Please enter bank account details');
-      return;
-    }
-    
     requestPayout.mutate({
-      amount: payoutAmount,
-      bankDetails: bankDetails.trim()
+      amount: amount.toString()
     });
   };
 
@@ -428,14 +414,14 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                               size="sm" 
                               className="bg-buylock-primary hover:bg-buylock-primary/90"
                               data-testid={`button-request-payout-${order.id}`}
-                              onClick={() => {
-                                setPayoutAmount(order.totalAmount.toString());
-                                setBankDetails("");
-                                setShowPayoutForm(true);
-                                setActiveTab("payout-requests");
-                              }}
+                              onClick={() => handlePayoutRequest(order.totalAmount)}
+                              disabled={requestPayout.isPending}
                             >
-                              <Send className="w-4 h-4 mr-1" />
+                              {requestPayout.isPending ? (
+                                <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <Send className="w-4 h-4 mr-1" />
+                              )}
                               Request Payout
                             </Button>
                           )}
@@ -455,65 +441,6 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
             </CardContent>
           </Card>
 
-          {/* Payout Request Form */}
-          {showPayoutForm && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <CreditCard className="w-5 h-5 text-blue-600" />
-                  <span>Submit Payout Request</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Payout Amount
-                  </label>
-                  <Input
-                    type="number"
-                    value={payoutAmount}
-                    onChange={(e) => setPayoutAmount(e.target.value)}
-                    placeholder="Enter amount"
-                    data-testid="input-payout-amount"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bank Account Details
-                  </label>
-                  <Textarea
-                    value={bankDetails}
-                    onChange={(e) => setBankDetails(e.target.value)}
-                    placeholder="Enter your bank account details (Bank name, Account number, Account name)"
-                    rows={3}
-                    data-testid="input-bank-details"
-                  />
-                </div>
-                <div className="flex space-x-3">
-                  <Button 
-                    onClick={handlePayoutRequest}
-                    disabled={requestPayout.isPending}
-                    className="bg-buylock-primary hover:bg-buylock-primary/90"
-                    data-testid="button-submit-payout"
-                  >
-                    {requestPayout.isPending ? (
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4 mr-2" />
-                    )}
-                    Submit Request
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowPayoutForm(false)}
-                    data-testid="button-cancel-payout"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Payout Requests History */}
           <Card>
