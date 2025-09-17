@@ -19,6 +19,10 @@ localPort = 5001
 externalPort = 3000
 
 [[ports]]
+localPort = 33371
+externalPort = 3003
+
+[[ports]]
 localPort = 38673
 externalPort = 3001
 
@@ -51,4 +55,4 @@ args = "npm run dev"
 waitForPort = 5000
 
 [agent]
-integrations = ["javascript_database==1.0.0"]
+integrations = ["javascript_log_in_with_replit:1.0.0"]

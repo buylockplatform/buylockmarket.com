@@ -87,10 +87,7 @@ export default function EarningsManagementAdmin() {
   // Mutation for approving payout requests
   const approvePayoutMutation = useMutation({
     mutationFn: async ({ requestId, adminNotes }: { requestId: string; adminNotes?: string }) => {
-      return adminApiRequest(`/api/admin/payout-requests/${requestId}/approve`, {
-        method: 'POST',
-        body: JSON.stringify({ adminNotes }),
-      });
+      return adminApiRequest(`/api/admin/payout-requests/${requestId}/approve`, 'POST', { adminNotes });
     },
     onSuccess: () => {
       toast({
@@ -355,7 +352,7 @@ export default function EarningsManagementAdmin() {
                               Vendor ID: {request.vendorId.slice(0, 8)}
                             </p>
                             <p className="text-sm text-gray-500" data-testid={`text-request-date-${request.id}`}>
-                              Requested: {formatDate(request.createdAt)}
+                              Requested: {request.createdAt ? formatDate(request.createdAt) : 'Unknown date'}
                             </p>
                             {request.bankName && request.accountNumber && (
                               <p className="text-xs text-gray-500" data-testid={`text-bank-details-${request.id}`}>
