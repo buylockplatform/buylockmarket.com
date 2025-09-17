@@ -2603,6 +2603,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         vendorName: request.vendor?.businessName || request.vendor?.contactName || 'Unknown Vendor',
         businessName: request.vendor?.businessName || 'Unknown Business',
         bankAccount: request.vendor?.accountNumber ? `****${request.vendor.accountNumber.slice(-4)}` : 'Not provided',
+        bankName: request.vendor?.bankName || null,
+        bankCode: request.vendor?.bankCode || null,
+        accountNumber: request.vendor?.accountNumber || null,
+        accountName: request.vendor?.accountName || null,
+        paystackSubaccountId: request.vendor?.paystackSubaccountId || null,
+        paystackSubaccountCode: request.vendor?.paystackSubaccountCode || null,
+        subaccountActive: request.vendor?.subaccountActive || false,
         amount: parseFloat(request.requestedAmount || '0'),
         requestDate: request.createdAt,
         processedDate: request.completedAt
@@ -2638,6 +2645,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         // Initialize Paystack service
         const paystackService = new PaystackService();
+        
+        // Ensure vendor has complete bank details
+        if (!vendor.bankName || !vendor.accountNumber || !vendor.accountName) {
+          return res.status(400).json({ 
+            message: 'Vendor bank details incomplete. Bank name, account number, and account name are required.' 
+          });
+        }
+        
+        // Create Paystack subaccount if it doesn't exist
+        if (!vendor.paystackSubaccountId || !vendor.paystackSubaccountCode) {
+          try {
+            console.log(`Creating Paystack subaccount for vendor ${vendor.id}...`);
+            const subaccountResult = await paystackService.createVendorSubaccount({
+              businessName: vendor.businessName,
+              contactName: vendor.contactName,
+              email: vendor.email,
+              bankName: vendor.bankName,
+              bankCode: vendor.bankCode,
+              accountNumber: vendor.accountNumber,
+              accountName: vendor.accountName
+            });
+            
+            // Update vendor with subaccount information
+            await storage.updateVendor(vendor.id, {
+              paystackSubaccountId: subaccountResult.subaccountId,
+              paystackSubaccountCode: subaccountResult.subaccountCode,
+              subaccountActive: true
+            });
+            
+            // Refresh vendor data
+            const refreshedVendor = await storage.getVendorById(request.vendorId);
+            if (refreshedVendor) {
+              Object.assign(vendor, refreshedVendor);
+            }
+            
+            console.log(`✅ Paystack subaccount created: ${subaccountResult.subaccountCode}`);
+          } catch (subaccountError) {
+            console.error('Failed to create Paystack subaccount:', subaccountError);
+            return res.status(400).json({ 
+              message: `Failed to create Paystack subaccount: ${subaccountError.message}` 
+            });
+          }
+        }
         
         // Process the payout via Paystack
         const transferResult = await paystackService.processVendorPayout(
