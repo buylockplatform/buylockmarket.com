@@ -122,14 +122,6 @@ export default function VendorLogin() {
                 </Button>
               </div>
             </div>
-            
-            <Alert className="bg-blue-50 border-blue-200">
-              <AlertDescription>
-                <strong>Demo Account:</strong><br />
-                Email: vendor@buylock.com<br />
-                Password: password123
-              </AlertDescription>
-            </Alert>
 
             <Button
               type="submit"
