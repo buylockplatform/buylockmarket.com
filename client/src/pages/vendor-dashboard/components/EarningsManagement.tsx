@@ -174,18 +174,8 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
     
     if (!orderId) {
       toast({
-        title: "Missing Order ID",
+        title: "Missing Order ID", 
         description: "Order ID is required for payout request",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    const maxAmount = earningsData.availableBalance;
-    if (amount > maxAmount) {
-      toast({
-        title: "Amount Exceeds Balance",
-        description: `Amount cannot exceed available balance of ${formatPrice(maxAmount)}`,
         variant: "destructive"
       });
       return;
