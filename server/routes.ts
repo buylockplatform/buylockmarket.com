@@ -3606,59 +3606,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/payout-requests', isAdminAuthenticated, async (req, res) => {
-    try {
-      const { status } = req.query;
-      
-      // For demo purposes, return sample payout requests
-      // In production, this would fetch from database
-      const payoutRequests = [
-        {
-          id: 'payout_req_1',
-          vendorId: '74bf6c33-7f09-4844-903d-72bff3849c95',
-          vendorName: 'TechHub Kenya',
-          amount: 45000,
-          requestDate: '2025-01-14T10:30:00Z',
-          status: 'pending',
-          bankAccount: 'KCB Bank - Account ending in 1234',
-          processedDate: null,
-          failureReason: null
-        },
-        {
-          id: 'payout_req_2',
-          vendorId: 'f4cf292e-2d8f-49ca-8768-9d8111f8b123',
-          vendorName: 'ServicePro Ltd',
-          amount: 32000,
-          requestDate: '2025-01-13T14:15:00Z',
-          status: 'processing',
-          bankAccount: 'Equity Bank - Account ending in 5678',
-          processedDate: null,
-          failureReason: null
-        },
-        {
-          id: 'payout_req_3',
-          vendorId: '74bf6c33-7f09-4844-903d-72bff3849c95',
-          vendorName: 'TechHub Kenya',
-          amount: 28000,
-          requestDate: '2025-01-10T09:20:00Z',
-          status: 'completed',
-          bankAccount: 'KCB Bank - Account ending in 1234',
-          processedDate: '2025-01-11T16:45:00Z',
-          failureReason: null
-        }
-      ];
-      
-      // Filter by status if provided
-      const filteredRequests = status && status !== 'all' 
-        ? payoutRequests.filter(req => req.status === status)
-        : payoutRequests;
-      
-      res.json(filteredRequests);
-    } catch (error) {
-      console.error('Error fetching payout requests:', error);
-      res.status(500).json({ message: 'Failed to fetch payout requests' });
-    }
-  });
 
   app.post('/api/admin/process-payout', isAdminAuthenticated, async (req, res) => {
     try {
