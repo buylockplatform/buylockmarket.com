@@ -1,0 +1,158 @@
+{
+  "id": "buylock-prod-environment-uuid",
+  "name": "BuyLock Production Environment",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "https://your-production-domain.com",
+      "type": "default",
+      "enabled": true,
+      "description": "Replace with your actual production domain"
+    },
+    {
+      "key": "vendor_id",
+      "value": "",
+      "type": "secret",
+      "enabled": true,
+      "description": "Production vendor ID - set after login"
+    },
+    {
+      "key": "vendor_email",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Production vendor email"
+    },
+    {
+      "key": "vendor_password",
+      "value": "",
+      "type": "secret",
+      "enabled": true,
+      "description": "Production vendor password"
+    },
+    {
+      "key": "product_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Will be set automatically from API responses"
+    },
+    {
+      "key": "service_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Will be set automatically from API responses"
+    },
+    {
+      "key": "category_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Will be set automatically from categories API"
+    },
+    {
+      "key": "subcategory_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "brand_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "service_category_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "cart_item_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Will be set when adding items to cart"
+    },
+    {
+      "key": "order_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Will be set from order responses"
+    },
+    {
+      "key": "vendor_order_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Will be set from vendor order responses"
+    },
+    {
+      "key": "appointment_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "courier_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Will be set from couriers API"
+    },
+    {
+      "key": "payment_reference",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Will be set from payment initialization"
+    },
+    {
+      "key": "notification_id",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "product_slug",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Production product slug for testing"
+    },
+    {
+      "key": "service_slug",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Production service slug for testing"
+    },
+    {
+      "key": "vendor_token",
+      "value": "",
+      "type": "secret",
+      "enabled": true,
+      "description": "Vendor authentication token"
+    },
+    {
+      "key": "vendor_name",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "Vendor business name"
+    },
+    {
+      "key": "new_product_id",
+      "value": "",
+      "type": "default",
+      "enabled": true,
+      "description": "ID of newly created product"
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2024-01-01T00:00:00.000Z",
+  "_postman_exported_using": "Postman/10.0.0"
+}

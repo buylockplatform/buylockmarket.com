@@ -1,0 +1,1380 @@
+{
+  "info": {
+    "_postman_id": "vendor-app-collection-uuid",
+    "name": "BuyLock Vendor App API",
+    "description": "Complete API collection for BuyLock Vendor mobile app - comprehensive vendor dashboard for managing products, services, orders, and earnings",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "patch": 0
+    }
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "{{base_url}}",
+      "type": "string"
+    },
+    {
+      "key": "vendor_id",
+      "value": "{{vendor_id}}",
+      "type": "string"
+    },
+    {
+      "key": "api_version",
+      "value": "v1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Vendor Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Login successful', function () {",
+                  "        var jsonData = pm.response.json();",
+                  "        pm.expect(jsonData).to.have.property('success', true);",
+                  "        pm.expect(jsonData).to.have.property('vendor');",
+                  "        ",
+                  "        // Store vendor information",
+                  "        pm.environment.set('vendor_id', jsonData.vendor.id);",
+                  "        pm.environment.set('vendor_token', jsonData.token || '');",
+                  "        pm.environment.set('vendor_name', jsonData.vendor.businessName);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"vendor@buylock.com\",\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "login"]
+            },
+            "description": "Authenticate vendor and get vendor information"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Vendor Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/vendor",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "vendor"]
+            },
+            "description": "Get current vendor profile information"
+          },
+          "response": []
+        }
+      ],
+      "description": "Vendor authentication endpoints"
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Get Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "stats"]
+            },
+            "description": "Get vendor dashboard statistics"
+          },
+          "response": []
+        }
+      ],
+      "description": "Dashboard overview endpoints"
+    },
+    {
+      "name": "Products Management",
+      "item": [
+        {
+          "name": "Get Vendor Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json().length > 0) {",
+                  "    pm.test('Set first product ID', function () {",
+                  "        var products = pm.response.json();",
+                  "        pm.environment.set('product_id', products[0].id);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/products",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "products"]
+            },
+            "description": "Get all products for the vendor"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    pm.test('Product created successfully', function () {",
+                  "        var jsonData = pm.response.json();",
+                  "        pm.expect(jsonData).to.have.property('id');",
+                  "        pm.environment.set('new_product_id', jsonData.id);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Product via API\",\n  \"description\": \"This product was created using the Postman API collection\",\n  \"price\": 2500.00,\n  \"categoryId\": \"{{category_id}}\",\n  \"subcategoryId\": \"{{subcategory_id}}\",\n  \"brandId\": \"{{brand_id}}\",\n  \"stock\": 25,\n  \"imageUrl\": \"https://via.placeholder.com/400x300?text=Product+Image\",\n  \"tags\": [\"api\", \"test\", \"postman\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/products",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "products"]
+            },
+            "description": "Create a new product"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Product Name\",\n  \"price\": 3000.00,\n  \"stock\": 30,\n  \"active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "products", "{{product_id}}"]
+            },
+            "description": "Update an existing product"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Product",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "products", "{{product_id}}"]
+            },
+            "description": "Delete a product"
+          },
+          "response": []
+        }
+      ],
+      "description": "Product management endpoints for vendors"
+    },
+    {
+      "name": "Services Management",
+      "item": [
+        {
+          "name": "Get Vendor Services",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json().length > 0) {",
+                  "    pm.test('Set first service ID', function () {",
+                  "        var services = pm.response.json();",
+                  "        pm.environment.set('service_id', services[0].id);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/services",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "services"]
+            },
+            "description": "Get all services for the vendor"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Service",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Service via API\",\n  \"description\": \"This service was created using the Postman API collection\",\n  \"price\": 5000.00,\n  \"priceType\": \"hourly\",\n  \"categoryId\": \"{{service_category_id}}\",\n  \"location\": \"Nairobi, Kenya\",\n  \"isAvailableToday\": true,\n  \"imageUrl\": \"https://via.placeholder.com/400x300?text=Service+Image\",\n  \"tags\": [\"api\", \"test\", \"postman\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/services",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "services"]
+            },
+            "description": "Create a new service"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Service",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Service Name\",\n  \"price\": 6000.00,\n  \"active\": true,\n  \"isAvailableToday\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/services/{{service_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "services", "{{service_id}}"]
+            },
+            "description": "Update an existing service"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Service",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/services/{{service_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "services", "{{service_id}}"]
+            },
+            "description": "Delete a service"
+          },
+          "response": []
+        }
+      ],
+      "description": "Service management endpoints for vendors"
+    },
+    {
+      "name": "Orders Management",
+      "item": [
+        {
+          "name": "Get Vendor Orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json().length > 0) {",
+                  "    pm.test('Set first order ID', function () {",
+                  "        var orders = pm.response.json();",
+                  "        pm.environment.set('vendor_order_id', orders[0].id);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/orders?limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "orders"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all orders for the vendor"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/orders/{{vendor_order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "orders", "{{vendor_order_id}}"]
+            },
+            "description": "Get detailed order information"
+          },
+          "response": []
+        },
+        {
+          "name": "Accept Order",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estimatedPreparationTime\": \"2 hours\",\n  \"vendorNotes\": \"Order confirmed and in preparation\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/orders/{{vendor_order_id}}/accept",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "orders", "{{vendor_order_id}}", "accept"]
+            },
+            "description": "Accept and confirm an order"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Order Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ready_for_pickup\",\n  \"notes\": \"Order is ready for courier pickup\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/orders/{{vendor_order_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "orders", "{{vendor_order_id}}", "status"]
+            },
+            "description": "Update order status"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Order Ready for Pickup",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/orders/{{vendor_order_id}}/ready",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "orders", "{{vendor_order_id}}", "ready"]
+            },
+            "description": "Mark order as ready for courier pickup"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Order",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Out of stock\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/orders/{{vendor_order_id}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "orders", "{{vendor_order_id}}", "cancel"]
+            },
+            "description": "Cancel an order with reason"
+          },
+          "response": []
+        }
+      ],
+      "description": "Order management endpoints for vendors"
+    },
+    {
+      "name": "Earnings Management",
+      "item": [
+        {
+          "name": "Get Earnings Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/earnings?period=month",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "earnings"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month"
+                },
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01",
+                  "disabled": true
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-12-31",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get vendor earnings summary"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Earnings Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/earnings/transactions?page=1&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "earnings", "transactions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "type",
+                  "value": "sale",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get vendor earnings transactions"
+          },
+          "response": []
+        },
+        {
+          "name": "Request Payout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50000.00,\n  \"bankAccount\": {\n    \"accountNumber\": \"1234567890\",\n    \"bankCode\": \"044\",\n    \"accountName\": \"Business Account\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/earnings/payout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "earnings", "payout"]
+            },
+            "description": "Request payout to bank account"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payout History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/earnings/payouts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "earnings", "payouts"]
+            },
+            "description": "Get payout history"
+          },
+          "response": []
+        }
+      ],
+      "description": "Earnings and payout management endpoints"
+    },
+    {
+      "name": "Appointments Management",
+      "item": [
+        {
+          "name": "Get Vendor Appointments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json().length > 0) {",
+                  "    pm.test('Set first appointment ID', function () {",
+                  "        var appointments = pm.response.json();",
+                  "        pm.environment.set('appointment_id', appointments[0].id);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/appointments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "appointments"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "disabled": true
+                },
+                {
+                  "key": "date",
+                  "value": "2024-01-01",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get vendor service appointments"
+          },
+          "response": []
+        },
+        {
+          "name": "Accept Appointment",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/appointments/{{appointment_id}}/accept",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "appointments", "{{appointment_id}}", "accept"]
+            },
+            "description": "Accept a service appointment"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Appointment Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"notes\": \"Service started\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/appointments/{{appointment_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "appointments", "{{appointment_id}}", "status"]
+            },
+            "description": "Update appointment status"
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Appointment",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"completionNotes\": \"Service completed successfully\",\n  \"actualDuration\": 2.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/appointments/{{appointment_id}}/complete",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "appointments", "{{appointment_id}}", "complete"]
+            },
+            "description": "Mark appointment as completed"
+          },
+          "response": []
+        }
+      ],
+      "description": "Service appointment management endpoints"
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Get Sales Analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/analytics/sales?period=month",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "analytics", "sales"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month"
+                },
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01",
+                  "disabled": true
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-12-31",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get vendor sales analytics"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product Performance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/analytics/products",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "analytics", "products"]
+            },
+            "description": "Get product performance analytics"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Customer Analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/analytics/customers",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "analytics", "customers"]
+            },
+            "description": "Get customer analytics and insights"
+          },
+          "response": []
+        }
+      ],
+      "description": "Business analytics and performance metrics"
+    },
+    {
+      "name": "Vendor Profile",
+      "item": [
+        {
+          "name": "Get Vendor Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}"]
+            },
+            "description": "Get vendor business profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Vendor Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessName\": \"Updated Business Name\",\n  \"contactName\": \"John Doe\",\n  \"phone\": \"+254700000000\",\n  \"address\": \"Updated business address\",\n  \"description\": \"Updated business description\",\n  \"logoUrl\": \"https://via.placeholder.com/200x200?text=Logo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}"]
+            },
+            "description": "Update vendor profile information"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Business Hours",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessHours\": {\n    \"monday\": { \"open\": \"08:00\", \"close\": \"18:00\", \"closed\": false },\n    \"tuesday\": { \"open\": \"08:00\", \"close\": \"18:00\", \"closed\": false },\n    \"wednesday\": { \"open\": \"08:00\", \"close\": \"18:00\", \"closed\": false },\n    \"thursday\": { \"open\": \"08:00\", \"close\": \"18:00\", \"closed\": false },\n    \"friday\": { \"open\": \"08:00\", \"close\": \"18:00\", \"closed\": false },\n    \"saturday\": { \"open\": \"09:00\", \"close\": \"17:00\", \"closed\": false },\n    \"sunday\": { \"closed\": true }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/hours",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "hours"]
+            },
+            "description": "Update business operating hours"
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"current_password\",\n  \"newPassword\": \"new_password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "password"]
+            },
+            "description": "Change vendor password"
+          },
+          "response": []
+        }
+      ],
+      "description": "Vendor profile management endpoints"
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Get Vendor Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/notifications?unreadOnly=false&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "notifications"],
+              "query": [
+                {
+                  "key": "unreadOnly",
+                  "value": "false"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Get vendor notifications"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/notifications/{{notification_id}}/read",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "notifications", "{{notification_id}}", "read"]
+            },
+            "description": "Mark a notification as read"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark All Notifications as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/notifications/read-all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "notifications", "read-all"]
+            },
+            "description": "Mark all notifications as read"
+          },
+          "response": []
+        }
+      ],
+      "description": "Vendor notification management"
+    },
+    {
+      "name": "Settings",
+      "item": [
+        {
+          "name": "Get Vendor Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "settings"]
+            },
+            "description": "Get vendor account settings"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Vendor Settings",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-vendor-id",
+                "value": "{{vendor_id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailNotifications\": true,\n  \"smsNotifications\": true,\n  \"autoAcceptOrders\": true,\n  \"timezone\": \"Africa/Nairobi\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/vendor/{{vendor_id}}/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "vendor", "{{vendor_id}}", "settings"]
+            },
+            "description": "Update vendor settings and preferences"
+          },
+          "response": []
+        }
+      ],
+      "description": "Vendor settings and preferences"
+    },
+    {
+      "name": "Reference Data",
+      "item": [
+        {
+          "name": "Get Categories",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json().length > 0) {",
+                  "    pm.test('Set first category ID', function () {",
+                  "        var categories = pm.response.json();",
+                  "        pm.environment.set('category_id', categories[0].id);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/categories",
+              "host": ["{{base_url}}"],
+              "path": ["api", "categories"]
+            },
+            "description": "Get product categories for creating products"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Subcategories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/subcategories?categoryId={{category_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "subcategories"],
+              "query": [
+                {
+                  "key": "categoryId",
+                  "value": "{{category_id}}"
+                }
+              ]
+            },
+            "description": "Get subcategories for a specific category"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Brands",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/brands",
+              "host": ["{{base_url}}"],
+              "path": ["api", "brands"]
+            },
+            "description": "Get available brands for products"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Service Categories",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json().length > 0) {",
+                  "    pm.test('Set first service category ID', function () {",
+                  "        var categories = pm.response.json();",
+                  "        pm.environment.set('service_category_id', categories[0].id);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/service-categories",
+              "host": ["{{base_url}}"],
+              "path": ["api", "service-categories"]
+            },
+            "description": "Get service categories for creating services"
+          },
+          "response": []
+        }
+      ],
+      "description": "Reference data for forms and dropdowns"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global pre-request script for Vendor API",
+          "console.log('Making vendor request to:', pm.request.url.toString());",
+          "",
+          "// Ensure vendor ID header is set for authenticated requests",
+          "const vendorId = pm.environment.get('vendor_id');",
+          "const authExcludedPaths = ['/api/vendor/login', '/api/categories', '/api/subcategories', '/api/brands', '/api/service-categories'];",
+          "const currentPath = pm.request.url.getPath();",
+          "",
+          "// Add vendor ID header for authenticated endpoints",
+          "if (vendorId && !authExcludedPaths.some(path => currentPath.includes(path))) {",
+          "    pm.request.headers.add({",
+          "        key: 'x-vendor-id',",
+          "        value: vendorId",
+          "    });",
+          "}",
+          "",
+          "// Set common headers if not already set",
+          "if (!pm.request.headers.has('Content-Type') && ['POST', 'PUT', 'PATCH'].includes(pm.request.method)) {",
+          "    pm.request.headers.add({",
+          "        key: 'Content-Type',",
+          "        value: 'application/json'",
+          "    });",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global test script for Vendor API",
+          "pm.test('Response time is less than 5 seconds', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});",
+          "",
+          "pm.test('Response has valid JSON format (when applicable)', function () {",
+          "    if (pm.response.headers.get('Content-Type') && pm.response.headers.get('Content-Type').includes('application/json')) {",
+          "        pm.response.to.be.json;",
+          "    }",
+          "});",
+          "",
+          "// Check for vendor authentication errors",
+          "if (pm.response.code === 401) {",
+          "    pm.test('Vendor authentication required', function () {",
+          "        console.log('Authentication failed - check vendor_id in environment variables');",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ]
+}
