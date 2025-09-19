@@ -592,7 +592,7 @@ export function Header() {
                       My Orders
                     </Link>
                     <a
-                      href="/api/logout"
+                      href="/api/user/logout"
                       className="block px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
                     >
                       Logout
@@ -601,7 +601,7 @@ export function Header() {
                 </div>
               ) : (
                 <Button
-                  onClick={() => (window.location.href = "/api/login")}
+                  onClick={() => (window.location.href = "/login")}
                   variant="ghost"
                   className="flex items-center space-x-1 text-buylock-charcoal hover:text-buylock-cyan transition-colors"
                 >
