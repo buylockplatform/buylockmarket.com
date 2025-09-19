@@ -52,13 +52,31 @@ const isUserAuthenticated = async (req: any, res: any, next: any) => {
   }
 };
 
-// Vendor authentication middleware - ensures vendor is logged in and approved
+// Vendor authentication middleware (supports both header-based and JWT authentication)
 const isVendorAuthenticated = async (req: any, res: any, next: any) => {
   try {
+    // Try JWT token authentication first
+    const authHeader = req.headers.authorization;
+    const token = extractBearerToken(authHeader);
+    
+    if (token) {
+      const decoded = verifyToken(token);
+      if (decoded && decoded.type === 'access') {
+        // Fetch vendor from database using JWT user ID
+        const vendor = await storage.getVendorById(decoded.userId);
+        if (vendor && vendor.verificationStatus === 'verified') {
+          req.vendor = vendor;
+          req.authType = 'token';
+          return next();
+        }
+      }
+    }
+    
+    // Fall back to header-based authentication
     const vendorId = req.headers['x-vendor-id'] || req.params.vendorId;
 
     if (!vendorId) {
-      return res.status(401).json({ message: "Vendor authentication required" });
+      return res.status(401).json({ message: "Vendor authentication required. Use either 'Authorization: Bearer <token>' or 'x-vendor-id' header." });
     }
 
     // Get vendor from storage and verify they exist and are approved
@@ -77,6 +95,7 @@ const isVendorAuthenticated = async (req: any, res: any, next: any) => {
 
     // Add vendor to request for use in endpoints
     req.vendor = vendor;
+    req.authType = 'header';
     next();
   } catch (error) {
     console.error("Vendor authentication error:", error);
@@ -219,13 +238,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Return vendor data (without password hash)
+      // Check if client wants token-based authentication
+      if (wantsTokenAuth(req)) {
+        // Generate JWT tokens for mobile/API clients
+        const tokens = generateTokens({
+          id: vendor.id,
+          email: vendor.email,
+          firstName: vendor.contactName,
+          lastName: vendor.businessName
+        });
+        
+        const { passwordHash, ...vendorData } = vendor;
+        
+        return res.status(200).json({
+          success: true,
+          message: "Login successful",
+          vendor: vendorData,
+          tokens: {
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresIn: tokens.expiresIn,
+            tokenType: "Bearer"
+          }
+        });
+      }
+
+      // Return vendor data (without password hash) for header-based auth
       const { passwordHash, ...vendorData } = vendor;
       res.json(vendorData);
 
     } catch (error) {
       console.error("Vendor login error:", error);
       res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  // Vendor JWT token refresh endpoint
+  app.post("/api/vendor/refresh-token", async (req, res) => {
+    try {
+      const { refreshToken } = req.body;
+      
+      if (!refreshToken) {
+        return res.status(400).json({ message: "Refresh token is required" });
+      }
+      
+      // Refresh the access token
+      const newTokens = refreshAccessToken(refreshToken);
+      if (!newTokens) {
+        return res.status(401).json({ message: "Invalid refresh token" });
+      }
+      
+      res.json({
+        success: true,
+        message: "Token refreshed successfully",
+        tokens: newTokens
+      });
+    } catch (error) {
+      console.error("Vendor token refresh error:", error);
+      res.status(500).json({ message: "Token refresh failed" });
+    }
+  });
+
+  // Vendor JWT profile endpoint
+  app.get("/api/vendor/me", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const vendor = req.vendor;
+      
+      if (!vendor) {
+        return res.status(401).json({ message: "Invalid vendor session" });
+      }
+
+      // Return vendor data (without password hash)
+      const { passwordHash, ...vendorData } = vendor;
+      res.json(vendorData);
+    } catch (error) {
+      console.error("Vendor profile error:", error);
+      res.status(500).json({ message: "Failed to get vendor profile" });
     }
   });
 

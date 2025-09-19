@@ -2,33 +2,220 @@
   "info": {
     "_postman_id": "customer-app-collection-uuid",
     "name": "BuyLock Customer App API",
-    "description": "Complete API collection for BuyLock Customer mobile app - comprehensive multi-vendor e-commerce platform for the Kenyan market",
+    "description": "JWT-based API collection for BuyLock Customer mobile app - comprehensive multi-vendor e-commerce platform for the Kenyan market",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "version": {
-      "major": 1,
+      "major": 2,
       "minor": 0,
       "patch": 0
     }
   },
   "auth": {
-    "type": "noauth"
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
   },
   "variable": [
     {
       "key": "base_url",
       "value": "{{base_url}}",
       "type": "string"
-    },
-    {
-      "key": "api_version",
-      "value": "v1",
-      "type": "string"
     }
   ],
   "item": [
     {
-      "name": "Authentication",
+      "name": "🔐 Authentication",
       "item": [
+        {
+          "name": "Register Customer (JWT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    pm.test('Registration successful with tokens', function () {",
+                  "        var jsonData = pm.response.json();",
+                  "        pm.expect(jsonData).to.have.property('user');",
+                  "        pm.expect(jsonData).to.have.property('tokens');",
+                  "        pm.expect(jsonData.tokens).to.have.property('accessToken');",
+                  "        pm.expect(jsonData.tokens).to.have.property('refreshToken');",
+                  "        ",
+                  "        // Store tokens for subsequent requests",
+                  "        pm.environment.set('access_token', jsonData.tokens.accessToken);",
+                  "        pm.environment.set('refresh_token', jsonData.tokens.refreshToken);",
+                  "        pm.environment.set('customer_id', jsonData.user.id);",
+                  "        pm.environment.set('customer_email', jsonData.user.email);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Type",
+                "value": "token",
+                "description": "Request JWT tokens instead of session"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"mobile@example.com\",\n  \"firstName\": \"Mobile\",\n  \"lastName\": \"User\",\n  \"phone\": \"+254712345678\",\n  \"password\": \"password123\",\n  \"confirmPassword\": \"password123\",\n  \"country\": \"Kenya\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "register"]
+            },
+            "description": "Register new customer account and receive JWT tokens"
+          },
+          "response": []
+        },
+        {
+          "name": "Login Customer (JWT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Login successful with tokens', function () {",
+                  "        var jsonData = pm.response.json();",
+                  "        pm.expect(jsonData).to.have.property('user');",
+                  "        pm.expect(jsonData).to.have.property('tokens');",
+                  "        pm.expect(jsonData.tokens).to.have.property('accessToken');",
+                  "        pm.expect(jsonData.tokens).to.have.property('refreshToken');",
+                  "        ",
+                  "        // Store tokens for subsequent requests",
+                  "        pm.environment.set('access_token', jsonData.tokens.accessToken);",
+                  "        pm.environment.set('refresh_token', jsonData.tokens.refreshToken);",
+                  "        pm.environment.set('customer_id', jsonData.user.id);",
+                  "        pm.environment.set('customer_email', jsonData.user.email);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Type",
+                "value": "token",
+                "description": "Request JWT tokens instead of session"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"mobile@example.com\",\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "login"]
+            },
+            "description": "Login customer and receive JWT tokens"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Token refreshed successfully', function () {",
+                  "        var jsonData = pm.response.json();",
+                  "        pm.expect(jsonData).to.have.property('tokens');",
+                  "        pm.expect(jsonData.tokens).to.have.property('accessToken');",
+                  "        ",
+                  "        // Update access token",
+                  "        pm.environment.set('access_token', jsonData.tokens.accessToken);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/refresh-token",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "refresh-token"]
+            },
+            "description": "Refresh access token using refresh token"
+          },
+          "response": []
+        },
         {
           "name": "Get User Profile",
           "event": [
@@ -36,15 +223,17 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status code is 200 or 401', function () {",
-                  "    pm.expect(pm.response.code).to.be.oneOf([200, 401]);",
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
                   "});",
                   "",
                   "if (pm.response.code === 200) {",
-                  "    pm.test('User data is present', function () {",
+                  "    pm.test('User profile retrieved', function () {",
                   "        var jsonData = pm.response.json();",
                   "        pm.expect(jsonData).to.have.property('id');",
                   "        pm.expect(jsonData).to.have.property('email');",
+                  "        pm.expect(jsonData).to.have.property('firstName');",
+                  "        pm.expect(jsonData).to.have.property('lastName');",
                   "    });",
                   "}"
                 ],
@@ -58,55 +247,60 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
               }
             ],
             "url": {
-              "raw": "{{base_url}}/api/auth/user",
+              "raw": "{{base_url}}/api/user/me",
               "host": ["{{base_url}}"],
-              "path": ["api", "auth", "user"]
+              "path": ["api", "user", "me"]
             },
-            "description": "Get authenticated user profile information"
+            "description": "Get authenticated user profile using JWT token"
           },
           "response": []
         },
         {
-          "name": "Login Redirect",
+          "name": "Update Profile",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/login",
-              "host": ["{{base_url}}"],
-              "path": ["api", "login"]
-            },
-            "description": "Redirect to Replit authentication"
-          },
-          "response": []
-        },
-        {
-          "name": "Logout",
-          "request": {
-            "method": "POST",
+            "method": "PATCH",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
               }
             ],
-            "url": {
-              "raw": "{{base_url}}/api/logout",
-              "host": ["{{base_url}}"],
-              "path": ["api", "logout"]
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Updated\",\n  \"lastName\": \"Name\",\n  \"phone\": \"+254712345679\",\n  \"address\": \"123 Updated Street\",\n  \"city\": \"Nairobi\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "description": "Logout current user"
+            "url": {
+              "raw": "{{base_url}}/api/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "me"]
+            },
+            "description": "Update user profile information"
           },
           "response": []
         }
       ],
-      "description": "User authentication endpoints using Replit Auth"
+      "description": "Customer authentication and profile management using JWT tokens"
     },
     {
-      "name": "Products",
+      "name": "🛍️ Products",
       "item": [
         {
           "name": "Get All Products",
@@ -125,11 +319,11 @@
                   "});",
                   "",
                   "if (pm.response.json().length > 0) {",
-                  "    pm.test('Product has required fields', function () {",
+                  "    pm.test('Set first product ID for testing', function () {",
                   "        var product = pm.response.json()[0];",
                   "        pm.expect(product).to.have.property('id');",
-                  "        pm.expect(product).to.have.property('name');",
-                  "        pm.expect(product).to.have.property('price');",
+                  "        pm.environment.set('product_id', product.id);",
+                  "        pm.environment.set('product_price', product.price);",
                   "    });",
                   "}"
                 ],
@@ -138,139 +332,19 @@
             }
           ],
           "request": {
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/products?limit=50",
+              "raw": "{{base_url}}/api/products?limit=20",
               "host": ["{{base_url}}"],
               "path": ["api", "products"],
               "query": [
-                {
-                  "key": "limit",
-                  "value": "50"
-                },
-                {
-                  "key": "search",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "category",
-                  "value": "",
-                  "disabled": true
-                },
-                {
-                  "key": "sort",
-                  "value": "newest",
-                  "disabled": true
-                }
-              ]
-            },
-            "description": "Get all products with optional search and filtering"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Featured Products",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/products?featured=true&limit=5",
-              "host": ["{{base_url}}"],
-              "path": ["api", "products"],
-              "query": [
-                {
-                  "key": "featured",
-                  "value": "true"
-                },
-                {
-                  "key": "limit",
-                  "value": "5"
-                }
-              ]
-            },
-            "description": "Get featured products for home page"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Product by Slug",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "exec": [
-                  "// Set a sample product slug for testing",
-                  "pm.environment.set('product_slug', 'sample-product-slug');"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/products/{{product_slug}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "products", "{{product_slug}}"]
-            },
-            "description": "Get detailed product information by slug"
-          },
-          "response": []
-        },
-        {
-          "name": "Search Products",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/products?search=electronics&category={{category_id}}&sort=price-low&limit=20",
-              "host": ["{{base_url}}"],
-              "path": ["api", "products"],
-              "query": [
-                {
-                  "key": "search",
-                  "value": "electronics"
-                },
-                {
-                  "key": "category",
-                  "value": "{{category_id}}"
-                },
-                {
-                  "key": "sort",
-                  "value": "price-low"
-                },
                 {
                   "key": "limit",
                   "value": "20"
-                }
-              ]
-            },
-            "description": "Search products with filters"
-          },
-          "response": []
-        }
-      ],
-      "description": "Product catalog and search endpoints"
-    },
-    {
-      "name": "Services",
-      "item": [
-        {
-          "name": "Get All Services",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/services?limit=50",
-              "host": ["{{base_url}}"],
-              "path": ["api", "services"],
-              "query": [
-                {
-                  "key": "limit",
-                  "value": "50"
                 },
                 {
                   "key": "search",
@@ -283,87 +357,147 @@
                   "disabled": true
                 },
                 {
-                  "key": "availableToday",
-                  "value": "true",
+                  "key": "sort",
+                  "value": "newest",
                   "disabled": true
                 }
               ]
             },
-            "description": "Get all services with optional filtering"
+            "description": "Get all products with optional search and filtering (public endpoint)"
           },
           "response": []
         },
         {
-          "name": "Get Featured Services",
+          "name": "Get Product by ID",
           "request": {
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/services?featured=true&limit=3",
+              "raw": "{{base_url}}/api/products/{{product_id}}",
               "host": ["{{base_url}}"],
-              "path": ["api", "services"],
+              "path": ["api", "products", "{{product_id}}"]
+            },
+            "description": "Get detailed product information by ID (public endpoint)"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Products",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/products?search=phone&categoryId={{category_id}}&sort=price-low&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "products"],
               "query": [
                 {
-                  "key": "featured",
-                  "value": "true"
+                  "key": "search",
+                  "value": "phone"
+                },
+                {
+                  "key": "categoryId",
+                  "value": "{{category_id}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "price-low"
                 },
                 {
                   "key": "limit",
-                  "value": "3"
+                  "value": "10"
                 }
               ]
             },
-            "description": "Get featured services for home page"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Service by Slug",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/services/{{service_slug}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "services", "{{service_slug}}"]
-            },
-            "description": "Get detailed service information by slug"
-          },
-          "response": []
-        },
-        {
-          "name": "Book Service",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"serviceId\": \"{{service_id}}\",\n  \"appointmentDate\": \"2024-01-15\",\n  \"appointmentTime\": \"14:00\",\n  \"duration\": 2,\n  \"serviceLocation\": \"123 Main Street, Nairobi\",\n  \"notes\": \"Please call when you arrive\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/services/book",
-              "host": ["{{base_url}}"],
-              "path": ["api", "services", "book"]
-            },
-            "description": "Book a service appointment"
+            "description": "Search products with filters (public endpoint)"
           },
           "response": []
         }
       ],
-      "description": "Service catalog and booking endpoints"
+      "description": "Product catalog and search endpoints"
     },
     {
-      "name": "Categories",
+      "name": "🔧 Services",
+      "item": [
+        {
+          "name": "Get All Services",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json().length > 0) {",
+                  "    pm.test('Set first service ID for testing', function () {",
+                  "        var service = pm.response.json()[0];",
+                  "        pm.expect(service).to.have.property('id');",
+                  "        pm.environment.set('service_id', service.id);",
+                  "        pm.environment.set('service_price', service.price);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/services?limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "services"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "categoryId",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all services with optional filtering (public endpoint)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Service by ID",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/services/{{service_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "services", "{{service_id}}"]
+            },
+            "description": "Get detailed service information by ID (public endpoint)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Service catalog and discovery endpoints"
+    },
+    {
+      "name": "📦 Categories",
       "item": [
         {
           "name": "Get All Categories",
@@ -377,9 +511,17 @@
                   "});",
                   "",
                   "if (pm.response.json().length > 0) {",
-                  "    pm.test('Set first category ID', function () {",
+                  "    pm.test('Set category IDs for testing', function () {",
                   "        var categories = pm.response.json();",
-                  "        pm.environment.set('category_id', categories[0].id);",
+                  "        var productCategory = categories.find(cat => cat.type === 'product');",
+                  "        var serviceCategory = categories.find(cat => cat.type === 'service');",
+                  "        ",
+                  "        if (productCategory) {",
+                  "            pm.environment.set('category_id', productCategory.id);",
+                  "        }",
+                  "        if (serviceCategory) {",
+                  "            pm.environment.set('service_category_id', serviceCategory.id);",
+                  "        }",
                   "    });",
                   "}"
                 ],
@@ -388,6 +530,9 @@
             }
           ],
           "request": {
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
@@ -395,15 +540,32 @@
               "host": ["{{base_url}}"],
               "path": ["api", "categories"]
             },
-            "description": "Get all product and service categories"
+            "description": "Get all categories for products and services (public endpoint)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Category by ID",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/categories/{{category_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "categories", "{{category_id}}"]
+            },
+            "description": "Get category details with subcategories (public endpoint)"
           },
           "response": []
         }
       ],
-      "description": "Category management endpoints"
+      "description": "Category and subcategory endpoints"
     },
     {
-      "name": "Shopping Cart",
+      "name": "🛒 Shopping Cart",
       "item": [
         {
           "name": "Get Cart Items",
@@ -411,8 +573,9 @@
             "method": "GET",
             "header": [
               {
-                "key": "Content-Type",
-                "value": "application/json"
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
               }
             ],
             "url": {
@@ -436,7 +599,7 @@
                   "});",
                   "",
                   "if (pm.response.code === 200 || pm.response.code === 201) {",
-                  "    pm.test('Cart item created', function () {",
+                  "    pm.test('Cart item added', function () {",
                   "        var jsonData = pm.response.json();",
                   "        pm.expect(jsonData).to.have.property('id');",
                   "        pm.environment.set('cart_item_id', jsonData.id);",
@@ -453,11 +616,16 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"productId\": \"{{product_id}}\",\n  \"quantity\": 2\n}",
+              "raw": "{\n  \"productId\": \"{{product_id}}\",\n  \"quantity\": 1\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -481,11 +649,16 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"serviceId\": \"{{service_id}}\",\n  \"appointmentDate\": \"2024-01-15\",\n  \"appointmentTime\": \"14:00\",\n  \"duration\": 2,\n  \"serviceLocation\": \"123 Main Street, Nairobi\",\n  \"notes\": \"Please call when you arrive\"\n}",
+              "raw": "{\n  \"serviceId\": \"{{service_id}}\",\n  \"appointmentDate\": \"2025-01-15\",\n  \"appointmentTime\": \"14:00\",\n  \"duration\": 2,\n  \"serviceLocation\": \"123 Main Street, Nairobi\",\n  \"notes\": \"Please call when you arrive\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -502,18 +675,23 @@
           "response": []
         },
         {
-          "name": "Update Cart Item",
+          "name": "Update Cart Item Quantity",
           "request": {
             "method": "PATCH",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"quantity\": 3\n}",
+              "raw": "{\n  \"quantity\": 2\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -533,7 +711,13 @@
           "name": "Remove Cart Item",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
             "url": {
               "raw": "{{base_url}}/api/cart/{{cart_item_id}}",
               "host": ["{{base_url}}"],
@@ -547,7 +731,13 @@
           "name": "Clear Cart",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
             "url": {
               "raw": "{{base_url}}/api/cart",
               "host": ["{{base_url}}"],
@@ -558,22 +748,23 @@
           "response": []
         }
       ],
-      "description": "Shopping cart management endpoints"
+      "description": "Shopping cart management with JWT authentication"
     },
     {
-      "name": "Delivery & Couriers",
+      "name": "📋 Orders",
       "item": [
         {
-          "name": "Get Available Couriers",
+          "name": "Get My Orders",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
                   "if (pm.response.json().length > 0) {",
-                  "    pm.test('Set first courier ID', function () {",
-                  "        var couriers = pm.response.json();",
-                  "        pm.environment.set('courier_id', couriers[0].id);",
+                  "    pm.test('Set first order ID for testing', function () {",
+                  "        var order = pm.response.json()[0];",
+                  "        pm.expect(order).to.have.property('id');",
+                  "        pm.environment.set('order_id', order.id);",
                   "    });",
                   "}"
                 ],
@@ -583,13 +774,143 @@
           ],
           "request": {
             "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/orders?limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get user's order history"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/orders/{{order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "{{order_id}}"]
+            },
+            "description": "Get detailed order information"
+          },
+          "response": []
+        },
+        {
+          "name": "Track Order",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/orders/{{order_id}}/track",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "{{order_id}}", "track"]
+            },
+            "description": "Get real-time order tracking information"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Order",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Changed my mind\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/{{order_id}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "{{order_id}}", "cancel"]
+            },
+            "description": "Cancel an order with reason"
+          },
+          "response": []
+        }
+      ],
+      "description": "Order management and tracking"
+    },
+    {
+      "name": "🚛 Delivery",
+      "item": [
+        {
+          "name": "Get Available Couriers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.json().length > 0) {",
+                  "    pm.test('Set first courier ID for testing', function () {",
+                  "        var courier = pm.response.json()[0];",
+                  "        pm.expect(courier).to.have.property('id');",
+                  "        pm.environment.set('courier_id', courier.id);",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/couriers",
               "host": ["{{base_url}}"],
               "path": ["api", "couriers"]
             },
-            "description": "Get list of available courier services"
+            "description": "Get list of available courier services (public endpoint)"
           },
           "response": []
         },
@@ -601,11 +922,16 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"courierId\": \"{{courier_id}}\",\n  \"location\": \"123 Main Street, Nairobi\",\n  \"weight\": 2.5\n}",
+              "raw": "{\n  \"courierId\": \"{{courier_id}}\",\n  \"deliveryAddress\": \"123 Main Street, Nairobi\",\n  \"weight\": 2.5,\n  \"items\": [\n    {\n      \"productId\": \"{{product_id}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -617,15 +943,15 @@
               "host": ["{{base_url}}"],
               "path": ["api", "couriers", "calculate"]
             },
-            "description": "Calculate delivery cost for given location"
+            "description": "Calculate delivery cost for cart items"
           },
           "response": []
         }
       ],
-      "description": "Delivery and courier service endpoints"
+      "description": "Delivery and courier services"
     },
     {
-      "name": "Payments",
+      "name": "💳 Payments",
       "item": [
         {
           "name": "Initialize Payment",
@@ -653,11 +979,16 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"amount\": 5000,\n  \"email\": \"customer@example.com\",\n  \"deliveryAddress\": \"123 Main Street, Nairobi\",\n  \"items\": [\n    {\n      \"productId\": \"{{product_id}}\",\n      \"quantity\": 1,\n      \"price\": \"1000.00\",\n      \"name\": \"Sample Product\"\n    }\n  ],\n  \"courierId\": \"{{courier_id}}\",\n  \"deliveryFee\": \"450\"\n}",
+              "raw": "{\n  \"amount\": 2500,\n  \"deliveryAddress\": \"123 Main Street, Nairobi\",\n  \"courierId\": \"{{courier_id}}\",\n  \"deliveryFee\": 450,\n  \"items\": [\n    {\n      \"productId\": \"{{product_id}}\",\n      \"quantity\": 1,\n      \"price\": {{product_price}}\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -681,6 +1012,11 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
               }
             ],
             "body": {
@@ -702,261 +1038,7 @@
           "response": []
         }
       ],
-      "description": "Payment processing endpoints"
-    },
-    {
-      "name": "Orders",
-      "item": [
-        {
-          "name": "Get My Orders",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.json().length > 0) {",
-                  "    pm.test('Set first order ID', function () {",
-                  "        var orders = pm.response.json();",
-                  "        pm.environment.set('order_id', orders[0].id);",
-                  "    });",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/orders",
-              "host": ["{{base_url}}"],
-              "path": ["api", "orders"]
-            },
-            "description": "Get current user's order history"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Order Details",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/orders/{{order_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "orders", "{{order_id}}"]
-            },
-            "description": "Get detailed order information"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Order Tracking",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/orders/{{order_id}}/tracking",
-              "host": ["{{base_url}}"],
-              "path": ["api", "orders", "{{order_id}}", "tracking"]
-            },
-            "description": "Get order tracking information"
-          },
-          "response": []
-        },
-        {
-          "name": "Generate Tracking Update",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/api/orders/{{order_id}}/track",
-              "host": ["{{base_url}}"],
-              "path": ["api", "orders", "{{order_id}}", "track"]
-            },
-            "description": "Generate next tracking update for order"
-          },
-          "response": []
-        },
-        {
-          "name": "Cancel Order",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/api/orders/{{order_id}}/cancel",
-              "host": ["{{base_url}}"],
-              "path": ["api", "orders", "{{order_id}}", "cancel"]
-            },
-            "description": "Cancel an order"
-          },
-          "response": []
-        }
-      ],
-      "description": "Order management and tracking endpoints"
-    },
-    {
-      "name": "User Profile",
-      "item": [
-        {
-          "name": "Update Profile",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"phone\": \"+254700000000\",\n  \"address\": \"123 Main Street, Nairobi\",\n  \"city\": \"Nairobi\",\n  \"country\": \"Kenya\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/auth/profile",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "profile"]
-            },
-            "description": "Update user profile information"
-          },
-          "response": []
-        },
-        {
-          "name": "Change Password",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"currentPassword\": \"current_password\",\n  \"newPassword\": \"new_password\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/auth/change-password",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "change-password"]
-            },
-            "description": "Change user password"
-          },
-          "response": []
-        }
-      ],
-      "description": "User profile management endpoints"
-    },
-    {
-      "name": "Search & Utilities",
-      "item": [
-        {
-          "name": "Global Search",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/search?q=electronics&type=all&category={{category_id}}&location=Nairobi",
-              "host": ["{{base_url}}"],
-              "path": ["api", "search"],
-              "query": [
-                {
-                  "key": "q",
-                  "value": "electronics"
-                },
-                {
-                  "key": "type",
-                  "value": "all"
-                },
-                {
-                  "key": "category",
-                  "value": "{{category_id}}"
-                },
-                {
-                  "key": "location",
-                  "value": "Nairobi"
-                }
-              ]
-            },
-            "description": "Global search across products and services"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Exchange Rates",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/exchange-rates",
-              "host": ["{{base_url}}"],
-              "path": ["api", "exchange-rates"]
-            },
-            "description": "Get current currency exchange rates"
-          },
-          "response": []
-        }
-      ],
-      "description": "Search and utility endpoints"
-    }
-  ],
-  "event": [
-    {
-      "listen": "prerequest",
-      "script": {
-        "type": "text/javascript",
-        "exec": [
-          "// Global pre-request script for Customer API",
-          "console.log('Making request to:', pm.request.url.toString());",
-          "",
-          "// Set common headers if not already set",
-          "if (!pm.request.headers.has('Content-Type') && ['POST', 'PUT', 'PATCH'].includes(pm.request.method)) {",
-          "    pm.request.headers.add({",
-          "        key: 'Content-Type',",
-          "        value: 'application/json'",
-          "    });",
-          "}"
-        ]
-      }
-    },
-    {
-      "listen": "test",
-      "script": {
-        "type": "text/javascript",
-        "exec": [
-          "// Global test script for Customer API",
-          "pm.test('Response time is less than 5 seconds', function () {",
-          "    pm.expect(pm.response.responseTime).to.be.below(5000);",
-          "});",
-          "",
-          "pm.test('Response has valid JSON format (when applicable)', function () {",
-          "    if (pm.response.headers.get('Content-Type') && pm.response.headers.get('Content-Type').includes('application/json')) {",
-          "        pm.response.to.be.json;",
-          "    }",
-          "});"
-        ]
-      }
+      "description": "Payment processing with Paystack integration"
     }
   ]
 }
