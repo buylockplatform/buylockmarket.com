@@ -1,0 +1,1036 @@
+{
+  "info": {
+    "name": "BuyLock Marketplace API",
+    "description": "Complete API collection for BuyLock e-commerce marketplace including Customer, Vendor, and Admin endpoints with proper authentication examples",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "buylock-api-collection"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "{{base_url}}"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Authentication",
+      "item": [
+        {
+          "name": "👤 Customer Auth",
+          "item": [
+            {
+              "name": "Register Customer",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"customer@example.com\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"phone\": \"+254712345678\",\n  \"password\": \"password123\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/user/register",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "user", "register"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Login Customer",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"customer@example.com\",\n  \"password\": \"password123\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/user/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "user", "login"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Customer Profile",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/user/me",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "user", "me"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Customer Profile",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Smith\",\n  \"phone\": \"+254712345678\",\n  \"address\": \"123 Main Street\",\n  \"city\": \"Nairobi\",\n  \"country\": \"Kenya\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/user/profile",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "user", "profile"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Change Customer Password",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"currentPassword\": \"password123\",\n  \"newPassword\": \"newpassword123\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/user/change-password",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "user", "change-password"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "🏪 Vendor Auth",
+          "item": [
+            {
+              "name": "Login Vendor",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"vendor@buylock.com\",\n  \"password\": \"password123\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/vendor/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "vendor", "login"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Check Vendor Auth",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-vendor-id",
+                    "value": "{{vendor_id}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/auth/vendor",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "auth", "vendor"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "👑 Admin Auth",
+          "item": [
+            {
+              "name": "Login Admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-admin-auth",
+                    "value": "{{admin_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "admin", "login"]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🛍️ Customer Endpoints",
+      "item": [
+        {
+          "name": "Shopping Cart",
+          "item": [
+            {
+              "name": "Get Cart",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/cart",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "cart"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Add to Cart",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": \"product-id-here\",\n  \"quantity\": 1,\n  \"price\": \"99999.00\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/cart",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "cart"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Cart Item",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quantity\": 2\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/cart/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "cart", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "cart-item-id"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Remove Cart Item",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/cart/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "cart", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "cart-item-id"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Clear Cart",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/cart",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "cart"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Orders",
+          "item": [
+            {
+              "name": "Get Orders",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/orders",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "orders"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Order Details",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/orders/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "orders", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "order-id"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Cancel Order",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/orders/:id/cancel",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "orders", ":id", "cancel"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "order-id"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Track Order",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/orders/:id/tracking",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "orders", ":id", "tracking"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "order-id"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Payments",
+          "item": [
+            {
+              "name": "Initialize Payment",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"amount\": 50000,\n  \"email\": \"customer@example.com\",\n  \"deliveryAddress\": \"123 Main St, Nairobi\",\n  \"notes\": \"Please handle with care\",\n  \"items\": [\n    {\n      \"productId\": \"product-id\",\n      \"quantity\": 1,\n      \"price\": \"50000\",\n      \"name\": \"Product Name\"\n    }\n  ],\n  \"courierId\": \"fargo-courier\",\n  \"courierName\": \"Fargo Courier Services\",\n  \"estimatedDeliveryTime\": \"2-4 hours\",\n  \"deliveryFee\": \"300\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments/initialize",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "payments", "initialize"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Verify Payment",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reference\": \"paystack-reference-here\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments/verify",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "payments", "verify"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Payment Status",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments/status/:reference",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "payments", "status", ":reference"],
+                  "variable": [
+                    {
+                      "key": "reference",
+                      "value": "payment-reference"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🏪 Vendor Endpoints",
+      "item": [
+        {
+          "name": "Products",
+          "item": [
+            {
+              "name": "Get Vendor Products",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-vendor-id",
+                    "value": "{{vendor_id}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vendor/{{vendor_id}}/products",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "vendor", "{{vendor_id}}", "products"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Product",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-vendor-id",
+                    "value": "{{vendor_id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"New Product\",\n  \"description\": \"Product description\",\n  \"price\": \"99999.00\",\n  \"categoryId\": \"category-id\",\n  \"stock\": 50,\n  \"imageUrl\": \"https://example.com/image.jpg\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/vendor/products",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "vendor", "products"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Product",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-vendor-id",
+                    "value": "{{vendor_id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Updated Product\",\n  \"description\": \"Updated description\",\n  \"price\": \"89999.00\",\n  \"stock\": 40\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/vendor/products/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "vendor", "products", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "product-id"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Delete Product",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "x-vendor-id",
+                    "value": "{{vendor_id}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vendor/products/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "vendor", "products", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "product-id"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Orders",
+          "item": [
+            {
+              "name": "Get Vendor Orders",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-vendor-id",
+                    "value": "{{vendor_id}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vendor/{{vendor_id}}/orders",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "vendor", "{{vendor_id}}", "orders"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Accept Order",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-vendor-id",
+                    "value": "{{vendor_id}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vendor/orders/:orderId/accept",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "vendor", "orders", ":orderId", "accept"],
+                  "variable": [
+                    {
+                      "key": "orderId",
+                      "value": "order-id"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Order Status",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-vendor-id",
+                    "value": "{{vendor_id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"shipped\",\n  \"description\": \"Order has been shipped\",\n  \"location\": \"Nairobi Warehouse\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/vendor/orders/:orderId/update-status",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "vendor", "orders", ":orderId", "update-status"],
+                  "variable": [
+                    {
+                      "key": "orderId",
+                      "value": "order-id"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Services",
+          "item": [
+            {
+              "name": "Get Vendor Services",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-vendor-id",
+                    "value": "{{vendor_id}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vendor/{{vendor_id}}/services",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "vendor", "{{vendor_id}}", "services"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Service",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "x-vendor-id",
+                    "value": "{{vendor_id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"New Service\",\n  \"description\": \"Service description\",\n  \"price\": \"50000.00\",\n  \"priceType\": \"fixed\",\n  \"categoryId\": \"service-category-id\",\n  \"location\": \"Nairobi\",\n  \"imageUrl\": \"https://example.com/image.jpg\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/vendor/services",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "vendor", "services"]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🌍 Public Endpoints",
+      "item": [
+        {
+          "name": "Categories",
+          "item": [
+            {
+              "name": "Get All Categories",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/categories",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "categories"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Category by Slug",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/categories/:slug",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "categories", ":slug"],
+                  "variable": [
+                    {
+                      "key": "slug",
+                      "value": "electronics"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Products",
+          "item": [
+            {
+              "name": "Get All Products",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "products"],
+                  "query": [
+                    {
+                      "key": "category",
+                      "value": "electronics",
+                      "disabled": true
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": true
+                    },
+                    {
+                      "key": "search",
+                      "value": "laptop",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Product by Slug",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/:slug",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "products", ":slug"],
+                  "variable": [
+                    {
+                      "key": "slug",
+                      "value": "dell-xps-13-plus"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Services",
+          "item": [
+            {
+              "name": "Get All Services",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/services",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "services"],
+                  "query": [
+                    {
+                      "key": "category",
+                      "value": "technology",
+                      "disabled": true
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Service by Slug",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/services/:slug",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "services", ":slug"],
+                  "variable": [
+                    {
+                      "key": "slug",
+                      "value": "web-development-design"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Other",
+          "item": [
+            {
+              "name": "Get Exchange Rates",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/exchange-rates",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "exchange-rates"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Search Products & Services",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/search?q=laptop&type=products",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "search"],
+                  "query": [
+                    {
+                      "key": "q",
+                      "value": "laptop"
+                    },
+                    {
+                      "key": "type",
+                      "value": "products"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Payment Config",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments/config",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "payments", "config"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Couriers",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/couriers",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "couriers"]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "👑 Admin Endpoints",
+      "item": [
+        {
+          "name": "Platform Management",
+          "item": [
+            {
+              "name": "Get Platform Stats",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-admin-auth",
+                    "value": "{{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/stats",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "admin", "stats"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get All Users",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-admin-auth",
+                    "value": "{{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/users",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "admin", "users"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get All Vendors",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-admin-auth",
+                    "value": "{{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/vendors",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "admin", "vendors"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get All Orders",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-admin-auth",
+                    "value": "{{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/orders",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "admin", "orders"]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Content Management",
+          "item": [
+            {
+              "name": "Approve Product",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "x-admin-auth",
+                    "value": "{{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/products/:id/approval",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "admin", "products", ":id", "approval"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "product-id"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Approve Service",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "x-admin-auth",
+                    "value": "{{admin_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/admin/services/:id/approval",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "admin", "services", ":id", "approval"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "service-id"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
