@@ -378,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = req.user.id;
-      const user = await storage.getUserById(userId);
+      const user = await storage.getUser(userId);
       if (!user || !user.passwordHash) {
         return res.status(404).json({ message: "User not found or password not set" });
       }
