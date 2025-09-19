@@ -177,74 +177,36 @@ export default function Cart() {
         name: item.product?.name || item.service?.name || "Unknown Item",
       }));
 
-      try {
-        const response = await apiRequest("/api/payments/initialize", "POST", {
-          amount: calculateTotal(),
-          email: user?.email || "customer@buylock.com",
-          deliveryAddress: deliveryAddress || "Default address",
-          notes,
-          items: orderItems,
-          courierId: selectedCourier,
-          courierName: courierQuote?.courierName,
-          estimatedDeliveryTime: courierQuote?.estimatedTime,
-          deliveryFee: courierQuote?.totalCost.toString(),
-        });
-        return response;
-      } catch (error) {
-        // If Paystack fails, fall back to direct order creation
-        console.warn('Paystack failed, using direct order creation:', error);
-        const response = await apiRequest("/api/orders", "POST", {
-          totalAmount: calculateTotal().toString(),
-          deliveryAddress: deliveryAddress || "Default address",
-          deliveryFee: courierQuote?.totalCost.toString() || "300",
-          paymentStatus: "pending",
-          paymentMethod: "card",
-          notes,
-          items: orderItems,
-          courierId: selectedCourier,
-          courierName: courierQuote?.courierName,
-          estimatedDeliveryTime: courierQuote?.estimatedTime,
-        });
-        return { fallback: true, order: response };
-      }
+      const response = await apiRequest("/api/payments/initialize", "POST", {
+        amount: calculateTotal(),
+        email: user?.email || "customer@buylock.com",
+        deliveryAddress: deliveryAddress || "Default address",
+        notes,
+        items: orderItems,
+        courierId: selectedCourier,
+        courierName: courierQuote?.courierName,
+        estimatedDeliveryTime: courierQuote?.estimatedTime,
+        deliveryFee: courierQuote?.totalCost.toString(),
+      });
+      return response;
     },
     onSuccess: (result: any) => {
-      if (result.fallback) {
-        // Direct order creation succeeded
-        queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-        // Invalidate all vendor queries using predicate
-        queryClient.invalidateQueries({ 
-          predicate: (query) => {
-            const key = query.queryKey?.[0];
-            return typeof key === 'string' && key.startsWith('/api/vendor/');
-          }
-        });
-        toast({
-          title: "Order placed successfully!",
-          description: "Your order has been created. Payment can be completed upon delivery.",
-        });
-        setTimeout(() => {
-          navigate("/my-orders");
-        }, 1500);
-      } else {
-        // Paystack succeeded, redirect to payment page
-        console.log('Redirecting to Paystack:', result);
-        if (result.authorization_url) {
-          // Store reference for pending payment checking
-          if (result.reference) {
-            localStorage.setItem('pending_payment_reference', result.reference);
-            localStorage.setItem('last_payment_time', Date.now().toString());
-          }
-          window.location.href = result.authorization_url;
-        } else {
-          console.error('No authorization URL received:', result);
-          toast({
-            title: "Payment initialization failed",
-            description: "No payment URL received. Please try again.",
-            variant: "destructive",
-          });
+      // Paystack payment initialization succeeded, redirect to payment page
+      console.log('Redirecting to Paystack:', result);
+      if (result.authorization_url) {
+        // Store reference for pending payment checking
+        if (result.reference) {
+          localStorage.setItem('pending_payment_reference', result.reference);
+          localStorage.setItem('last_payment_time', Date.now().toString());
         }
+        window.location.href = result.authorization_url;
+      } else {
+        console.error('No authorization URL received:', result);
+        toast({
+          title: "Payment initialization failed",
+          description: "No payment URL received. Please try again.",
+          variant: "destructive",
+        });
       }
     },
     onError: (error) => {
