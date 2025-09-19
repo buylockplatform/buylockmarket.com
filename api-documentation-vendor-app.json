@@ -1,0 +1,1057 @@
+{
+  "app": "vendor",
+  "version": "1.0.0",
+  "baseUrl": "https://your-domain.com",
+  "description": "Vendor mobile app API documentation for BuyLock marketplace - comprehensive vendor dashboard for managing products, services, orders, and earnings",
+  "authentication": {
+    "type": "vendor_auth",
+    "description": "Uses custom vendor authentication with vendor ID header",
+    "headers": {
+      "required": {
+        "x-vendor-id": "vendor_id_here",
+        "Content-Type": "application/json"
+      }
+    },
+    "note": "All API calls require x-vendor-id header for vendor identification"
+  },
+  "pages": [
+    {
+      "name": "Vendor Login",
+      "route": "/login",
+      "description": "Vendor authentication page",
+      "authentication": "none",
+      "apiCalls": [
+        {
+          "purpose": "Vendor login",
+          "method": "POST",
+          "url": "/api/vendor/login",
+          "auth": "none",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "email": "vendor@example.com",
+            "password": "password"
+          },
+          "response": {
+            "type": "VendorAuth",
+            "example": {
+              "success": true,
+              "vendor": {
+                "id": "vendor_id",
+                "businessName": "My Business",
+                "email": "vendor@example.com",
+                "verified": true
+              },
+              "token": "vendor_auth_token"
+            }
+          },
+          "errors": [
+            {
+              "status": 401,
+              "message": "Invalid credentials"
+            },
+            {
+              "status": 403,
+              "message": "Account not verified"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Vendor Dashboard",
+      "route": "/dashboard",
+      "description": "Main dashboard with vendor statistics and overview",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get vendor information",
+          "method": "GET",
+          "url": "/api/auth/vendor",
+          "auth": "required",
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "response": {
+            "type": "Vendor",
+            "example": {
+              "id": "vendor_id",
+              "businessName": "My Business",
+              "contactName": "John Doe",
+              "email": "vendor@example.com",
+              "phone": "+254700000000",
+              "address": "Business address",
+              "verified": true,
+              "description": "Business description"
+            }
+          }
+        },
+        {
+          "purpose": "Get vendor products",
+          "method": "GET",
+          "url": "/api/products",
+          "auth": "required",
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "response": {
+            "type": "Product[]"
+          }
+        },
+        {
+          "purpose": "Get vendor services",
+          "method": "GET",
+          "url": "/api/services",
+          "auth": "required",
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "response": {
+            "type": "Service[]"
+          }
+        },
+        {
+          "purpose": "Get dashboard statistics",
+          "method": "GET",
+          "url": "/api/vendor/stats",
+          "auth": "required",
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "response": {
+            "type": "VendorStats",
+            "example": {
+              "totalProducts": 25,
+              "totalServices": 5,
+              "activeListings": 28,
+              "totalOrders": 150,
+              "totalRevenue": "250000.00",
+              "pendingOrders": 3
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products Management",
+      "route": "/products",
+      "description": "Manage vendor products - create, edit, delete",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get vendor products",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/products",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "response": {
+            "type": "Product[]",
+            "example": [
+              {
+                "id": "uuid",
+                "name": "Product Name",
+                "price": "1000.00",
+                "stock": 50,
+                "active": true,
+                "adminApproved": true,
+                "rating": "4.5",
+                "reviewCount": 25
+              }
+            ]
+          }
+        },
+        {
+          "purpose": "Create new product",
+          "method": "POST",
+          "url": "/api/vendor/:vendorId/products",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "name": "Product Name",
+            "description": "Product description",
+            "price": 1000.00,
+            "categoryId": "category_uuid",
+            "subcategoryId": "subcategory_uuid",
+            "brandId": "brand_uuid",
+            "stock": 50,
+            "imageUrl": "product_image_url",
+            "tags": ["tag1", "tag2"]
+          },
+          "response": {
+            "type": "Product"
+          }
+        },
+        {
+          "purpose": "Update product",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/products/:productId",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "productId": "product_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "name": "Updated Product Name",
+            "price": 1200.00,
+            "stock": 75,
+            "active": true
+          }
+        },
+        {
+          "purpose": "Delete product",
+          "method": "DELETE",
+          "url": "/api/vendor/:vendorId/products/:productId",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "productId": "product_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          }
+        },
+        {
+          "purpose": "Get categories for product creation",
+          "method": "GET",
+          "url": "/api/categories",
+          "auth": "none",
+          "response": {
+            "type": "Category[]"
+          }
+        },
+        {
+          "purpose": "Get subcategories for category",
+          "method": "GET",
+          "url": "/api/subcategories",
+          "auth": "none",
+          "queryParams": {
+            "categoryId": "category_id"
+          },
+          "response": {
+            "type": "Subcategory[]"
+          }
+        },
+        {
+          "purpose": "Get brands",
+          "method": "GET",
+          "url": "/api/brands",
+          "auth": "none",
+          "response": {
+            "type": "Brand[]"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Services Management",
+      "route": "/services",
+      "description": "Manage vendor services - create, edit, delete",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get vendor services",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/services",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "response": {
+            "type": "Service[]"
+          }
+        },
+        {
+          "purpose": "Create new service",
+          "method": "POST",
+          "url": "/api/vendor/:vendorId/services",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "name": "Service Name",
+            "description": "Service description",
+            "price": 2000.00,
+            "priceType": "hourly",
+            "categoryId": "category_uuid",
+            "location": "Service location",
+            "isAvailableToday": true,
+            "imageUrl": "service_image_url",
+            "tags": ["tag1", "tag2"]
+          },
+          "response": {
+            "type": "Service"
+          }
+        },
+        {
+          "purpose": "Update service",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/services/:serviceId",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "serviceId": "service_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "name": "Updated Service Name",
+            "price": 2500.00,
+            "active": true,
+            "isAvailableToday": false
+          }
+        },
+        {
+          "purpose": "Delete service",
+          "method": "DELETE",
+          "url": "/api/vendor/:vendorId/services/:serviceId",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "serviceId": "service_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          }
+        },
+        {
+          "purpose": "Get service categories",
+          "method": "GET",
+          "url": "/api/service-categories",
+          "auth": "none",
+          "response": {
+            "type": "ServiceCategory[]"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders Management",
+      "route": "/orders",
+      "description": "Manage vendor orders - view, accept, update status",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get vendor orders",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/orders",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "queryParams": {
+            "status": "pending|confirmed|shipped|delivered|cancelled",
+            "limit": "50"
+          },
+          "response": {
+            "type": "Order[]",
+            "example": [
+              {
+                "id": "uuid",
+                "status": "pending",
+                "totalAmount": "5000.00",
+                "customerName": "Customer Name",
+                "deliveryAddress": "Customer address",
+                "createdAt": "2024-01-01T00:00:00Z",
+                "orderItems": [
+                  {
+                    "name": "Product Name",
+                    "quantity": 2,
+                    "price": "1000.00"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "purpose": "Get order details",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/orders/:orderId",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "orderId": "order_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "response": {
+            "type": "OrderWithDetails"
+          }
+        },
+        {
+          "purpose": "Accept order",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/orders/:orderId/accept",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "orderId": "order_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "estimatedPreparationTime": "2 hours",
+            "vendorNotes": "Order confirmed and in preparation"
+          }
+        },
+        {
+          "purpose": "Update order status",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/orders/:orderId/status",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "orderId": "order_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "status": "ready_for_pickup",
+            "notes": "Order is ready for courier pickup"
+          }
+        },
+        {
+          "purpose": "Mark order as ready for pickup",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/orders/:orderId/ready",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "orderId": "order_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          }
+        },
+        {
+          "purpose": "Cancel order",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/orders/:orderId/cancel",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "orderId": "order_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "reason": "Out of stock"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Earnings Management",
+      "route": "/earnings",
+      "description": "Track earnings, payouts, and financial analytics",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get vendor earnings summary",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/earnings",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "queryParams": {
+            "period": "month|quarter|year",
+            "startDate": "2024-01-01",
+            "endDate": "2024-12-31"
+          },
+          "response": {
+            "type": "EarningsSummary",
+            "example": {
+              "totalEarnings": "250000.00",
+              "availableBalance": "200000.00",
+              "pendingBalance": "50000.00",
+              "totalWithdrawn": "100000.00",
+              "commissionRate": "20",
+              "totalCommissionPaid": "50000.00"
+            }
+          }
+        },
+        {
+          "purpose": "Get earnings transactions",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/earnings/transactions",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "queryParams": {
+            "page": "1",
+            "limit": "50",
+            "type": "sale|commission|payout"
+          },
+          "response": {
+            "type": "EarningsTransaction[]",
+            "example": [
+              {
+                "id": "uuid",
+                "type": "sale",
+                "amount": "1000.00",
+                "commission": "200.00",
+                "netAmount": "800.00",
+                "orderId": "order_uuid",
+                "createdAt": "2024-01-01T00:00:00Z"
+              }
+            ]
+          }
+        },
+        {
+          "purpose": "Request payout",
+          "method": "POST",
+          "url": "/api/vendor/:vendorId/earnings/payout",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "amount": 50000.00,
+            "bankAccount": {
+              "accountNumber": "1234567890",
+              "bankCode": "044",
+              "accountName": "Business Account"
+            }
+          },
+          "response": {
+            "type": "PayoutRequest",
+            "example": {
+              "id": "payout_uuid",
+              "amount": "50000.00",
+              "status": "pending",
+              "estimatedTransferDate": "2024-01-03"
+            }
+          }
+        },
+        {
+          "purpose": "Get payout history",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/earnings/payouts",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "response": {
+            "type": "PayoutHistory[]"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Appointments Management",
+      "route": "/appointments",
+      "description": "Manage service appointments and bookings",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get vendor appointments",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/appointments",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "queryParams": {
+            "status": "pending|confirmed|in_progress|completed|cancelled",
+            "date": "2024-01-01"
+          },
+          "response": {
+            "type": "Appointment[]",
+            "example": [
+              {
+                "id": "uuid",
+                "serviceId": "service_uuid",
+                "serviceName": "Service Name",
+                "customerName": "Customer Name",
+                "appointmentDate": "2024-01-01",
+                "appointmentTime": "14:00",
+                "duration": 2,
+                "location": "Customer address",
+                "status": "pending",
+                "notes": "Special instructions"
+              }
+            ]
+          }
+        },
+        {
+          "purpose": "Accept appointment",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/appointments/:appointmentId/accept",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "appointmentId": "appointment_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          }
+        },
+        {
+          "purpose": "Update appointment status",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/appointments/:appointmentId/status",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "appointmentId": "appointment_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "status": "in_progress",
+            "notes": "Service started"
+          }
+        },
+        {
+          "purpose": "Complete appointment",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/appointments/:appointmentId/complete",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "appointmentId": "appointment_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "completionNotes": "Service completed successfully",
+            "actualDuration": 2.5
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "route": "/analytics",
+      "description": "Business analytics and performance metrics",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get sales analytics",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/analytics/sales",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "queryParams": {
+            "period": "week|month|quarter|year",
+            "startDate": "2024-01-01",
+            "endDate": "2024-12-31"
+          },
+          "response": {
+            "type": "SalesAnalytics",
+            "example": {
+              "totalSales": "250000.00",
+              "orderCount": 150,
+              "averageOrderValue": "1666.67",
+              "topSellingProducts": [
+                {
+                  "productId": "uuid",
+                  "name": "Product Name",
+                  "salesCount": 25,
+                  "revenue": "25000.00"
+                }
+              ],
+              "salesByPeriod": [
+                {
+                  "period": "2024-01",
+                  "sales": "20000.00",
+                  "orders": 12
+                }
+              ]
+            }
+          }
+        },
+        {
+          "purpose": "Get product performance",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/analytics/products",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "response": {
+            "type": "ProductAnalytics[]"
+          }
+        },
+        {
+          "purpose": "Get customer analytics",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/analytics/customers",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "response": {
+            "type": "CustomerAnalytics",
+            "example": {
+              "totalCustomers": 85,
+              "newCustomers": 12,
+              "returningCustomers": 73,
+              "customerRetentionRate": "85.88",
+              "topCustomers": [
+                {
+                  "customerId": "uuid",
+                  "name": "Customer Name",
+                  "totalOrders": 5,
+                  "totalSpent": "5000.00"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vendor Profile",
+      "route": "/profile",
+      "description": "Manage vendor business profile and settings",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get vendor profile",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "response": {
+            "type": "VendorProfile"
+          }
+        },
+        {
+          "purpose": "Update vendor profile",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "businessName": "Updated Business Name",
+            "contactName": "John Doe",
+            "phone": "+254700000000",
+            "address": "Updated business address",
+            "description": "Updated business description",
+            "logoUrl": "business_logo_url"
+          }
+        },
+        {
+          "purpose": "Update business hours",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/hours",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "businessHours": {
+              "monday": { "open": "08:00", "close": "18:00", "closed": false },
+              "tuesday": { "open": "08:00", "close": "18:00", "closed": false },
+              "wednesday": { "open": "08:00", "close": "18:00", "closed": false },
+              "thursday": { "open": "08:00", "close": "18:00", "closed": false },
+              "friday": { "open": "08:00", "close": "18:00", "closed": false },
+              "saturday": { "open": "09:00", "close": "17:00", "closed": false },
+              "sunday": { "closed": true }
+            }
+          }
+        },
+        {
+          "purpose": "Change password",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/password",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "currentPassword": "current_password",
+            "newPassword": "new_password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "route": "/notifications",
+      "description": "Vendor notifications and alerts",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get vendor notifications",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/notifications",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "queryParams": {
+            "unreadOnly": "true|false",
+            "limit": "50"
+          },
+          "response": {
+            "type": "Notification[]",
+            "example": [
+              {
+                "id": "uuid",
+                "type": "new_order",
+                "title": "New Order Received",
+                "message": "You have received a new order #12345",
+                "isRead": false,
+                "createdAt": "2024-01-01T00:00:00Z",
+                "metadata": {
+                  "orderId": "order_uuid"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "purpose": "Mark notification as read",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/notifications/:notificationId/read",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id",
+            "notificationId": "notification_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          }
+        },
+        {
+          "purpose": "Mark all notifications as read",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/notifications/read-all",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "route": "/settings",
+      "description": "Vendor account settings and preferences",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get vendor settings",
+          "method": "GET",
+          "url": "/api/vendor/:vendorId/settings",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id"
+          },
+          "response": {
+            "type": "VendorSettings",
+            "example": {
+              "emailNotifications": true,
+              "smsNotifications": false,
+              "autoAcceptOrders": false,
+              "currency": "KES",
+              "timezone": "Africa/Nairobi",
+              "language": "en"
+            }
+          }
+        },
+        {
+          "purpose": "Update vendor settings",
+          "method": "PATCH",
+          "url": "/api/vendor/:vendorId/settings",
+          "auth": "required",
+          "pathParams": {
+            "vendorId": "vendor_id"
+          },
+          "headers": {
+            "x-vendor-id": "vendor_id",
+            "Content-Type": "application/json"
+          },
+          "requestBody": {
+            "emailNotifications": true,
+            "smsNotifications": true,
+            "autoAcceptOrders": true,
+            "timezone": "Africa/Nairobi"
+          }
+        }
+      ]
+    }
+  ],
+  "common_patterns": {
+    "authentication": {
+      "header_required": "x-vendor-id must be included in all authenticated requests",
+      "error_handling": {
+        "401": "Invalid or missing vendor authentication",
+        "403": "Vendor account not verified or suspended",
+        "404": "Vendor not found"
+      }
+    },
+    "error_handling": {
+      "400": "Bad request - validation errors",
+      "401": "Unauthorized - authentication required",
+      "403": "Forbidden - insufficient permissions",
+      "404": "Resource not found",
+      "422": "Unprocessable entity - business logic error",
+      "500": "Internal server error"
+    },
+    "loading_states": "Show skeleton loading components during API calls",
+    "cache_invalidation": "Invalidate vendor-specific queries on mutation success",
+    "currency_formatting": "Display amounts in KES (Kenyan Shillings) with proper formatting",
+    "real_time_updates": "Use WebSocket or polling for order status updates and notifications"
+  },
+  "data_types": {
+    "Product": {
+      "id": "string (uuid)",
+      "name": "string",
+      "description": "string",
+      "price": "string (decimal)",
+      "stock": "number",
+      "active": "boolean",
+      "adminApproved": "boolean",
+      "rating": "string (decimal)",
+      "reviewCount": "number",
+      "imageUrl": "string",
+      "categoryId": "string (uuid)",
+      "vendorId": "string",
+      "createdAt": "string (ISO date)",
+      "updatedAt": "string (ISO date)"
+    },
+    "Service": {
+      "id": "string (uuid)",
+      "name": "string",
+      "description": "string",
+      "price": "string (decimal)",
+      "priceType": "string (fixed|hourly|per_service)",
+      "active": "boolean",
+      "adminApproved": "boolean",
+      "rating": "string (decimal)",
+      "reviewCount": "number",
+      "imageUrl": "string",
+      "categoryId": "string (uuid)",
+      "providerId": "string",
+      "location": "string",
+      "isAvailableToday": "boolean",
+      "createdAt": "string (ISO date)",
+      "updatedAt": "string (ISO date)"
+    },
+    "Order": {
+      "id": "string (uuid)",
+      "status": "string (pending|confirmed|shipped|delivered|cancelled)",
+      "totalAmount": "string (decimal)",
+      "deliveryAddress": "string",
+      "customerName": "string",
+      "vendorId": "string",
+      "userId": "string",
+      "trackingNumber": "string",
+      "createdAt": "string (ISO date)",
+      "updatedAt": "string (ISO date)",
+      "orderItems": "OrderItem[]"
+    },
+    "Vendor": {
+      "id": "string",
+      "businessName": "string",
+      "contactName": "string",
+      "email": "string",
+      "phone": "string",
+      "address": "string",
+      "verified": "boolean",
+      "description": "string",
+      "logoUrl": "string",
+      "createdAt": "string (ISO date)"
+    }
+  }
+}

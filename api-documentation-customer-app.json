@@ -1,0 +1,616 @@
+{
+  "app": "customer",
+  "version": "1.0.0",
+  "baseUrl": "https://your-domain.com",
+  "description": "Customer mobile app API documentation for BuyLock marketplace - comprehensive multi-vendor e-commerce platform for the Kenyan market",
+  "authentication": {
+    "type": "replit_auth",
+    "description": "Uses Replit OpenID Connect with HTTP-only cookies",
+    "headers": {
+      "required": {
+        "Content-Type": "application/json"
+      },
+      "credentials": "include"
+    }
+  },
+  "pages": [
+    {
+      "name": "Landing Page",
+      "route": "/",
+      "description": "Public landing page for unauthenticated users",
+      "authentication": "none",
+      "apiCalls": [
+        {
+          "purpose": "Get featured products",
+          "method": "GET",
+          "url": "/api/products",
+          "auth": "none",
+          "queryParams": {
+            "featured": "true",
+            "limit": "5"
+          },
+          "headers": {},
+          "response": {
+            "type": "Product[]",
+            "example": [
+              {
+                "id": "uuid",
+                "name": "Product Name",
+                "price": "1000.00",
+                "imageUrl": "url",
+                "rating": "4.5",
+                "vendor": {
+                  "businessName": "Vendor Name"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "purpose": "Get featured services",
+          "method": "GET",
+          "url": "/api/services",
+          "auth": "none",
+          "queryParams": {
+            "featured": "true",
+            "limit": "3"
+          },
+          "headers": {},
+          "response": {
+            "type": "Service[]"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Home Page",
+      "route": "/",
+      "description": "Authenticated user home page with personalized content",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get user information",
+          "method": "GET",
+          "url": "/api/auth/user",
+          "auth": "required",
+          "headers": {
+            "credentials": "include"
+          },
+          "response": {
+            "type": "User",
+            "example": {
+              "id": "user_id",
+              "email": "user@example.com",
+              "firstName": "John",
+              "lastName": "Doe"
+            }
+          },
+          "errors": [
+            {
+              "status": 401,
+              "message": "Unauthorized"
+            }
+          ]
+        },
+        {
+          "purpose": "Get featured products",
+          "method": "GET",
+          "url": "/api/products",
+          "auth": "none",
+          "queryParams": {
+            "featured": "true",
+            "limit": "5"
+          }
+        },
+        {
+          "purpose": "Get featured services",
+          "method": "GET",
+          "url": "/api/services",
+          "auth": "none",
+          "queryParams": {
+            "featured": "true",
+            "limit": "3"
+          }
+        },
+        {
+          "purpose": "Add product to cart",
+          "method": "POST",
+          "url": "/api/cart",
+          "auth": "required",
+          "headers": {
+            "Content-Type": "application/json",
+            "credentials": "include"
+          },
+          "requestBody": {
+            "productId": "uuid",
+            "quantity": 1
+          },
+          "response": {
+            "type": "CartItem"
+          },
+          "errors": [
+            {
+              "status": 401,
+              "message": "Login required"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Products Page",
+      "route": "/products",
+      "description": "Product catalog with search and filtering",
+      "authentication": "optional",
+      "apiCalls": [
+        {
+          "purpose": "Get categories for filters",
+          "method": "GET",
+          "url": "/api/categories",
+          "auth": "none",
+          "headers": {},
+          "response": {
+            "type": "Category[]",
+            "example": [
+              {
+                "id": "uuid",
+                "name": "Electronics",
+                "slug": "electronics"
+              }
+            ]
+          }
+        },
+        {
+          "purpose": "Search and filter products",
+          "method": "GET",
+          "url": "/api/products",
+          "auth": "none",
+          "queryParams": {
+            "search": "optional search term",
+            "category": "category_id",
+            "limit": "50",
+            "sort": "newest|price-low|price-high|rating"
+          },
+          "headers": {},
+          "response": {
+            "type": "Product[]"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Services Page",
+      "route": "/services",
+      "description": "Service catalog with search and filtering",
+      "authentication": "optional",
+      "apiCalls": [
+        {
+          "purpose": "Get categories for filters",
+          "method": "GET",
+          "url": "/api/categories",
+          "auth": "none"
+        },
+        {
+          "purpose": "Search and filter services",
+          "method": "GET",
+          "url": "/api/services",
+          "auth": "none",
+          "queryParams": {
+            "search": "optional search term",
+            "categoryId": "category_id",
+            "availableToday": "true|false",
+            "limit": "50"
+          },
+          "response": {
+            "type": "Service[]"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Product Detail Page",
+      "route": "/products/:slug",
+      "description": "Individual product details",
+      "authentication": "optional",
+      "apiCalls": [
+        {
+          "purpose": "Get product details",
+          "method": "GET",
+          "url": "/api/products/:slug",
+          "auth": "none",
+          "pathParams": {
+            "slug": "product-slug"
+          },
+          "response": {
+            "type": "Product",
+            "example": {
+              "id": "uuid",
+              "name": "Product Name",
+              "description": "Full description",
+              "price": "1000.00",
+              "images": ["url1", "url2"],
+              "vendor": {
+                "businessName": "Vendor Name",
+                "rating": "4.5"
+              }
+            }
+          }
+        },
+        {
+          "purpose": "Add to cart",
+          "method": "POST",
+          "url": "/api/cart",
+          "auth": "required",
+          "requestBody": {
+            "productId": "uuid",
+            "quantity": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "Service Detail Page",
+      "route": "/services/:slug",
+      "description": "Individual service details and booking",
+      "authentication": "optional",
+      "apiCalls": [
+        {
+          "purpose": "Get service details",
+          "method": "GET",
+          "url": "/api/services/:slug",
+          "auth": "none",
+          "pathParams": {
+            "slug": "service-slug"
+          },
+          "response": {
+            "type": "Service"
+          }
+        },
+        {
+          "purpose": "Book service",
+          "method": "POST",
+          "url": "/api/services/book",
+          "auth": "required",
+          "requestBody": {
+            "serviceId": "uuid",
+            "appointmentDate": "2024-01-01",
+            "appointmentTime": "14:00",
+            "duration": 2,
+            "serviceLocation": "Customer address",
+            "notes": "Special instructions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shopping Cart",
+      "route": "/cart",
+      "description": "Cart management and checkout",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get cart items",
+          "method": "GET",
+          "url": "/api/cart",
+          "auth": "required",
+          "headers": {
+            "credentials": "include"
+          },
+          "response": {
+            "type": "CartItem[]",
+            "example": [
+              {
+                "id": "uuid",
+                "productId": "uuid",
+                "quantity": 2,
+                "price": "1000.00",
+                "product": {
+                  "name": "Product Name",
+                  "imageUrl": "url"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "purpose": "Update cart item quantity",
+          "method": "PATCH",
+          "url": "/api/cart/:id",
+          "auth": "required",
+          "pathParams": {
+            "id": "cart_item_id"
+          },
+          "requestBody": {
+            "quantity": 3
+          }
+        },
+        {
+          "purpose": "Remove cart item",
+          "method": "DELETE",
+          "url": "/api/cart/:id",
+          "auth": "required",
+          "pathParams": {
+            "id": "cart_item_id"
+          }
+        },
+        {
+          "purpose": "Clear entire cart",
+          "method": "DELETE",
+          "url": "/api/cart",
+          "auth": "required"
+        },
+        {
+          "purpose": "Get available couriers",
+          "method": "GET",
+          "url": "/api/couriers",
+          "auth": "required",
+          "response": {
+            "type": "Courier[]",
+            "example": [
+              {
+                "id": "courier_id",
+                "name": "G4S Courier",
+                "baseRate": "300.00",
+                "estimatedTime": "2-4 hours"
+              }
+            ]
+          }
+        },
+        {
+          "purpose": "Calculate delivery cost",
+          "method": "POST",
+          "url": "/api/couriers/calculate",
+          "auth": "required",
+          "requestBody": {
+            "courierId": "courier_id",
+            "location": "Delivery address",
+            "weight": 2.5
+          },
+          "response": {
+            "type": "CourierQuote",
+            "example": {
+              "totalCost": 450,
+              "estimatedTime": "2-4 hours",
+              "courierName": "G4S Courier"
+            }
+          }
+        },
+        {
+          "purpose": "Initialize payment",
+          "method": "POST",
+          "url": "/api/payments/initialize",
+          "auth": "required",
+          "requestBody": {
+            "amount": 5000,
+            "email": "customer@example.com",
+            "deliveryAddress": "Customer address",
+            "items": [
+              {
+                "productId": "uuid",
+                "quantity": 1,
+                "price": "1000.00",
+                "name": "Product Name"
+              }
+            ],
+            "courierId": "courier_id",
+            "deliveryFee": "450"
+          },
+          "response": {
+            "type": "PaymentInitialization",
+            "example": {
+              "authorization_url": "https://checkout.paystack.com/...",
+              "reference": "payment_reference"
+            }
+          }
+        },
+        {
+          "purpose": "Verify payment",
+          "method": "POST",
+          "url": "/api/payments/verify",
+          "auth": "required",
+          "requestBody": {
+            "reference": "payment_reference"
+          },
+          "response": {
+            "type": "PaymentVerification",
+            "example": {
+              "success": true,
+              "status": "success",
+              "orderId": "order_uuid"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "My Orders",
+      "route": "/my-orders",
+      "description": "Order history and tracking",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get user orders",
+          "method": "GET",
+          "url": "/api/orders",
+          "auth": "required",
+          "headers": {
+            "credentials": "include"
+          },
+          "response": {
+            "type": "Order[]",
+            "example": [
+              {
+                "id": "uuid",
+                "status": "pending",
+                "totalAmount": "5000.00",
+                "deliveryAddress": "Customer address",
+                "trackingNumber": "TRK123456",
+                "createdAt": "2024-01-01T00:00:00Z",
+                "orderItems": [
+                  {
+                    "name": "Product Name",
+                    "quantity": 2,
+                    "price": "1000.00"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "purpose": "Get order details",
+          "method": "GET",
+          "url": "/api/orders/:id",
+          "auth": "required",
+          "pathParams": {
+            "id": "order_id"
+          },
+          "response": {
+            "type": "OrderWithItems"
+          }
+        },
+        {
+          "purpose": "Get order tracking",
+          "method": "GET",
+          "url": "/api/orders/:id/tracking",
+          "auth": "required",
+          "pathParams": {
+            "id": "order_id"
+          },
+          "response": {
+            "type": "OrderTracking[]",
+            "example": [
+              {
+                "id": "uuid",
+                "status": "Order confirmed",
+                "description": "Your order has been confirmed",
+                "location": "Nairobi",
+                "timestamp": "2024-01-01T00:00:00Z"
+              }
+            ]
+          }
+        },
+        {
+          "purpose": "Generate tracking update",
+          "method": "POST",
+          "url": "/api/orders/:id/track",
+          "auth": "required",
+          "pathParams": {
+            "id": "order_id"
+          }
+        },
+        {
+          "purpose": "Cancel order",
+          "method": "PATCH",
+          "url": "/api/orders/:id/cancel",
+          "auth": "required",
+          "pathParams": {
+            "id": "order_id"
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Profile",
+      "route": "/profile",
+      "description": "User account management",
+      "authentication": "required",
+      "apiCalls": [
+        {
+          "purpose": "Get user profile",
+          "method": "GET",
+          "url": "/api/auth/user",
+          "auth": "required",
+          "headers": {
+            "credentials": "include"
+          }
+        },
+        {
+          "purpose": "Update profile",
+          "method": "PUT",
+          "url": "/api/auth/profile",
+          "auth": "required",
+          "requestBody": {
+            "firstName": "John",
+            "lastName": "Doe",
+            "phone": "+254700000000",
+            "address": "User address",
+            "city": "Nairobi",
+            "country": "Kenya"
+          }
+        },
+        {
+          "purpose": "Change password",
+          "method": "PUT",
+          "url": "/api/auth/change-password",
+          "auth": "required",
+          "requestBody": {
+            "currentPassword": "current_password",
+            "newPassword": "new_password"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search",
+      "route": "/search",
+      "description": "Global search functionality",
+      "authentication": "optional",
+      "apiCalls": [
+        {
+          "purpose": "Search products and services",
+          "method": "GET",
+          "url": "/api/search",
+          "auth": "none",
+          "queryParams": {
+            "q": "search query",
+            "type": "products|services|all",
+            "category": "category_id",
+            "location": "user_location"
+          },
+          "response": {
+            "type": "SearchResults",
+            "example": {
+              "products": [],
+              "services": [],
+              "total": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Exchange Rates",
+      "route": "/",
+      "description": "Currency exchange rates for international users",
+      "authentication": "none",
+      "apiCalls": [
+        {
+          "purpose": "Get current exchange rates",
+          "method": "GET",
+          "url": "/api/exchange-rates",
+          "auth": "none",
+          "response": {
+            "type": "ExchangeRates",
+            "example": {
+              "KES": 1,
+              "USD": 0.00774,
+              "EUR": 0.00656,
+              "GBP": 0.00612
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "common_patterns": {
+    "error_handling": {
+      "401": "Redirect to /api/login for authentication",
+      "403": "Show permission denied message",
+      "500": "Show generic error message"
+    },
+    "loading_states": "Show skeleton loading components",
+    "cache_invalidation": "Invalidate queries on mutation success",
+    "currency_formatting": "Display prices in KES (Kenyan Shillings)"
+  }
+}

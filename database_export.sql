@@ -1,5 +1,5 @@
 -- PostgreSQL Database Export
--- Generated on: 2025-09-12T14:34:51.284Z
+-- Generated on: 2025-09-17T14:44:26.389Z
 -- 
 
 SET session_replication_role = replica;
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS "brands" (
 ALTER TABLE "brands" ADD CONSTRAINT "brands_pkey" PRIMARY KEY ("id");
 
 
--- Table: cart_items (0 rows)
+-- Table: cart_items (1 rows)
 -- ----------------------------------------
 
 CREATE TABLE IF NOT EXISTS "cart_items" (
@@ -86,6 +86,9 @@ CREATE TABLE IF NOT EXISTS "cart_items" (
   "detailed_instructions" TEXT,
   "created_at" TIMESTAMP WITHOUT TIME ZONE DEFAULT now()
 );
+
+INSERT INTO "cart_items" ("id", "user_id", "product_id", "service_id", "quantity", "price", "appointment_date", "appointment_time", "duration", "notes", "service_location", "location_coordinates", "detailed_instructions", "created_at") VALUES
+  ('34392585-19da-47db-a2ec-576a3bab7c8e', '44263266', '63236c3d-03a3-460b-9b9f-e1107ff43a77', NULL, 1, '299999.00', NULL, NULL, 1, NULL, NULL, NULL, NULL, '2025-09-17T08:14:35.579Z');
 
 ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_pkey" PRIMARY KEY ("id");
 
@@ -395,8 +398,8 @@ INSERT INTO "orders" ("id", "user_id", "vendor_id", "status", "total_amount", "d
   ('a40ec023-0f37-4533-ada7-31b10ba79cd8', '44263266', '74bf6c33-7f09-4844-903d-72bff3849c95', 'ready_for_pickup', '299999.00', 'riara', NULL, NULL, NULL, NULL, 'paid', 'Paystack', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'BL_1757590712323_d9p0h9zlb', '2025-09-11T11:44:50.031Z', '2025-09-11T11:48:21.663Z', '3PXVrUumDEczXrbvVk4EPw', '2025-09-11T11:44:50.374Z', '2025-12-10T11:44:50.374Z'),
   ('6af683b1-d64b-4e76-990e-912343c5f24e', '44263266', '74bf6c33-7f09-4844-903d-72bff3849c95', 'ready_for_pickup', '189999.00', 'riara center ', NULL, NULL, NULL, NULL, 'paid', 'Paystack', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'BL_1757601913261_rqn6816ls', '2025-09-11T14:45:44.201Z', '2025-09-12T13:42:34.888Z', 'N7thgiTntpZ6sinKdtDbaw', '2025-09-11T14:45:44.538Z', '2025-12-10T14:45:44.538Z'),
   ('16834f14-302a-42de-b0f1-6b35011b5137', '44263266', '74bf6c33-7f09-4844-903d-72bff3849c95', 'ready_for_pickup', '274998.00', 'Ngong road ', NULL, NULL, NULL, NULL, 'paid', 'Paystack', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'BL_1757684881847_rb4fgzsue', '2025-09-12T13:48:31.323Z', '2025-09-12T13:49:36.527Z', '7FXK6_5FyV3VzALfd_jp0A', '2025-09-12T13:48:31.721Z', '2025-12-11T13:48:31.720Z'),
-  ('53c0e097-f825-4c74-9385-3eb2c80354cf', '44263266', '74bf6c33-7f09-4844-903d-72bff3849c95', 'ready_for_pickup', '244998.00', 'riara', NULL, NULL, NULL, NULL, 'paid', 'Paystack', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'BL_1757684486348_6soi0ebzn', '2025-09-12T13:41:56.643Z', '2025-09-12T13:49:46.529Z', 'ep_c8Q6ZXtVpDMSZR2HaKQ', '2025-09-12T13:41:57.041Z', '2025-12-11T13:41:57.040Z'),
-  ('6fb9e2a7-33b1-49bc-af64-1b9a9c7a72d4', '44263266', '74bf6c33-7f09-4844-903d-72bff3849c95', 'fulfilled', '0.00', 'Riara center offices ', NULL, NULL, NULL, NULL, 'paid', 'Paystack', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'BL_1757514200973_p95veqfsr', '2025-09-10T18:21:51.124Z', '2025-09-12T14:33:30.647Z', NULL, NULL, NULL);
+  ('6fb9e2a7-33b1-49bc-af64-1b9a9c7a72d4', '44263266', '74bf6c33-7f09-4844-903d-72bff3849c95', 'fulfilled', '0.00', 'Riara center offices ', NULL, NULL, NULL, NULL, 'paid', 'Paystack', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'BL_1757514200973_p95veqfsr', '2025-09-10T18:21:51.124Z', '2025-09-12T14:33:30.647Z', NULL, NULL, NULL),
+  ('53c0e097-f825-4c74-9385-3eb2c80354cf', '44263266', '74bf6c33-7f09-4844-903d-72bff3849c95', 'fulfilled', '244998.00', 'riara', NULL, NULL, NULL, NULL, 'paid', 'Paystack', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'BL_1757684486348_6soi0ebzn', '2025-09-12T13:41:56.643Z', '2025-09-12T14:36:28.162Z', 'ep_c8Q6ZXtVpDMSZR2HaKQ', '2025-09-12T13:41:57.041Z', '2025-12-11T13:41:57.040Z');
 
 ALTER TABLE "orders" ADD CONSTRAINT "orders_pkey" PRIMARY KEY ("id");
 
@@ -421,7 +424,7 @@ CREATE TABLE IF NOT EXISTS "payout_history" (
 ALTER TABLE "payout_history" ADD CONSTRAINT "payout_history_pkey" PRIMARY KEY ("id");
 
 
--- Table: payout_requests (0 rows)
+-- Table: payout_requests (5 rows)
 -- ----------------------------------------
 
 CREATE TABLE IF NOT EXISTS "payout_requests" (
@@ -442,8 +445,16 @@ CREATE TABLE IF NOT EXISTS "payout_requests" (
   "completed_at" TIMESTAMP WITHOUT TIME ZONE,
   "failed_at" TIMESTAMP WITHOUT TIME ZONE,
   "created_at" TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
-  "updated_at" TIMESTAMP WITHOUT TIME ZONE DEFAULT now()
+  "updated_at" TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+  "order_id" UUID
 );
+
+INSERT INTO "payout_requests" ("id", "vendor_id", "requested_amount", "available_balance", "status", "request_reason", "reviewed_by", "reviewed_at", "admin_notes", "paystack_transfer_id", "paystack_transfer_code", "transfer_status", "transfer_failure_reason", "actual_paid_amount", "completed_at", "failed_at", "created_at", "updated_at", "order_id") VALUES
+  ('7cac07a9-f1df-4f35-b774-f9a2aa823051', '74bf6c33-7f09-4844-903d-72bff3849c95', '244998.00', '0.00', 'failed', NULL, 'admin', '2025-09-17T09:16:08.040Z', 'undefined - Transfer failed: You cannot initiate third party payouts at this time', NULL, NULL, NULL, 'You cannot initiate third party payouts at this time', NULL, NULL, '2025-09-17T09:16:08.040Z', '2025-09-17T08:52:03.546Z', '2025-09-17T09:16:08.040Z', '53c0e097-f825-4c74-9385-3eb2c80354cf'),
+  ('ca3c7475-6f1f-4cca-aa15-c2cb9a55e1eb', '74bf6c33-7f09-4844-903d-72bff3849c95', '244998.00', '0.00', 'approved', NULL, 'admin', '2025-09-17T09:23:29.691Z', NULL, 'mock_1758101008691_q6znjblu8', 'TRF_9u746zmuv8t', 'pending', NULL, NULL, NULL, NULL, '2025-09-17T09:23:01.703Z', '2025-09-17T09:23:29.691Z', '53c0e097-f825-4c74-9385-3eb2c80354cf'),
+  ('e2886b6d-de03-4543-9b46-3b7d022c38b4', '74bf6c33-7f09-4844-903d-72bff3849c95', '244998.00', '0.00', 'approved', NULL, 'admin', '2025-09-17T09:29:55.863Z', NULL, 'mock_1758101394862_s4k1obmhz', 'TRF_sjw4nc9tgjn', 'pending', NULL, NULL, NULL, NULL, '2025-09-17T09:29:10.303Z', '2025-09-17T09:29:55.863Z', '53c0e097-f825-4c74-9385-3eb2c80354cf'),
+  ('f334cb8d-0959-41aa-853d-667baa623fc9', '74bf6c33-7f09-4844-903d-72bff3849c95', '244998.00', '0.00', 'approved', NULL, 'admin', '2025-09-17T09:34:31.334Z', NULL, 'mock_1758101670334_7tajgzd0d', 'TRF_wmdf5vztrs', 'pending', NULL, NULL, NULL, NULL, '2025-09-17T09:33:57.131Z', '2025-09-17T09:34:31.335Z', '53c0e097-f825-4c74-9385-3eb2c80354cf'),
+  ('d3ba5e04-095a-41fa-a440-3ad2089210f8', '74bf6c33-7f09-4844-903d-72bff3849c95', '244998.00', '0.00', 'approved', NULL, 'admin', '2025-09-17T09:43:10.682Z', NULL, 'mock_1758102189681_cos1nb9qb', 'TRF_9k0g8ex5m7u', 'pending', NULL, NULL, NULL, NULL, '2025-09-17T09:42:35.418Z', '2025-09-17T09:43:10.682Z', '53c0e097-f825-4c74-9385-3eb2c80354cf');
 
 ALTER TABLE "payout_requests" ADD CONSTRAINT "payout_requests_pkey" PRIMARY KEY ("id");
 
@@ -725,13 +736,13 @@ CREATE TABLE IF NOT EXISTS "users" (
 );
 
 INSERT INTO "users" ("id", "email", "first_name", "last_name", "profile_image_url", "created_at", "updated_at") VALUES
-  ('44263266', 'buylockplatform@gmail.com', 'Martin', 'Muriithi', NULL, '2025-09-10T15:56:25.356Z', '2025-09-11T14:44:06.056Z'),
-  ('74bf6c33-7f09-4844-903d-72bff3849c95', 'vendor@buylock.com', 'John', 'Vendor', NULL, '2025-09-10T15:05:05.698Z', '2025-09-12T14:29:38.196Z');
+  ('74bf6c33-7f09-4844-903d-72bff3849c95', 'vendor@buylock.com', 'John', 'Vendor', NULL, '2025-09-10T15:05:05.698Z', '2025-09-17T13:10:06.139Z'),
+  ('44263266', 'buylockplatform@gmail.com', 'Martin', 'Muriithi', NULL, '2025-09-10T15:56:25.356Z', '2025-09-17T08:14:13.681Z');
 
 ALTER TABLE "users" ADD CONSTRAINT "users_pkey" PRIMARY KEY ("id");
 
 
--- Table: vendor_earnings (0 rows)
+-- Table: vendor_earnings (2 rows)
 -- ----------------------------------------
 
 CREATE TABLE IF NOT EXISTS "vendor_earnings" (
@@ -751,10 +762,14 @@ CREATE TABLE IF NOT EXISTS "vendor_earnings" (
   "created_at" TIMESTAMP WITHOUT TIME ZONE DEFAULT now()
 );
 
+INSERT INTO "vendor_earnings" ("id", "vendor_id", "order_id", "order_item_id", "gross_amount", "platform_fee_percentage", "platform_fee", "net_earnings", "status", "earning_date", "available_date", "paid_out_at", "payout_request_id", "created_at") VALUES
+  ('e5bc3f55-36de-41d6-ab54-f1677bb3e46c', '74bf6c33-7f09-4844-903d-72bff3849c95', '53c0e097-f825-4c74-9385-3eb2c80354cf', NULL, '306247.50', '20.00', '61249.50', '244998.00', 'paid', '2025-09-17T09:34:31.484Z', NULL, NULL, NULL, '2025-09-17T09:34:31.484Z'),
+  ('9faddfff-a02d-4cee-a8d2-3afbb5e1e499', '74bf6c33-7f09-4844-903d-72bff3849c95', '53c0e097-f825-4c74-9385-3eb2c80354cf', NULL, '306247.50', '20.00', '61249.50', '244998.00', 'paid', '2025-09-17T09:43:10.834Z', NULL, NULL, NULL, '2025-09-17T09:43:10.834Z');
+
 ALTER TABLE "vendor_earnings" ADD CONSTRAINT "vendor_earnings_pkey" PRIMARY KEY ("id");
 
 
--- Table: vendors (1 rows)
+-- Table: vendors (4 rows)
 -- ----------------------------------------
 
 CREATE TABLE IF NOT EXISTS "vendors" (
@@ -796,7 +811,10 @@ CREATE TABLE IF NOT EXISTS "vendors" (
 );
 
 INSERT INTO "vendors" ("id", "email", "password_hash", "business_name", "contact_email", "contact_name", "phone", "address", "business_category", "description", "vendor_type", "national_id_number", "tax_pin_number", "national_id_url", "tax_certificate_url", "business_latitude", "business_longitude", "location_description", "bank_name", "bank_code", "account_number", "account_name", "paystack_subaccount_id", "paystack_subaccount_code", "subaccount_active", "total_earnings", "available_balance", "pending_balance", "total_paid_out", "verification_status", "verification_notes", "verified_at", "verified_by", "created_at", "updated_at") VALUES
-  ('74bf6c33-7f09-4844-903d-72bff3849c95', 'vendor@buylock.com', '$2b$10$BtTUNLXaCGGoninI30REee7P2SgJyyCZ3mTJOO2cBD5TwQYSn9lNi', 'BuyLock Premier Store', 'vendor@buylock.com', 'John Vendor', '+254740717201', 'Nairobi CBD, Kenya', 'General Merchandise', 'Premium products and services retailer with nationwide delivery', 'registered', '12345678', NULL, NULL, NULL, '-1.28638900', '36.81722300', 'Located in the heart of Nairobi Central Business District, easily accessible from all major roads and transport hubs', 'kcb', '01', '1316677133', 'Josiah Kamau Maina', '1464840', 'ACCT_7bd4qg6mwkuthf7', TRUE, '0.00', '0.00', '0.00', '0.00', 'verified', NULL, NULL, NULL, '2025-09-10T17:50:01.566Z', '2025-09-12T14:29:38.317Z');
+  ('fd97b05e-d973-4560-9e41-384b8c6a6ee0', 'joemaina180@gmail.com', '$2b$10$pnwgR.JD5ZNOyzj0tl6X5O1KBI9o3IQNKKCmqIQtd.9pK4a48KLCa', 'Pointer Services', 'joemaina180@gmail.com', 'Josiah', '+254740406442', 'Spur Mall , Ruiru', 'Electronics & Technology', 'Laptop sale and repair', 'registered', '12345678', 'A000000000X', 'https://storage.googleapis.com/replit-objstore-abcc9cdb-0ca3-4e5b-810c-597df591617c/.private/uploads/09d36792-609b-4dae-81b9-9f4ad7bc364e', 'https://storage.googleapis.com/replit-objstore-abcc9cdb-0ca3-4e5b-810c-597df591617c/.private/uploads/dfb737f3-e72f-42e0-a20c-5be20df2bdb8', '-1.13710330', '36.96981270', 'Spur Mall, Thika Road, Murera ward, Juja, Kiambu, 01001, Kenya', NULL, NULL, NULL, NULL, NULL, NULL, FALSE, '0.00', '0.00', '0.00', '0.00', 'verified', NULL, '2025-09-17T10:39:49.961Z', 'admin', '2025-09-17T10:14:24.947Z', '2025-09-17T10:39:49.961Z'),
+  ('d7bdf30e-cced-40a6-8dea-58250737fae1', 'buylockplatform@gmail.com', '$2b$10$oY094EknPPJJNCqjMJ74/.Y7L5Pn/zPHhbcAGgo/bERLdcnY8Deei', 'Test Email Business', 'buylockplatform@gmail.com', 'Test User', '+254700000000', 'Nairobi, Kenya', 'retail', NULL, 'registered', '12345678', 'A000000000A', 'test-national-id-url', 'test-tax-cert-url', '-1.29210000', '36.82190000', 'Central Nairobi', NULL, NULL, NULL, NULL, NULL, NULL, FALSE, '0.00', '0.00', '0.00', '0.00', 'verified', NULL, '2025-09-17T10:59:49.105Z', 'admin', '2025-09-17T10:57:44.651Z', '2025-09-17T10:59:49.105Z'),
+  ('b2a3ac90-1154-421a-b5c8-cc7eeb65c820', 'testemail@example.com', '$2b$10$3oZELuGV.T1qzR14j9G.Ve7HMZoiCBAUMItQHA4t7PrgAx49Dke4e', 'Test Email Business 2', 'testemail@example.com', 'Test User 2', '+254700000001', 'Nairobi, Kenya', 'retail', NULL, 'registered', '12345679', 'A000000000B', 'test-national-id-url-2', 'test-tax-cert-url-2', '-1.29210000', '36.82190000', 'Central Nairobi', NULL, NULL, NULL, NULL, NULL, NULL, FALSE, '0.00', '0.00', '0.00', '0.00', 'verified', NULL, '2025-09-17T11:11:56.444Z', 'admin', '2025-09-17T11:11:35.936Z', '2025-09-17T11:11:56.444Z'),
+  ('74bf6c33-7f09-4844-903d-72bff3849c95', 'vendor@buylock.com', '$2b$10$BtTUNLXaCGGoninI30REee7P2SgJyyCZ3mTJOO2cBD5TwQYSn9lNi', 'BuyLock Premier Store', 'vendor@buylock.com', 'John Vendor', '+254740717201', 'Nairobi CBD, Kenya', 'General Merchandise', 'Premium products and services retailer with nationwide delivery', 'registered', '12345678', NULL, NULL, NULL, '-1.28638900', '36.81722300', 'Located in the heart of Nairobi Central Business District, easily accessible from all major roads and transport hubs', 'kcb', '01', '1316677133', 'Josiah Kamau Maina', '1464840', 'ACCT_7bd4qg6mwkuthf7', TRUE, '0.00', '0.00', '0.00', '0.00', 'verified', NULL, NULL, NULL, '2025-09-10T17:50:01.566Z', '2025-09-17T13:10:06.265Z');
 
 ALTER TABLE "vendors" ADD CONSTRAINT "vendors_pkey" PRIMARY KEY ("id");
 
