@@ -15,6 +15,8 @@ import ServiceDetail from "@/pages/service-detail";
 import Cart from "@/pages/cart";
 import MyOrders from "@/pages/my-orders";
 import Profile from "@/pages/profile";
+import Login from "@/pages/Login";
+import Register from "@/pages/Register";
 
 import Shop from "@/pages/shop";
 import VendorPortal from "@/pages/vendor-portal";
@@ -37,6 +39,10 @@ function Router() {
 
   return (
     <Switch>
+      {/* Authentication routes - accessible without authentication */}
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
+      
       {isLoading || !isAuthenticated ? (
         <>
           <Route path="/" component={Landing} />

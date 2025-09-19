@@ -269,12 +269,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: validatedData.password,
       });
 
-      // Return user data (without password hash)
-      const { passwordHash, ...userData } = user;
-      res.status(201).json({
-        success: true,
-        message: "Account created successfully",
-        user: userData
+      // Set up session for the newly registered user (same as login)
+      req.session.userId = user.id;
+      req.session.user = {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName
+      };
+      
+      // Save session
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error during registration:", err);
+          return res.status(500).json({ message: "Registration completed but session failed" });
+        }
+        
+        // Return user data (without password hash)
+        const { passwordHash, ...userData } = user;
+        res.status(201).json({
+          success: true,
+          message: "Account created successfully",
+          user: userData
+        });
       });
 
     } catch (error) {
