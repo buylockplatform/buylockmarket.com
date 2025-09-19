@@ -27,10 +27,7 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: (data: LoginFormData) =>
-      apiRequest("/api/user/login", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
+      apiRequest("/api/user/login", "POST", data),
     onSuccess: (response) => {
       queryClient.setQueryData(["/api/user/me"], response);
       toast({
