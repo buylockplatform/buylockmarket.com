@@ -137,7 +137,7 @@
               "response": []
             },
             {
-              "name": "Get Customer Profile",
+              "name": "Get Customer Profile (Session)",
               "request": {
                 "method": "GET",
                 "header": [],
@@ -145,6 +145,76 @@
                   "raw": "{{baseUrl}}/api/user/me",
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "user", "me"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Customer Profile (JWT)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/user/me",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "user", "me"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Customer Profile (JWT)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"firstName\": \"Updated\",\n  \"lastName\": \"Name\",\n  \"phone\": \"+254712345679\",\n  \"address\": \"123 Updated Street\",\n  \"city\": \"Nairobi\",\n  \"country\": \"Kenya\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/user/profile",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "user", "profile"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Change Password (JWT)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"currentPassword\": \"password123\",\n  \"newPassword\": \"newpassword123\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/user/change-password",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "user", "change-password"]
                 }
               },
               "response": []
@@ -280,7 +350,7 @@
           "name": "Shopping Cart",
           "item": [
             {
-              "name": "Get Cart",
+              "name": "Get Cart (Session)",
               "request": {
                 "method": "GET",
                 "header": [],
@@ -293,7 +363,25 @@
               "response": []
             },
             {
-              "name": "Add to Cart",
+              "name": "Get Cart (JWT)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/cart",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "cart"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Add to Cart (Session)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -304,7 +392,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"productId\": \"product-id-here\",\n  \"quantity\": 1,\n  \"price\": \"99999.00\"\n}"
+                  "raw": "{\n  \"productId\": \"da2f4801-7eeb-4d51-9c8e-925dd6e746c2\",\n  \"quantity\": 1,\n  \"price\": \"149999.00\"\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/cart",
@@ -315,10 +403,40 @@
               "response": []
             },
             {
-              "name": "Update Cart Item",
+              "name": "Add to Cart (JWT)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productId\": \"da2f4801-7eeb-4d51-9c8e-925dd6e746c2\",\n  \"quantity\": 1,\n  \"price\": \"149999.00\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/cart",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "cart"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Update Cart Item (JWT)",
               "request": {
                 "method": "PATCH",
                 "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
                   {
                     "key": "Content-Type",
                     "value": "application/json"
@@ -338,6 +456,47 @@
                       "value": "cart-item-id"
                     }
                   ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Remove Cart Item (JWT)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/cart/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "cart", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "cart-item-id"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Clear Cart (JWT)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/cart",
+                  "host": ["{{baseUrl}}"]
                 }
               },
               "response": []
@@ -380,7 +539,7 @@
           "name": "Orders",
           "item": [
             {
-              "name": "Get Orders",
+              "name": "Get Orders (Session)",
               "request": {
                 "method": "GET",
                 "header": [],
@@ -388,6 +547,74 @@
                   "raw": "{{baseUrl}}/api/orders",
                   "host": ["{{baseUrl}}"],
                   "path": ["api", "orders"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Orders (JWT)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/orders",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "orders"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create Order (JWT)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"deliveryAddress\": \"123 Test Street, Nairobi\",\n  \"notes\": \"Test order\",\n  \"courierId\": \"courier-id\",\n  \"courierName\": \"Test Courier\",\n  \"estimatedDeliveryTime\": \"24 hours\",\n  \"deliveryFee\": \"500\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/orders",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "orders"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get Order Details (JWT)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/orders/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "orders", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "order-id"
+                    }
+                  ]
                 }
               },
               "response": []
@@ -455,7 +682,7 @@
           "name": "Payments",
           "item": [
             {
-              "name": "Initialize Payment",
+              "name": "Initialize Payment (Session)",
               "request": {
                 "method": "POST",
                 "header": [
@@ -466,7 +693,33 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"amount\": 50000,\n  \"email\": \"customer@example.com\",\n  \"deliveryAddress\": \"123 Main St, Nairobi\",\n  \"notes\": \"Please handle with care\",\n  \"items\": [\n    {\n      \"productId\": \"product-id\",\n      \"quantity\": 1,\n      \"price\": \"50000\",\n      \"name\": \"Product Name\"\n    }\n  ],\n  \"courierId\": \"fargo-courier\",\n  \"courierName\": \"Fargo Courier Services\",\n  \"estimatedDeliveryTime\": \"2-4 hours\",\n  \"deliveryFee\": \"300\"\n}"
+                  "raw": "{\n  \"amount\": 159999,\n  \"email\": \"customer@example.com\",\n  \"deliveryAddress\": \"123 Main St, Nairobi\",\n  \"notes\": \"Please handle with care\",\n  \"items\": [\n    {\n      \"productId\": \"da2f4801-7eeb-4d51-9c8e-925dd6e746c2\",\n      \"quantity\": 1,\n      \"price\": \"149999.00\",\n      \"name\": \"Dell XPS 13 Plus\"\n    }\n  ],\n  \"courierId\": \"fargo-courier\",\n  \"courierName\": \"Fargo Courier Services\",\n  \"estimatedDeliveryTime\": \"2-4 hours\",\n  \"deliveryFee\": \"10000\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/payments/initialize",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "payments", "initialize"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Initialize Payment (JWT)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"amount\": 159999,\n  \"email\": \"mobile@example.com\",\n  \"deliveryAddress\": \"123 Main St, Nairobi\",\n  \"notes\": \"Order from mobile app\",\n  \"items\": [\n    {\n      \"productId\": \"da2f4801-7eeb-4d51-9c8e-925dd6e746c2\",\n      \"quantity\": 1,\n      \"price\": \"149999.00\",\n      \"name\": \"Dell XPS 13 Plus\"\n    }\n  ],\n  \"courierId\": \"fargo-courier\",\n  \"courierName\": \"Fargo Courier Services\",\n  \"estimatedDeliveryTime\": \"2-4 hours\",\n  \"deliveryFee\": \"10000\"\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/payments/initialize",
@@ -518,6 +771,216 @@
               "response": []
             }
           ]
+        }
+      ]
+    },
+    {
+      "name": "🛍️ Public Endpoints",
+      "item": [
+        {
+          "name": "Get All Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products?featured=true&category=&search=&latitude=-1.2921&longitude=36.8219&radiusKm=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products"],
+              "query": [
+                {
+                  "key": "featured",
+                  "value": "true",
+                  "description": "Filter featured products"
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "description": "Filter by category ID"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search term"
+                },
+                {
+                  "key": "latitude",
+                  "value": "-1.2921",
+                  "description": "Customer latitude (Nairobi)"
+                },
+                {
+                  "key": "longitude",
+                  "value": "36.8219",
+                  "description": "Customer longitude (Nairobi)"
+                },
+                {
+                  "key": "radiusKm",
+                  "value": "50",
+                  "description": "Search radius in kilometers"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product by Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/:slug",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", ":slug"],
+              "variable": [
+                {
+                  "key": "slug",
+                  "value": "dell-xps-13-plus"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services?featured=true&category=&search=&availableToday=true&latitude=-1.2921&longitude=36.8219&radiusKm=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "services"],
+              "query": [
+                {
+                  "key": "featured",
+                  "value": "true",
+                  "description": "Filter featured services"
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "description": "Filter by category ID"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search term"
+                },
+                {
+                  "key": "availableToday",
+                  "value": "true",
+                  "description": "Filter services available today"
+                },
+                {
+                  "key": "latitude",
+                  "value": "-1.2921",
+                  "description": "Customer latitude (Nairobi)"
+                },
+                {
+                  "key": "longitude",
+                  "value": "36.8219",
+                  "description": "Customer longitude (Nairobi)"
+                },
+                {
+                  "key": "radiusKm",
+                  "value": "50",
+                  "description": "Search radius in kilometers"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Service by Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services/:slug",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "services", ":slug"],
+              "variable": [
+                {
+                  "key": "slug",
+                  "value": "web-development-design"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Book Service (JWT)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceId\": \"46918a3c-44a6-4ceb-841a-b3ef28dfc30e\",\n  \"selectedDate\": \"2025-09-25\",\n  \"selectedTime\": \"10:00\",\n  \"duration\": 4,\n  \"notes\": \"Need a new website for my business\",\n  \"customerAddress\": \"123 Business Street, Nairobi\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/services/book",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "services", "book"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Products and Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/search?q=laptop",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "laptop",
+                  "description": "Search query"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Exchange Rates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/exchange-rates",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "exchange-rates"]
+            }
+          },
+          "response": []
         }
       ]
     },

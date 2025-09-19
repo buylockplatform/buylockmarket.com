@@ -206,15 +206,16 @@ These endpoints work without any authentication:
 
 **Session Authentication:**
 1. Run "Register Customer (Session)" or "Login Customer (Session)"
-2. Run "Get Customer Profile" - should work without additional setup
-3. All customer endpoints now work automatically with cookies
+2. Run "Get Customer Profile (Session)" - should work without additional setup
+3. All session-based customer endpoints now work automatically with cookies
 
 **JWT Authentication:**
 1. Run "Register Customer (JWT Tokens)" or "Login Customer (JWT Tokens)"
 2. Copy the `accessToken` from response
-3. Set environment variable `access_token` to this value
-4. Use "Authorization: Bearer {{access_token}}" header for authenticated requests
-5. Use "Refresh JWT Token" when access token expires
+3. Set environment variable `access_token` to this value (Variables tab in Postman)
+4. Copy the `refreshToken` and set environment variable `refresh_token`
+5. Use endpoints marked "(JWT)" which include "Authorization: Bearer {{access_token}}" header
+6. Use "Refresh JWT Token" when access token expires (7 days)
 
 #### For Vendor Testing:
 1. Run "Login Vendor" 
