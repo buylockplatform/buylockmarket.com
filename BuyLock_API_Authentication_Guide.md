@@ -1,18 +1,18 @@
 # BuyLock API Authentication Guide
 
 ## Overview
-BuyLock API uses different authentication methods for different types of users:
-- **Customers**: Session-based authentication (cookies)
+BuyLock API supports hybrid authentication methods for different types of users and platforms:
+- **Customers**: Hybrid authentication (session cookies for browsers OR JWT tokens for mobile/API)
 - **Vendors**: Header-based authentication (x-vendor-id)  
 - **Admins**: Header-based authentication (x-admin-auth)
 
 ## 🔐 Authentication Methods
 
-### 👤 Customer Authentication (Session-Based)
+### 👤 Customer Authentication (Hybrid: Sessions + JWT)
 
-**How it works**: Uses HTTP sessions with cookies (NOT bearer tokens)
+**How it works**: Supports both HTTP sessions (for browsers) and JWT tokens (for mobile/API clients)
 
-#### Step 1: Register or Login
+#### Option A: Session-Based Authentication (Browsers)
 ```bash
 # Register new customer
 POST /api/user/register
@@ -23,7 +23,8 @@ Content-Type: application/json
   "firstName": "John",
   "lastName": "Doe", 
   "phone": "+254712345678",
-  "password": "password123"
+  "password": "password123",
+  "confirmPassword": "password123"
 }
 
 # OR Login existing customer
@@ -36,18 +37,66 @@ Content-Type: application/json
 }
 ```
 
-#### Step 2: Postman Setup for Customer Auth
+#### Option B: JWT Token Authentication (Mobile/API)
+```bash
+# Register new customer (returns JWT tokens)
+POST /api/user/register
+Content-Type: application/json
+X-Auth-Type: token
+
+{
+  "email": "mobile@example.com",
+  "firstName": "Mobile",
+  "lastName": "User", 
+  "phone": "+254712345678",
+  "password": "password123",
+  "confirmPassword": "password123"
+}
+
+# Response includes JWT tokens:
+{
+  "success": true,
+  "message": "Account created successfully",
+  "user": { ... },
+  "tokens": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresIn": 604800,
+    "tokenType": "Bearer"
+  }
+}
+
+# OR Login existing customer (returns JWT tokens)
+POST /api/user/login
+Content-Type: application/json
+X-Auth-Type: token
+
+{
+  "email": "mobile@example.com",
+  "password": "password123"
+}
+```
+
+#### Step 2: Authentication Setup
+
+**For Session Auth (Browsers):**
 1. **Enable Cookie Jar**: In Postman, go to Settings → General → Enable "Automatically follow redirects" and "Send cookies with requests"
 2. **No Headers Required**: Customer authentication uses cookies automatically
 3. **Session Persists**: After login, all subsequent requests in the same Postman session will be authenticated
 
-#### Customer Endpoints (Require Session Auth)
+**For JWT Auth (Mobile/API):**
+1. **Get Tokens**: Use login/register with `X-Auth-Type: token` header
+2. **Use Bearer Token**: Add `Authorization: Bearer {accessToken}` to all authenticated requests
+3. **Token Refresh**: Use `/api/user/refresh-token` endpoint when access token expires
+
+#### Customer Endpoints (Support Both Auth Methods)
 - GET `/api/user/me` - Get profile
 - PUT `/api/user/profile` - Update profile  
 - PUT `/api/user/change-password` - Change password
 - GET/POST/PATCH/DELETE `/api/cart/*` - Cart operations
 - GET/POST/PATCH `/api/orders/*` - Order operations
 - POST `/api/payments/*` - Payment operations
+- POST `/api/user/refresh-token` - Refresh JWT access token (JWT only)
 
 ---
 
@@ -154,9 +203,18 @@ These endpoints work without any authentication:
 ### 2. Test Authentication
 
 #### For Customer Testing:
-1. Run "Register Customer" or "Login Customer"
+
+**Session Authentication:**
+1. Run "Register Customer (Session)" or "Login Customer (Session)"
 2. Run "Get Customer Profile" - should work without additional setup
-3. All customer endpoints now work automatically
+3. All customer endpoints now work automatically with cookies
+
+**JWT Authentication:**
+1. Run "Register Customer (JWT Tokens)" or "Login Customer (JWT Tokens)"
+2. Copy the `accessToken` from response
+3. Set environment variable `access_token` to this value
+4. Use "Authorization: Bearer {{access_token}}" header for authenticated requests
+5. Use "Refresh JWT Token" when access token expires
 
 #### For Vendor Testing:
 1. Run "Login Vendor" 

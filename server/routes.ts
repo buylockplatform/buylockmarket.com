@@ -14,17 +14,38 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { PaystackService } from "./paystackService";
+import { generateTokens, verifyToken, extractBearerToken, wantsTokenAuth, refreshAccessToken, type JWTPayload } from "./jwtUtils";
 
-// Session-based user authentication middleware
+// Hybrid user authentication middleware (supports both sessions and JWT tokens)
 const isUserAuthenticated = async (req: any, res: any, next: any) => {
   try {
-    if (!req.session?.userId || !req.session?.user) {
-      return res.status(401).json({ message: "Not authenticated" });
+    // Try JWT token authentication first
+    const authHeader = req.headers.authorization;
+    const token = extractBearerToken(authHeader);
+    
+    if (token) {
+      const decoded = verifyToken(token);
+      if (decoded && decoded.type === 'access') {
+        // JWT authentication successful
+        req.user = { 
+          id: decoded.userId, 
+          email: decoded.email,
+          firstName: decoded.firstName,
+          lastName: decoded.lastName 
+        };
+        req.authType = 'token';
+        return next();
+      }
     }
     
-    // Add user data to request for use in endpoints
-    req.user = { id: req.session.userId, ...req.session.user };
-    next();
+    // Fall back to session authentication
+    if (req.session?.userId && req.session?.user) {
+      req.user = { id: req.session.userId, ...req.session.user };
+      req.authType = 'session';
+      return next();
+    }
+    
+    return res.status(401).json({ message: "Not authenticated" });
   } catch (error) {
     console.error("User authentication error:", error);
     res.status(500).json({ message: "Authentication failed" });
@@ -232,7 +253,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: validatedData.password,
       });
 
-      // Regenerate session ID to prevent session fixation
+      // Check if client wants token-based authentication
+      if (wantsTokenAuth(req)) {
+        // Generate JWT tokens for mobile/API clients
+        const tokens = generateTokens(user);
+        const { passwordHash, ...userData } = user;
+        
+        return res.status(201).json({
+          success: true,
+          message: "Account created successfully",
+          user: userData,
+          tokens: {
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresIn: tokens.expiresIn,
+            tokenType: "Bearer"
+          }
+        });
+      }
+
+      // Use session-based authentication for browsers
       req.session.regenerate((err) => {
         if (err) {
           console.error("Session regeneration error during registration:", err);
@@ -290,7 +330,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      // Regenerate session ID to prevent session fixation attacks
+      // Check if client wants token-based authentication
+      if (wantsTokenAuth(req)) {
+        // Generate JWT tokens for mobile/API clients
+        const tokens = generateTokens(user);
+        const { passwordHash, ...userData } = user;
+        
+        return res.json({
+          success: true,
+          message: "Login successful",
+          user: userData,
+          tokens: {
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresIn: tokens.expiresIn,
+            tokenType: "Bearer"
+          }
+        });
+      }
+
+      // Use session-based authentication for browsers
       req.session.regenerate((err) => {
         if (err) {
           console.error("Session regeneration error:", err);
@@ -401,6 +460,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Password change error:", error);
       res.status(500).json({ message: "Error updating password" });
+    }
+  });
+
+  // Token refresh endpoint
+  app.post("/api/user/refresh-token", authRateLimit, async (req, res) => {
+    try {
+      const { refreshToken } = req.body;
+      
+      if (!refreshToken) {
+        return res.status(400).json({ message: "Refresh token is required" });
+      }
+
+      const result = refreshAccessToken(refreshToken);
+      if (!result) {
+        return res.status(401).json({ message: "Invalid or expired refresh token" });
+      }
+
+      res.json({
+        success: true,
+        message: "Token refreshed successfully",
+        tokens: {
+          accessToken: result.accessToken,
+          expiresIn: result.expiresIn,
+          tokenType: "Bearer"
+        }
+      });
+    } catch (error) {
+      console.error("Token refresh error:", error);
+      res.status(500).json({ message: "Failed to refresh token" });
     }
   });
 
