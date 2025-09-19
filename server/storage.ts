@@ -93,6 +93,15 @@ export interface IStorage {
   updateVendor(id: string, updates: Partial<InsertVendor>): Promise<Vendor>;
   updateVendorBusinessDetails(id: string, details: { businessName: string; contactName: string; phone?: string; address?: string }): Promise<Vendor>;
   updateVendorBankDetails(id: string, details: { bankName: string; bankCode?: string; accountNumber: string; accountName: string }): Promise<Vendor>;
+  getVendorStats(vendorId: string): Promise<{
+    totalProducts: number;
+    totalServices: number;
+    totalOrders: number;
+    pendingOrders: number;
+    recentOrders: any[];
+    monthlyEarnings: any[];
+    topProducts: any[];
+  }>;
 
   // Paystack Subaccount operations
   updateVendorPaystackSubaccount(id: string, details: { paystackSubaccountId: string; paystackSubaccountCode: string; subaccountActive: boolean }): Promise<Vendor>;
@@ -411,6 +420,108 @@ export class DatabaseStorage implements IStorage {
       .where(eq(vendors.id, id))
       .returning();
     return vendor;
+  }
+
+  async getVendorStats(vendorId: string): Promise<{
+    totalProducts: number;
+    totalServices: number;
+    totalOrders: number;
+    pendingOrders: number;
+    recentOrders: any[];
+    monthlyEarnings: any[];
+    topProducts: any[];
+  }> {
+    try {
+      // Get total products count
+      const totalProductsResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(products)
+        .where(eq(products.vendorId, vendorId));
+      const totalProducts = totalProductsResult[0]?.count || 0;
+
+      // Get total services count
+      const totalServicesResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(services)
+        .where(eq(services.vendorId, vendorId));
+      const totalServices = totalServicesResult[0]?.count || 0;
+
+      // Get total orders count
+      const totalOrdersResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(orders)
+        .where(eq(orders.vendorId, vendorId));
+      const totalOrders = totalOrdersResult[0]?.count || 0;
+
+      // Get pending orders count
+      const pendingOrdersResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(orders)
+        .where(and(eq(orders.vendorId, vendorId), eq(orders.status, 'pending')));
+      const pendingOrders = pendingOrdersResult[0]?.count || 0;
+
+      // Get recent orders (last 5)
+      const recentOrders = await db
+        .select({
+          id: orders.id,
+          status: orders.status,
+          totalAmount: orders.totalAmount,
+          createdAt: orders.createdAt
+        })
+        .from(orders)
+        .where(eq(orders.vendorId, vendorId))
+        .orderBy(desc(orders.createdAt))
+        .limit(5);
+
+      // Get monthly earnings (basic implementation - can be enhanced)
+      const monthlyEarnings = await db
+        .select({
+          month: sql<string>`DATE_TRUNC('month', ${orders.createdAt})`,
+          total: sql<number>`SUM(CAST(${orders.totalAmount} AS DECIMAL))`
+        })
+        .from(orders)
+        .where(and(eq(orders.vendorId, vendorId), eq(orders.status, 'fulfilled')))
+        .groupBy(sql`DATE_TRUNC('month', ${orders.createdAt})`)
+        .orderBy(sql`DATE_TRUNC('month', ${orders.createdAt}) DESC`)
+        .limit(6);
+
+      // Get top products (most ordered)
+      const topProducts = await db
+        .select({
+          productId: orderItems.productId,
+          productName: products.name,
+          totalSold: sql<number>`SUM(${orderItems.quantity})`,
+          revenue: sql<number>`SUM(CAST(${orderItems.price} AS DECIMAL) * ${orderItems.quantity})`
+        })
+        .from(orderItems)
+        .leftJoin(orders, eq(orderItems.orderId, orders.id))
+        .leftJoin(products, eq(orderItems.productId, products.id))
+        .where(and(eq(orders.vendorId, vendorId), eq(orders.status, 'fulfilled')))
+        .groupBy(orderItems.productId, products.name)
+        .orderBy(sql`SUM(${orderItems.quantity}) DESC`)
+        .limit(5);
+
+      return {
+        totalProducts,
+        totalServices,
+        totalOrders,
+        pendingOrders,
+        recentOrders,
+        monthlyEarnings,
+        topProducts
+      };
+    } catch (error) {
+      console.error('Error fetching vendor stats:', error);
+      return {
+        totalProducts: 0,
+        totalServices: 0,
+        totalOrders: 0,
+        pendingOrders: 0,
+        recentOrders: [],
+        monthlyEarnings: [],
+        topProducts: []
+      };
+    }
   }
 
   // Category operations

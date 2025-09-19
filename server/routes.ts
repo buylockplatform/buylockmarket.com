@@ -245,6 +245,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Vendor stats/dashboard endpoint  
+  app.get("/api/vendor/stats", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const vendor = req.vendor;
+      const vendorId = vendor.id;
+
+      // Get vendor statistics
+      const stats = await storage.getVendorStats(vendorId);
+      
+      res.json({
+        totalProducts: stats.totalProducts || 0,
+        totalServices: stats.totalServices || 0,
+        totalOrders: stats.totalOrders || 0,
+        pendingOrders: stats.pendingOrders || 0,
+        totalEarnings: parseFloat(vendor.totalEarnings || '0'),
+        availableBalance: parseFloat(vendor.availableBalance || '0'),
+        pendingBalance: parseFloat(vendor.pendingBalance || '0'),
+        recentOrders: stats.recentOrders || [],
+        monthlyEarnings: stats.monthlyEarnings || [],
+        topProducts: stats.topProducts || [],
+        businessName: vendor.businessName,
+        verificationStatus: vendor.verificationStatus
+      });
+
+    } catch (error) {
+      console.error("Vendor stats error:", error);
+      res.status(500).json({ message: "Failed to fetch vendor statistics" });
+    }
+  });
+
   app.post("/api/vendor/register", async (req, res) => {
     try {
       const { 
