@@ -599,21 +599,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get current authenticated user (session-based)
-  app.get("/api/user/me", async (req: any, res) => {
+  // Get current authenticated user (supports both JWT and session)
+  app.get("/api/user/me", isUserAuthenticated, async (req: any, res) => {
     try {
-      if (!req.session?.userId || !req.session?.user) {
-        return res.status(401).json({ message: "Not authenticated" });
-      }
-
-      // Get fresh user data from database
-      const user = await storage.getUser(req.session.userId);
+      const user = req.user;
+      
       if (!user) {
-        // Clear invalid session
-        req.session.destroy((err) => {
-          if (err) console.error("Session destroy error:", err);
-        });
-        return res.status(401).json({ message: "User not found" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
 
       // Return user data (without password hash)

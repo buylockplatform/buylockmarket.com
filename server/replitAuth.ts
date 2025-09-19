@@ -133,30 +133,62 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  const user = req.user as any;
-
-  if (!req.isAuthenticated() || !user.expires_at) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  if (now <= user.expires_at) {
-    return next();
-  }
-
-  const refreshToken = user.refresh_token;
-  if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
   try {
-    const config = await getOidcConfig();
-    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-    updateUserSession(user, tokenResponse);
-    return next();
+    // Try JWT token authentication first (for mobile apps)
+    const authHeader = req.headers.authorization;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      
+      try {
+        const { verifyToken } = await import('./jwtUtils.js');
+        const decoded = verifyToken(token);
+        
+        if (decoded && decoded.type === 'access') {
+          // Fetch user from database using JWT user ID
+          const { storage } = await import('./storage.js');
+          const user = await storage.getUser(decoded.userId);
+          
+          if (user) {
+            req.user = user;
+            (req as any).authType = 'token';
+            return next();
+          }
+        }
+      } catch (jwtError) {
+        // JWT verification failed, fall through to session auth
+      }
+    }
+    
+    // Fall back to session authentication
+    const user = req.user as any;
+
+    if (!req.isAuthenticated() || !user.expires_at) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (now <= user.expires_at) {
+      return next();
+    }
+
+    const refreshToken = user.refresh_token;
+    if (!refreshToken) {
+      res.status(401).json({ message: "Not authenticated" });
+      return;
+    }
+
+    try {
+      const config = await getOidcConfig();
+      const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+      updateUserSession(user, tokenResponse);
+      return next();
+    } catch (error) {
+      res.status(401).json({ message: "Not authenticated" });
+      return;
+    }
   } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    console.error("Authentication error:", error);
+    res.status(401).json({ message: "Not authenticated" });
   }
 };
