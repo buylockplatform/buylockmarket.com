@@ -588,6 +588,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Brands
+  app.get('/api/brands', async (req, res) => {
+    try {
+      const brands = await storage.getBrands();
+      res.json(brands);
+    } catch (error) {
+      console.error("Error fetching brands:", error);
+      res.status(500).json({ message: "Failed to fetch brands" });
+    }
+  });
+
+  // Service Categories
+  app.get('/api/service-categories', async (req, res) => {
+    try {
+      const categories = await storage.getCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching service categories:", error);
+      res.status(500).json({ message: "Failed to fetch service categories" });
+    }
+  });
+
   // Products
   app.get('/api/products', async (req, res) => {
     try {
@@ -1804,6 +1826,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching current vendor:", error);
       res.status(500).json({ message: "Failed to fetch vendor data" });
+    }
+  });
+
+  // Get vendor profile by ID
+  app.get('/api/vendor/:vendorId', isVendorAuthenticated, async (req, res) => {
+    try {
+      const { vendorId } = req.params;
+      const vendor = await storage.getVendorById(vendorId);
+      
+      if (!vendor) {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      
+      // Return vendor profile without password and passwordHash
+      const { password: _, passwordHash: __, ...vendorProfile } = vendor;
+      res.json(vendorProfile);
+    } catch (error) {
+      console.error("Error fetching vendor profile:", error);
+      res.status(500).json({ message: "Failed to fetch vendor profile" });
     }
   });
 

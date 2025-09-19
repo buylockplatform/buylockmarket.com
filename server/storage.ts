@@ -137,6 +137,9 @@ export interface IStorage {
   getSubcategoriesByCategoryId(categoryId: string): Promise<Subcategory[]>;
   createSubcategory(subcategory: InsertSubcategory): Promise<Subcategory>;
 
+  // Brand operations
+  getBrands(): Promise<Brand[]>;
+
   // Product operations
   getProducts(params?: {
     categoryId?: string;
@@ -566,6 +569,11 @@ export class DatabaseStorage implements IStorage {
   async createSubcategory(subcategory: InsertSubcategory): Promise<Subcategory> {
     const [newSubcategory] = await db.insert(subcategories).values(subcategory).returning();
     return newSubcategory;
+  }
+
+  // Brand operations
+  async getBrands(): Promise<Brand[]> {
+    return db.select().from(brands).where(eq(brands.isActive, true)).orderBy(asc(brands.name));
   }
 
   // Product operations
