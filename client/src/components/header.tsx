@@ -592,7 +592,7 @@ export function Header() {
                       My Orders
                     </Link>
                     <a
-                      href="/api/user/logout"
+                      href="/api/logout"
                       className="block px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
                     >
                       Logout
