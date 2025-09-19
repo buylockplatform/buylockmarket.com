@@ -73,6 +73,7 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import { sortByDistance, filterByRadius, getDefaultKenyaLocation, calculateDistance, type Coordinates } from "./geoUtils";
 import { seedDatabase } from "./seedDatabase";
+import rateLimit from "express-rate-limit";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize Paystack SDK (only if credentials available)
@@ -81,6 +82,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize PaystackService for subaccounts
   const paystackService = new PaystackService(secret);
+
+  // Rate limiting for authentication endpoints
+  const authRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // limit each IP to 5 requests per windowMs for auth
+    message: { message: "Too many authentication attempts, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  const generalAuthRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes  
+    max: 20, // more lenient for general auth endpoints
+    message: { message: "Too many requests, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
 
   // Auth middleware
   await setupAuth(app);
@@ -246,7 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User authentication routes (form-based)
-  app.post("/api/user/register", async (req, res) => {
+  app.post("/api/user/register", authRateLimit, async (req, res) => {
     try {
       const { registerUserSchema } = await import("@shared/schema");
       const validatedData = registerUserSchema.parse(req.body);
@@ -269,28 +287,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: validatedData.password,
       });
 
-      // Set up session for the newly registered user (same as login)
-      req.session.userId = user.id;
-      req.session.user = {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName
-      };
-      
-      // Save session
-      req.session.save((err) => {
+      // Regenerate session ID to prevent session fixation
+      req.session.regenerate((err) => {
         if (err) {
-          console.error("Session save error during registration:", err);
+          console.error("Session regeneration error during registration:", err);
           return res.status(500).json({ message: "Registration completed but session failed" });
         }
         
-        // Return user data (without password hash)
-        const { passwordHash, ...userData } = user;
-        res.status(201).json({
-          success: true,
-          message: "Account created successfully",
-          user: userData
+        // Set up session for the newly registered user
+        req.session.userId = user.id;
+        req.session.user = {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName
+        };
+        
+        // Save session
+        req.session.save((err) => {
+          if (err) {
+            console.error("Session save error during registration:", err);
+            return res.status(500).json({ message: "Registration completed but session failed" });
+          }
+          
+          // Return user data (without password hash)
+          const { passwordHash, ...userData } = user;
+          res.status(201).json({
+            success: true,
+            message: "Account created successfully",
+            user: userData
+          });
         });
       });
 
@@ -308,7 +334,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/user/login", async (req, res) => {
+  app.post("/api/user/login", authRateLimit, async (req, res) => {
     try {
       const { loginUserSchema } = await import("@shared/schema");
       const { email, password } = loginUserSchema.parse(req.body);
@@ -367,7 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/user/logout", async (req, res) => {
+  app.post("/api/user/logout", generalAuthRateLimit, async (req, res) => {
     try {
       if (req.session) {
         req.session.destroy((err) => {

@@ -31,8 +31,12 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  if (!process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET environment variable is required for security");
+  }
+  
   return session({
-    secret: process.env.SESSION_SECRET || 'ea18cd32d964cf85eb3b4d75b82b17c',
+    secret: process.env.SESSION_SECRET,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
@@ -40,7 +44,7 @@ export function getSession() {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: sessionTtl,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
     },
   });
 }
