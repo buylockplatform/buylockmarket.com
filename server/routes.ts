@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { appointments } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql } from "drizzle-orm";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { getSession } from "./replitAuth";
 import { sendVendorAccountUnderReviewNotification, sendVendorAccountApprovedNotification } from "./emailService";
 // import { sendPayoutStatusNotification, PayoutNotificationData } from "./emailService";
 type PayoutNotificationData = any;
@@ -14,6 +14,22 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { PaystackService } from "./paystackService";
+
+// Session-based user authentication middleware
+const isUserAuthenticated = async (req: any, res: any, next: any) => {
+  try {
+    if (!req.session?.userId || !req.session?.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    // Add user data to request for use in endpoints
+    req.user = { id: req.session.userId, ...req.session.user };
+    next();
+  } catch (error) {
+    console.error("User authentication error:", error);
+    res.status(500).json({ message: "Authentication failed" });
+  }
+};
 
 // Vendor authentication middleware - ensures vendor is logged in and approved
 const isVendorAuthenticated = async (req: any, res: any, next: any) => {
@@ -100,8 +116,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     legacyHeaders: false,
   });
 
-  // Auth middleware
-  await setupAuth(app);
+  // Session middleware only (no more Replit Auth)
+  app.set("trust proxy", 1);
+  app.use(getSession());
 
   // Debug endpoint to check database connection
   app.get('/api/debug/db', async (req, res) => {
@@ -130,31 +147,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      console.log("Fetching user with ID:", userId);
-      
-      if (!userId) {
-        console.error("No user ID found in claims");
-        return res.status(401).json({ message: "Invalid user session" });
-      }
-      
-      const user = await storage.getUser(userId);
-      
-      if (!user) {
-        console.error("User not found in database:", userId);
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      console.error("User claims:", req.user?.claims);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
 
   app.get('/api/auth/vendor', isVendorAuthenticated, async (req: any, res) => {
     try {
@@ -173,54 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/auth/profile', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { firstName, lastName, phone, address, city, country } = req.body;
 
-      const updatedUser = await storage.updateUser(userId, {
-        firstName,
-        lastName,
-        phone,
-        address,
-        city,
-        country: country || 'Kenya'
-      });
-
-      res.json(updatedUser);
-    } catch (error) {
-      console.error("Profile update error:", error);
-      res.status(500).json({ message: "Failed to update profile" });
-    }
-  });
-
-  app.put('/api/auth/change-password', isAuthenticated, async (req: any, res) => {
-    try {
-      const { currentPassword, newPassword } = req.body;
-      
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({ message: "Current password and new password are required" });
-      }
-
-      if (newPassword.length < 8) {
-        return res.status(400).json({ message: "New password must be at least 8 characters long" });
-      }
-
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      // For now, return success as password update feature needs proper user table implementation
-      // This is a temporary implementation until the user management system is properly set up
-
-      res.json({ message: "Password updated successfully" });
-    } catch (error) {
-      console.error("Password change error:", error);
-      res.status(500).json({ message: "Error updating password" });
-    }
-  });
 
   // Vendor authentication routes
   app.post("/api/vendor/login", async (req, res) => {
@@ -390,6 +335,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  // User profile update endpoint
+  app.put("/api/user/profile", isUserAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { firstName, lastName, phone, address, city, country } = req.body;
+
+      const updatedUser = await storage.updateUser(userId, {
+        firstName,
+        lastName,
+        phone,
+        address,
+        city,
+        country: country || 'Kenya'
+      });
+
+      const { passwordHash, ...userData } = updatedUser;
+      res.json({
+        success: true,
+        user: userData
+      });
+    } catch (error) {
+      console.error("Profile update error:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // User password change endpoint
+  app.put("/api/user/change-password", isUserAuthenticated, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current password and new password are required" });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({ message: "New password must be at least 8 characters long" });
+      }
+
+      const userId = req.user.id;
+      const user = await storage.getUserById(userId);
+      if (!user || !user.passwordHash) {
+        return res.status(404).json({ message: "User not found or password not set" });
+      }
+
+      // Verify current password
+      const bcrypt = await import("bcrypt");
+      const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isValidPassword) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+
+      // Hash new password and update
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUser(userId, { passwordHash: hashedPassword });
+
+      res.json({ 
+        success: true,
+        message: "Password updated successfully" 
+      });
+    } catch (error) {
+      console.error("Password change error:", error);
+      res.status(500).json({ message: "Error updating password" });
     }
   });
 
@@ -1025,9 +1036,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cart operations (require authentication)
-  app.get('/api/cart', isAuthenticated, async (req: any, res) => {
+  app.get('/api/cart', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const cartItems = await storage.getCartItems(userId);
       res.json(cartItems);
     } catch (error) {
@@ -1036,9 +1047,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/cart', isAuthenticated, async (req: any, res) => {
+  app.post('/api/cart', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const cartItemData = insertCartItemSchema.parse({ ...req.body, userId });
       
       // Fetch product or service details to get the correct price
@@ -1069,7 +1080,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/cart/:id', isAuthenticated, async (req, res) => {
+  app.patch('/api/cart/:id', isUserAuthenticated, async (req, res) => {
     try {
       const { quantity } = req.body;
       const cartItem = await storage.updateCartItem(req.params.id, quantity);
@@ -1083,7 +1094,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/cart/:id', isAuthenticated, async (req, res) => {
+  app.delete('/api/cart/:id', isUserAuthenticated, async (req, res) => {
     try {
       await storage.removeFromCart(req.params.id);
       res.status(204).send();
@@ -1093,9 +1104,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/cart', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/cart', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       await storage.clearCart(userId);
       res.status(204).send();
     } catch (error) {
@@ -1105,9 +1116,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Orders (require authentication)
-  app.get('/api/orders', isAuthenticated, async (req: any, res) => {
+  app.get('/api/orders', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const orders = await storage.getOrdersByUser(userId);
       res.json(orders);
     } catch (error) {
@@ -1117,9 +1128,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get specific order details
-  app.get('/api/orders/:id', isAuthenticated, async (req: any, res) => {
+  app.get('/api/orders/:id', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { id } = req.params;
       
       const order = await storage.getOrderById(id);
@@ -1140,9 +1151,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Payment initialization with Paystack SDK
-  app.post('/api/payments/initialize', isAuthenticated, async (req: any, res) => {
+  app.post('/api/payments/initialize', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { amount, email, deliveryAddress, notes, items, courierId, courierName, estimatedDeliveryTime, deliveryFee } = req.body;
 
       const paymentData = {
@@ -1227,9 +1238,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Payment verification for order-specific payments (when orderId is provided)
-  app.post('/api/payments/verify-order', isAuthenticated, async (req: any, res) => {
+  app.post('/api/payments/verify-order', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { reference, orderId } = req.body;
 
       // Get the existing order first
@@ -1402,7 +1413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check payment status endpoint
-  app.get('/api/payments/status/:reference', isAuthenticated, async (req: any, res) => {
+  app.get('/api/payments/status/:reference', isUserAuthenticated, async (req: any, res) => {
     try {
       const { reference } = req.params;
       
@@ -1425,9 +1436,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/orders', isAuthenticated, async (req: any, res) => {
+  app.post('/api/orders', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get cart items
       const cartItems = await storage.getCartItems(userId);
@@ -1550,9 +1561,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/orders/:id', isAuthenticated, async (req: any, res) => {
+  app.get('/api/orders/:id', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const order = await storage.getOrderWithItems(req.params.id);
       
       if (!order || order.userId !== userId) {
@@ -1567,9 +1578,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cancel order
-  app.patch('/api/orders/:id/cancel', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/orders/:id/cancel', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const order = await storage.getOrderById(req.params.id);
       
       console.log(`Cancel order attempt - User: ${userId}, Order: ${req.params.id}`);
@@ -1607,9 +1618,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get order tracking
-  app.get('/api/orders/:id/tracking', isAuthenticated, async (req: any, res) => {
+  app.get('/api/orders/:id/tracking', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const order = await storage.getOrderById(req.params.id);
       
       if (!order || order.userId !== userId) {
@@ -1625,9 +1636,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Simulate tracking updates (for demo purposes)
-  app.post('/api/orders/:id/track', isAuthenticated, async (req: any, res) => {
+  app.post('/api/orders/:id/track', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const order = await storage.getOrderById(req.params.id);
       
       if (!order || order.userId !== userId) {
@@ -4045,10 +4056,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Simplified payment verification endpoint for new workflow
-  app.post('/api/payments/verify', isAuthenticated, async (req: any, res) => {
+  app.post('/api/payments/verify', isUserAuthenticated, async (req: any, res) => {
     try {
       const { reference } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
 
       console.log(`=== Payment Verification Started ===`);
       console.log(`User ID: ${userId}`);
@@ -4258,7 +4269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-  app.get('/api/payments/status/:reference', isAuthenticated, async (req, res) => {
+  app.get('/api/payments/status/:reference', isUserAuthenticated, async (req, res) => {
     try {
       const { reference } = req.params;
       
@@ -4838,7 +4849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoint to serve vendor documents securely
-  app.get("/api/admin/vendor-documents/:vendorId/:documentType", isAuthenticated, async (req, res) => {
+  app.get("/api/admin/vendor-documents/:vendorId/:documentType", isUserAuthenticated, async (req, res) => {
     try {
       const { vendorId, documentType } = req.params;
       
@@ -5274,9 +5285,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Direct Service Booking endpoint (bypasses cart)
-  app.post('/api/services/book', isAuthenticated, async (req: any, res) => {
+  app.post('/api/services/book', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const bookingData = serviceBookingSchema.parse(req.body);
       
       // Get service details
@@ -5339,9 +5350,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Direct Service Booking API endpoint
-  app.post('/api/services/book', isAuthenticated, async (req: any, res) => {
+  app.post('/api/services/book', isUserAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const {
         serviceId,
         appointmentDate,

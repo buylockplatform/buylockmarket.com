@@ -34,7 +34,7 @@ export default function Profile() {
   });
   
   const { data: user, isLoading } = useQuery<UserProfile>({
-    queryKey: ["/api/auth/user"],
+    queryKey: ["/api/user/me"],
   });
 
   const [formData, setFormData] = useState<Partial<UserProfile>>({});
@@ -54,10 +54,10 @@ export default function Profile() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: Partial<UserProfile>) => {
-      return await apiRequest('/api/auth/profile', 'PUT', data);
+      return await apiRequest('/api/user/profile', 'PUT', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/me"] });
       setIsEditing(false);
       toast({
         title: "Profile Updated",
@@ -75,7 +75,7 @@ export default function Profile() {
 
   const changePasswordMutation = useMutation({
     mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
-      return await apiRequest('/api/auth/change-password', 'PUT', data);
+      return await apiRequest('/api/user/change-password', 'PUT', data);
     },
     onSuccess: () => {
       setShowPasswordForm(false);
