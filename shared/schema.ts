@@ -28,13 +28,18 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table (mandatory for Replit Auth)
+// User storage table (supports both Replit Auth and form authentication)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  passwordHash: varchar("password_hash"), // For form-based authentication
+  phone: varchar("phone"),
+  address: text("address"),
+  city: varchar("city"),
+  country: varchar("country").default("Kenya"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -573,9 +578,38 @@ export const insertProductAttributeSchema = createInsertSchema(productAttributes
   createdAt: true,
 });
 
+// User authentication schemas
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+export const loginUserSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+export const registerUserSchema = z.object({
+  email: z.string().email("Please enter a valid email address").min(1, "Email is required"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  phone: z.string().optional(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type InsertUser = typeof insertUserSchema._type;
+export type LoginUser = typeof loginUserSchema._type;
+export type RegisterUser = typeof registerUserSchema._type;
 
 // Courier services table
 export const couriers = pgTable("couriers", {

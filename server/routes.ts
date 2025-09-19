@@ -245,6 +245,160 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User authentication routes (form-based)
+  app.post("/api/user/register", async (req, res) => {
+    try {
+      const { registerUserSchema } = await import("@shared/schema");
+      const validatedData = registerUserSchema.parse(req.body);
+      
+      // Normalize email to lowercase
+      const normalizedEmail = validatedData.email.toLowerCase();
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(normalizedEmail);
+      if (existingUser) {
+        return res.status(400).json({ message: "User with this email already exists" });
+      }
+
+      // Create user (password gets hashed in storage.createUser)
+      const user = await storage.createUser({
+        email: normalizedEmail,
+        firstName: validatedData.firstName,
+        lastName: validatedData.lastName,
+        phone: validatedData.phone,
+        password: validatedData.password,
+      });
+
+      // Return user data (without password hash)
+      const { passwordHash, ...userData } = user;
+      res.status(201).json({
+        success: true,
+        message: "Account created successfully",
+        user: userData
+      });
+
+    } catch (error) {
+      console.error("User registration error:", error);
+      
+      if (error.name === "ZodError") {
+        return res.status(400).json({ 
+          message: "Validation error", 
+          errors: error.errors 
+        });
+      }
+      
+      res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
+  app.post("/api/user/login", async (req, res) => {
+    try {
+      const { loginUserSchema } = await import("@shared/schema");
+      const { email, password } = loginUserSchema.parse(req.body);
+
+      // Validate user credentials
+      const user = await storage.validateUser(email.toLowerCase(), password);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Regenerate session ID to prevent session fixation attacks
+      req.session.regenerate((err) => {
+        if (err) {
+          console.error("Session regeneration error:", err);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        
+        // Set up session for the user
+        req.session.userId = user.id;
+        req.session.user = {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName
+        };
+        
+        // Save session
+        req.session.save((err) => {
+          if (err) {
+            console.error("Session save error:", err);
+            return res.status(500).json({ message: "Login failed" });
+          }
+          
+          // Return user data (without password hash)
+          const { passwordHash, ...userData } = user;
+          res.json({
+            success: true,
+            message: "Login successful",
+            user: userData
+          });
+        });
+      });
+
+
+    } catch (error) {
+      console.error("User login error:", error);
+      
+      if (error.name === "ZodError") {
+        return res.status(400).json({ 
+          message: "Validation error", 
+          errors: error.errors 
+        });
+      }
+      
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.post("/api/user/logout", async (req, res) => {
+    try {
+      if (req.session) {
+        req.session.destroy((err) => {
+          if (err) {
+            console.error("Session destruction error:", err);
+            return res.status(500).json({ message: "Logout failed" });
+          }
+          res.json({ success: true, message: "Logged out successfully" });
+        });
+      } else {
+        res.json({ success: true, message: "Already logged out" });
+      }
+    } catch (error) {
+      console.error("User logout error:", error);
+      res.status(500).json({ message: "Logout failed" });
+    }
+  });
+
+  // Get current authenticated user (session-based)
+  app.get("/api/user/me", async (req: any, res) => {
+    try {
+      if (!req.session?.userId || !req.session?.user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      // Get fresh user data from database
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        // Clear invalid session
+        req.session.destroy((err) => {
+          if (err) console.error("Session destroy error:", err);
+        });
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Return user data (without password hash)
+      const { passwordHash, ...userData } = user;
+      res.json({
+        success: true,
+        user: userData
+      });
+
+    } catch (error) {
+      console.error("Get current user error:", error);
+      res.status(500).json({ message: "Failed to get user" });
+    }
+  });
+
   // Vendor stats/dashboard endpoint  
   app.get("/api/vendor/stats", isVendorAuthenticated, async (req: any, res) => {
     try {

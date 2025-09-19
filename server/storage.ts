@@ -78,11 +78,16 @@ import bcrypt from "bcrypt";
 import { generatePublicToken, getTokenExpiration } from "./tokenUtils";
 
 export interface IStorage {
-  // User operations (mandatory for Replit Auth)
+  // User operations (supports both Replit Auth and form authentication)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User>;
   ensureUserExists(id: string, email: string, name: string): Promise<User>;
+  
+  // User authentication (form-based)
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  validateUser(email: string, password: string): Promise<User | null>;
 
   // Vendor operations
   getAllVendors(): Promise<Vendor[]>;
@@ -363,6 +368,34 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  // User authentication methods (form-based)
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const { password, ...userDataWithoutPassword } = userData;
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...userDataWithoutPassword,
+        passwordHash: hashedPassword,
+      })
+      .returning();
+    return user;
+  }
+
+  async validateUser(email: string, password: string): Promise<User | null> {
+    const user = await this.getUserByEmail(email);
+    if (!user || !user.passwordHash) return null;
+    
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    return isValid ? user : null;
   }
 
   // Vendor operations
