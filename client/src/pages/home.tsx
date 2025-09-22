@@ -1,8 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { HeroSection } from "@/components/hero-section";
 import { CategoryGrid } from "@/components/category-grid";
 import { FlashDeals } from "@/components/flash-deals";
-import { ProductCard } from "@/components/ProductCard";
+import { ProductCard } from "@/components/product-card";
 import { ServiceCard } from "@/components/service-card";
 import { WhyChoose } from "@/components/why-choose";
 import { Newsletter } from "@/components/newsletter";
@@ -11,18 +11,9 @@ import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
-import { useGuestCart } from "@/hooks/useGuestCart";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import type { Product, Service } from "@shared/schema";
 
 export default function Home() {
-  const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
-  const { addToGuestCart } = useGuestCart();
-  const queryClient = useQueryClient();
 
   const { data: featuredProducts = [], isLoading: productsLoading, error: productsError } = useQuery<Product[]>({
     queryKey: ["/api/products", { featured: true, limit: 5 }],
@@ -40,58 +31,6 @@ export default function Home() {
     enabled: true, // Always enable this query regardless of auth state
   });
 
-  const addToCartMutation = useMutation({
-    mutationFn: async ({ productId }: { productId: string }) => {
-      await apiRequest("/api/cart", "POST", {
-        productId,
-        quantity: 1,
-      });
-    },
-    onSuccess: (_, { productId }) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
-      const product = featuredProducts.find(p => p.id === productId);
-      toast({
-        title: "Added to cart",
-        description: `${product?.name || 'Product'} has been added to your cart`,
-      });
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Login required",
-          description: "Please log in to add items to cart",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/login";
-        }, 1500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: "Failed to add item to cart",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleAddToCart = (product: Product) => {
-    if (!isAuthenticated) {
-      // Add to guest cart for unauthenticated users
-      addToGuestCart({
-        productId: product.id,
-        quantity: 1,
-        product: product,
-      });
-      toast({
-        title: "Added to cart",
-        description: `${product.name} has been added to your cart`,
-      });
-      return;
-    }
-
-    addToCartMutation.mutate({ productId: product.id });
-  };
 
   // Debug logging
   console.log("Featured Products Query:", { 
@@ -146,8 +85,7 @@ export default function Home() {
             featuredProducts.map((product) => (
               <ProductCard 
                 key={product.id} 
-                product={product} 
-                onAddToCart={handleAddToCart}
+                product={product}
               />
             ))
           )}
