@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useGuestCart } from "@/hooks/useGuestCart";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -20,6 +21,7 @@ import type { Product, Service } from "@shared/schema";
 export default function Home() {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
+  const { addToGuestCart } = useGuestCart();
   const queryClient = useQueryClient();
 
   const { data: featuredProducts = [], isLoading: productsLoading, error: productsError } = useQuery<Product[]>({
@@ -75,14 +77,16 @@ export default function Home() {
 
   const handleAddToCart = (product: Product) => {
     if (!isAuthenticated) {
-      toast({
-        title: "Login required",
-        description: "Please log in to add items to cart",
-        variant: "destructive",
+      // Add to guest cart for unauthenticated users
+      addToGuestCart({
+        productId: product.id,
+        quantity: 1,
+        product: product,
       });
-      setTimeout(() => {
-        window.location.href = "/login";
-      }, 1500);
+      toast({
+        title: "Added to cart",
+        description: `${product.name} has been added to your cart`,
+      });
       return;
     }
 
