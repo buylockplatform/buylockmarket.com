@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ interface LoginFormData {
 
 export default function Login() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const [formData, setFormData] = useState<LoginFormData>({
     email: "",
     password: "",
@@ -24,6 +25,10 @@ export default function Login() {
   const [errors, setErrors] = useState<string>("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Get returnTo parameter from URL
+  const params = new URLSearchParams(search);
+  const returnTo = params.get("returnTo");
 
   const loginMutation = useMutation({
     mutationFn: (data: LoginFormData) =>
@@ -34,7 +39,17 @@ export default function Login() {
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
-      setLocation("/");
+      
+      // Check if there's a pending cart action to execute
+      const pendingCartAction = localStorage.getItem("pendingCartAction");
+      if (pendingCartAction) {
+        localStorage.removeItem("pendingCartAction");
+        // The cart action will be handled by the destination page
+      }
+      
+      // Redirect to returnTo URL or default to homepage
+      const destination = returnTo ? decodeURIComponent(returnTo) : "/";
+      setLocation(destination);
     },
     onError: (error: any) => {
       setErrors(error.message || "Login failed");

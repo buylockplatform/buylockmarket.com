@@ -1,6 +1,6 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -44,13 +44,25 @@ export default function ProductDetail() {
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
+        // Store the pending cart action
+        const pendingAction = {
+          type: 'addToCart',
+          productId: product!.id,
+          quantity,
+        };
+        localStorage.setItem('pendingCartAction', JSON.stringify(pendingAction));
+        
         toast({
           title: "Login required",
           description: "Please log in to add items to cart",
           variant: "destructive",
         });
+        
+        // Redirect to login with current URL as returnTo parameter
+        const currentUrl = `/products/${slug}`;
+        const returnToParam = encodeURIComponent(currentUrl);
         setTimeout(() => {
-          window.location.href = "/login";
+          window.location.href = `/login?returnTo=${returnToParam}`;
         }, 1500);
         return;
       }
@@ -64,19 +76,66 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     if (!isAuthenticated) {
+      // Store the pending cart action
+      const pendingAction = {
+        type: 'addToCart',
+        productId: product!.id,
+        quantity,
+      };
+      localStorage.setItem('pendingCartAction', JSON.stringify(pendingAction));
+      
       toast({
         title: "Login required",
         description: "Please log in to add items to cart",
         variant: "destructive",
       });
+      
+      // Redirect to login with current URL as returnTo parameter
+      const currentUrl = `/products/${slug}`;
+      const returnToParam = encodeURIComponent(currentUrl);
       setTimeout(() => {
-        window.location.href = "/login";
+        window.location.href = `/login?returnTo=${returnToParam}`;
       }, 1500);
       return;
     }
 
     addToCartMutation.mutate();
   };
+
+  // Handle pending cart actions after login
+  useEffect(() => {
+    if (isAuthenticated && product) {
+      const pendingAction = localStorage.getItem('pendingCartAction');
+      if (pendingAction) {
+        try {
+          const action = JSON.parse(pendingAction);
+          // Check if the pending action is for the current product
+          if (action.type === 'addToCart' && action.productId === product.id) {
+            // Update the quantity if it was different when the action was stored
+            if (action.quantity !== quantity) {
+              setQuantity(action.quantity);
+            }
+            
+            // Execute the cart action
+            setTimeout(() => {
+              addToCartMutation.mutate();
+            }, 500); // Small delay to ensure everything is loaded
+            
+            // Clear the pending action
+            localStorage.removeItem('pendingCartAction');
+            
+            toast({
+              title: "Welcome back!",
+              description: "Adding your selected item to cart...",
+            });
+          }
+        } catch (error) {
+          console.error('Error parsing pending cart action:', error);
+          localStorage.removeItem('pendingCartAction');
+        }
+      }
+    }
+  }, [isAuthenticated, product, addToCartMutation, quantity, toast]);
 
   const { formatPrice } = useCurrency();
 
