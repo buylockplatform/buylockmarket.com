@@ -67,7 +67,9 @@ export default function VendorEarnings() {
     queryKey: ['/api/vendor/:vendorId/payout-requests', vendor?.id],
     enabled: !!vendor?.id,
     refetchInterval: 15000, // Refresh every 15 seconds (more frequent since admin can approve)
-    refetchIntervalInBackground: true // Continue polling when tab is not focused
+    refetchIntervalInBackground: true, // Continue polling when tab is not focused
+    staleTime: 0, // Always treat data as stale - force fresh fetch
+    gcTime: 0 // Don't cache data at all (React Query v5 uses gcTime instead of cacheTime)
   });
 
   // Create payout request mutation
