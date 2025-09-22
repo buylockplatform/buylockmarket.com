@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useLogout } from "@/hooks/useLogout";
 import { useQuery } from "@tanstack/react-query";
 import { BuyLockLogo } from "@/lib/buylock-logo";
 import { CurrencySwitch } from "@/components/CurrencySwitch";
@@ -43,6 +44,7 @@ export function Header() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const { isAuthenticated, user } = useAuth();
+  const { logout, isLoggingOut } = useLogout();
 
   const { data: cartItems = [] } = useQuery({
     queryKey: ["/api/cart"],
@@ -591,12 +593,16 @@ export function Header() {
                     >
                       My Orders
                     </Link>
-                    <a
-                      href="/api/logout"
-                      className="block px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        logout();
+                      }}
+                      disabled={isLoggingOut}
+                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
                     >
-                      Logout
-                    </a>
+                      {isLoggingOut ? "Logging out..." : "Logout"}
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -779,12 +785,17 @@ export function Header() {
                   >
                     My Orders
                   </Link>
-                  <a
-                    href="/api/logout"
-                    className="block text-red-600 hover:text-red-700 font-medium"
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      logout();
+                      setIsMenuOpen(false);
+                    }}
+                    disabled={isLoggingOut}
+                    className="block w-full text-left text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
                   >
-                    Logout
-                  </a>
+                    {isLoggingOut ? "Logging out..." : "Logout"}
+                  </button>
                 </div>
               ) : (
                 <Button
