@@ -102,7 +102,7 @@ export default function Payment() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login";
         }, 1500);
         return;
       }
@@ -234,7 +234,7 @@ export default function Payment() {
         <div className="container mx-auto px-4 py-16 text-center">
           <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
           <p className="text-gray-600 mb-8">Please log in to access payment</p>
-          <Button onClick={() => window.location.href = "/api/login"}>
+          <Button onClick={() => window.location.href = "/login"}>
             Log In
           </Button>
         </div>

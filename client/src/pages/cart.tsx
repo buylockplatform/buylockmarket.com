@@ -93,7 +93,7 @@ export default function Cart() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login";
         }, 1500);
         return;
       }
@@ -124,7 +124,7 @@ export default function Cart() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login";
         }, 1500);
         return;
       }
@@ -155,7 +155,7 @@ export default function Cart() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login";
         }, 1500);
         return;
       }
@@ -217,7 +217,7 @@ export default function Cart() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login";
         }, 1500);
         return;
       }
@@ -286,7 +286,7 @@ export default function Cart() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login";
         }, 1500);
         return;
       }
@@ -326,7 +326,7 @@ export default function Cart() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login";
         }, 1500);
         return;
       }
@@ -368,7 +368,7 @@ export default function Cart() {
             variant: "destructive",
           });
           setTimeout(() => {
-            window.location.href = "/api/login";
+            window.location.href = "/login";
           }, 1500);
           return;
         }
@@ -524,7 +524,7 @@ export default function Cart() {
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Please log in to view your cart</h1>
             <p className="text-gray-600 mb-6">You need to be logged in to access your shopping cart.</p>
             <Button 
-              onClick={() => window.location.href = "/api/login"}
+              onClick={() => window.location.href = "/login"}
               className="bg-buylock-primary hover:bg-buylock-primary/90"
             >
               Log In

@@ -799,7 +799,7 @@ export function Header() {
                 </div>
               ) : (
                 <Button
-                  onClick={() => (window.location.href = "/api/login")}
+                  onClick={() => (window.location.href = "/login")}
                   className="w-full bg-buylock-primary hover:bg-buylock-primary/90"
                 >
                   Login
