@@ -2962,6 +2962,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/vendor/:vendorId/payout-requests', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
+      
+      // Set cache-control headers to prevent 304 caching issues
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache'
+      });
+      
       // Only return pending payout requests for vendors
       // Approved/failed requests should not show up since they're no longer actionable
       const payoutRequests = await storage.getVendorPayoutRequests(vendorId);
@@ -3587,6 +3594,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/vendor/:vendorId/earnings', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
+      
+      // Set cache-control headers to prevent 304 caching issues
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache'
+      });
+      
       const vendor = await storage.getVendorById(vendorId);
       
       if (!vendor) {

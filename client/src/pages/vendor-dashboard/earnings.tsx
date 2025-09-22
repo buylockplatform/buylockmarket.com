@@ -58,13 +58,16 @@ export default function VendorEarnings() {
   const { data: earnings, isLoading: earningsLoading, error: earningsError } = useQuery<VendorEarnings>({
     queryKey: ['/api/vendor/:vendorId/earnings', vendor?.id],
     enabled: !!vendor?.id,
-    refetchInterval: 30000 // Refresh every 30 seconds
+    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchIntervalInBackground: true // Continue polling when tab is not focused
   });
 
   // Fetch payout requests
   const { data: payoutRequests, isLoading: payoutLoading } = useQuery<PayoutRequest[]>({
     queryKey: ['/api/vendor/:vendorId/payout-requests', vendor?.id],
-    enabled: !!vendor?.id
+    enabled: !!vendor?.id,
+    refetchInterval: 15000, // Refresh every 15 seconds (more frequent since admin can approve)
+    refetchIntervalInBackground: true // Continue polling when tab is not focused
   });
 
   // Create payout request mutation
