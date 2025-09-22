@@ -1493,7 +1493,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (vendor && vendor.phone) {
             // Generate public token for order link
             const token = await storage.ensurePublicToken(orderId);
-            const orderLink = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app/o/${token}`;
+            
+            // Use the correct domain - REPLIT_DOMAINS contains the proper published domain
+            const baseUrl = process.env.REPLIT_DOMAINS 
+              ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+              : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
+            const orderLink = `${baseUrl}/o/${token}`;
             
             const vendorMessage = `New BuyLock Order! ID: ${orderId.slice(-8)} Customer: ${customer?.firstName || 'Customer'} Total: KES ${existingOrder.totalAmount} Track: ${orderLink}`;
             
@@ -2527,7 +2532,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Generate public token for order link
           const token = await storage.ensurePublicToken(orderId);
-          const orderLink = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app/o/${token}`;
+          
+          // Use the correct domain - REPLIT_DOMAINS contains the proper published domain
+          const baseUrl = process.env.REPLIT_DOMAINS 
+            ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+            : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
+          const orderLink = `${baseUrl}/o/${token}`;
           
           const courierMessage = `BuyLock Pickup! Order: ${orderId.slice(-8)} From: ${vendor.businessName} To: ${order.deliveryAddress} Total: KES ${order.totalAmount} Details: ${orderLink}`;
           
@@ -2644,7 +2654,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         // Generate public token for order link
         const token = await storage.ensurePublicToken(orderId);
-        const orderLink = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app/o/${token}`;
+        
+        // Use the correct domain - REPLIT_DOMAINS contains the proper published domain
+        const baseUrl = process.env.REPLIT_DOMAINS 
+          ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+          : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
+        const orderLink = `${baseUrl}/o/${token}`;
         
         // Update message to include order link and keep it concise
         const shortMessage = `BuyLock Ready! Order: ${orderId.slice(-8)} Pickup ready. Details: ${orderLink}`;
