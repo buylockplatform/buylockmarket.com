@@ -2973,6 +2973,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get vendor completed payouts (for Order Earnings tab)
+  app.get('/api/vendor/:vendorId/completed-payouts', isVendorAuthenticated, async (req, res) => {
+    try {
+      const { vendorId } = req.params;
+      // Return completed and approved payouts for display in Order Earnings tab
+      const payoutRequests = await storage.getVendorPayoutRequests(vendorId);
+      const completedPayouts = payoutRequests.filter(request => 
+        request.status === 'completed' || request.status === 'approved'
+      );
+      res.json(completedPayouts);
+    } catch (error) {
+      console.error('Error fetching completed payouts:', error);
+      res.status(500).json({ message: 'Failed to fetch completed payouts' });
+    }
+  });
+
   // Update vendor business details
   app.put('/api/vendor/:vendorId/business-details', isVendorAuthenticated, async (req, res) => {
     try {
@@ -3594,67 +3610,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Vendor Payout Request
-  app.post('/api/vendor/:vendorId/payout-request', isVendorAuthenticated, async (req, res) => {
-    try {
-      const { vendorId } = req.params;
-      const { amount, reason } = req.body;
-      
-      if (!amount || amount <= 0) {
-        return res.status(400).json({ message: 'Valid amount is required' });
-      }
-
-      const vendor = await storage.getVendorById(vendorId);
-      if (!vendor) {
-        return res.status(404).json({ message: 'Vendor not found' });
-      }
-
-      const availableBalance = parseFloat(vendor.availableBalance || '0');
-      if (amount > availableBalance) {
-        return res.status(400).json({ 
-          message: `Insufficient balance. Available: KES ${availableBalance}` 
-        });
-      }
-
-      // Create payout request
-      const payoutRequest = await storage.createPayoutRequest({
-        vendorId,
-        requestedAmount: amount,
-        availableBalance,
-        requestReason: reason || '',
-        status: 'pending'
-      });
-
-      // Update vendor pending balance
-      await storage.updateVendorPendingBalance(vendorId, amount, 'add');
-
-      // Send email notification to admin
-      await sendPayoutRequestNotification(vendor, payoutRequest);
-
-      res.json({
-        message: 'Payout request submitted successfully',
-        payoutRequest
-      });
-    } catch (error) {
-      console.error('Error creating payout request:', error);
-      res.status(500).json({ message: 'Failed to create payout request' });
-    }
-  });
-
-  // Get vendor payout requests
-  app.get('/api/vendor/:vendorId/payout-requests', isVendorAuthenticated, async (req, res) => {
-    try {
-      const { vendorId } = req.params;
-      // Only return pending payout requests for vendors
-      // Approved/failed requests should not show up since they're no longer actionable
-      const payoutRequests = await storage.getVendorPayoutRequests(vendorId);
-      const pendingRequests = payoutRequests.filter(request => request.status === 'pending');
-      res.json(pendingRequests);
-    } catch (error) {
-      console.error('Error fetching payout requests:', error);
-      res.status(500).json({ message: 'Failed to fetch payout requests' });
-    }
-  });
 
   // Email notification functions
   const sendPayoutRequestNotification = async (vendor: any, payoutRequest: any) => {
@@ -3702,97 +3657,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/admin/payout-requests/:requestId/approve', isAdminAuthenticated, async (req, res) => {
-    try {
-      const { requestId } = req.params;
-      const { adminNotes } = req.body;
-      const adminId = (req as any).user?.claims?.sub;
-
-      const payoutRequest = await storage.getPayoutRequest(requestId);
-      if (!payoutRequest) {
-        return res.status(404).json({ message: 'Payout request not found' });
-      }
-
-      const vendor = await storage.getVendorById(payoutRequest.vendorId);
-      if (!vendor) {
-        return res.status(404).json({ message: 'Vendor not found' });
-      }
-
-      // Create Paystack transfer
-      try {
-        const transferData = {
-          source: 'balance',
-          amount: Math.round(parseFloat(payoutRequest.requestedAmount.toString()) * 100), // Convert to kobo
-          recipient: vendor.paystackSubaccountCode,
-          reason: `BuyLock payout for ${vendor.businessName}`,
-          metadata: {
-            payout_request_id: payoutRequest.id,
-            vendor_id: vendor.id
-          }
-        };
-
-        const transferResponse = await fetch('https://api.paystack.co/transfer', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(transferData)
-        });
-
-        if (!transferResponse.ok) {
-          const errorData = await transferResponse.json();
-          throw new Error(`Paystack transfer error: ${errorData.message}`);
-        }
-
-        const transferResult = await transferResponse.json();
-
-        // Update payout request with Paystack details
-        const updatedRequest = await storage.updatePayoutRequest(requestId, {
-          status: 'approved',
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
-          adminNotes: adminNotes || '',
-          paystackTransferId: transferResult.data.id.toString(),
-          paystackTransferCode: transferResult.data.transfer_code,
-          transferStatus: 'pending'
-        });
-
-        // Update vendor balances
-        await storage.updateVendorPendingBalance(vendor.id, parseFloat(payoutRequest.requestedAmount.toString()), 'subtract');
-
-        // Send notification to vendor
-        await sendPayoutStatusNotification(vendor, updatedRequest, 'approved');
-
-        res.json({
-          message: 'Payout request approved and transfer initiated',
-          payoutRequest: updatedRequest,
-          paystackTransfer: transferResult.data
-        });
-
-      } catch (paystackError) {
-        console.error('Paystack transfer error:', paystackError);
-        
-        // Update request as failed
-        await storage.updatePayoutRequest(requestId, {
-          status: 'failed',
-          reviewedBy: adminId,
-          reviewedAt: new Date(),
-          adminNotes: `Transfer failed: ${paystackError.message}`,
-          transferFailureReason: paystackError.message
-        });
-
-        res.status(500).json({ 
-          message: 'Failed to initiate transfer via Paystack',
-          error: paystackError.message
-        });
-      }
-
-    } catch (error) {
-      console.error('Error approving payout request:', error);
-      res.status(500).json({ message: 'Failed to approve payout request' });
-    }
-  });
 
   app.post('/api/admin/payout-requests/:requestId/reject', isAdminAuthenticated, async (req, res) => {
     try {
