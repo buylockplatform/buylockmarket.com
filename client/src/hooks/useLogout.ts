@@ -10,9 +10,7 @@ export function useLogout() {
 
   const logoutMutation = useMutation({
     mutationFn: () =>
-      apiRequest("/api/user/logout", {
-        method: "POST",
-      }),
+      apiRequest("/api/user/logout", "POST"),
     onSuccess: () => {
       // Clear user data from cache
       queryClient.setQueryData(["/api/user/me"], null);
