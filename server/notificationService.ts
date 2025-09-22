@@ -243,7 +243,13 @@ export class NotificationService {
 
       // Generate public token for order link
       const token = await storage.ensurePublicToken(data.orderId);
-      const orderLink = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app/o/${token}`;
+      
+      // Use the correct domain - REPLIT_DOMAINS contains the proper published domain
+      const baseUrl = process.env.REPLIT_DOMAINS 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+        : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
+      
+      const orderLink = `${baseUrl}/o/${token}`;
 
       // Create concise SMS message for vendor with order link
       const orderIdShort = data.orderId.slice(-8).toUpperCase();
