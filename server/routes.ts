@@ -4161,21 +4161,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (verification.status && verification.data.status === 'success') {
         console.log('✅ Payment verified successfully, checking for existing order...');
         
-        // Check if an order already exists with this payment reference (idempotency)
+        // Check if an order already exists with this payment reference (idempotency or service booking)
         const existingOrder = await storage.getOrderByPaymentReference(reference);
         if (existingOrder) {
           console.log(`⚠️ Order already exists for payment reference ${reference}`);
+          
+          // If order is still pending payment, update it to completed (for service bookings)
+          if (existingOrder.paymentStatus === 'pending') {
+            console.log(`💳 Updating order ${existingOrder.id} payment status to completed`);
+            await storage.updateOrder(existingOrder.id, {
+              paymentStatus: "completed", 
+              status: "confirmed"
+            });
+
+            // For service bookings, create appointment if it's a service order
+            if (existingOrder.orderType === 'service') {
+              const orderWithItems = await storage.getOrderById(existingOrder.id);
+              if (orderWithItems?.orderItems && orderWithItems.orderItems.length > 0) {
+                const firstItem = orderWithItems.orderItems[0];
+                const user = await storage.getUser(existingOrder.userId);
+                const service = await storage.getServiceById(firstItem.serviceId!);
+                
+                // Create appointment for the service booking
+                await storage.createAppointment({
+                  customerId: existingOrder.userId,
+                  vendorId: existingOrder.vendorId,
+                  serviceId: firstItem.serviceId!,
+                  serviceName: service?.name || 'Service',
+                  customerName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Customer',
+                  customerEmail: user?.email || 'customer@example.com',
+                  customerPhone: '0712345678', // Default phone, should be collected during booking
+                  appointmentDate: firstItem.appointmentDate!,
+                  appointmentTime: firstItem.appointmentTime!,
+                  address: existingOrder.shippingAddress,
+                  city: 'Nairobi', // Default city, should be collected during booking
+                  state: 'Nairobi County', // Default state, should be collected during booking
+                  notes: existingOrder.notes || '',
+                  totalAmount: existingOrder.totalAmount.toString(),
+                  status: 'pending_acceptance',
+                  orderId: existingOrder.id // Link appointment to order for sync
+                });
+              }
+            }
+          }
+          
           return res.json({
             success: true,
             verified: true,
             orderId: existingOrder.id,
-            message: "Payment already processed",
+            message: existingOrder.paymentStatus === 'pending' ? "Payment confirmed successfully. Your booking is now confirmed." : "Payment already processed",
             amount: verification.data.amount / 100,
-            reference: reference
+            reference: reference,
+            order: existingOrder
           });
         }
         
-        // Get user's cart items
+        // Get user's cart items (for cart-based payments)
         const cartItems = await storage.getCartItems(userId);
         if (cartItems.length === 0) {
           return res.status(400).json({
