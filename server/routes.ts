@@ -1074,24 +1074,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Individual product by ID
-  app.get('/api/products/id/:id', async (req, res) => {
-    try {
-      const product = await storage.getProductById(req.params.id);
-      if (!product) {
-        return res.status(404).json({ message: 'Product not found' });
-      }
-      res.json(product);
-    } catch (error) {
-      console.error('Error fetching product by ID:', error);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  });
 
-  // Individual product by slug - this should come AFTER other specific routes
-  app.get('/api/products/:slug', async (req, res) => {
+  // Individual product by slug or ID
+  app.get('/api/products/:identifier', async (req, res) => {
     try {
-      const product = await storage.getProductBySlug(req.params.slug);
+      const { identifier } = req.params;
+      
+      // Check if identifier is a UUID (contains hyphens in UUID format)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+      
+      let product;
+      if (isUUID) {
+        product = await storage.getProductById(identifier);
+      } else {
+        product = await storage.getProductBySlug(identifier);
+      }
+      
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
       }
@@ -1185,23 +1183,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Individual service by ID
-  app.get('/api/services/id/:id', async (req, res) => {
+  // Individual service by slug or ID  
+  app.get('/api/services/:identifier', async (req, res) => {
     try {
-      const service = await storage.getServiceById(req.params.id);
-      if (!service) {
-        return res.status(404).json({ message: 'Service not found' });
+      const { identifier } = req.params;
+      
+      // Check if identifier is a UUID (contains hyphens in UUID format)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+      
+      let service;
+      if (isUUID) {
+        service = await storage.getServiceById(identifier);
+      } else {
+        service = await storage.getServiceBySlug(identifier);
       }
-      res.json(service);
-    } catch (error) {
-      console.error('Error fetching service by ID:', error);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  });
-
-  app.get('/api/services/:slug', async (req, res) => {
-    try {
-      const service = await storage.getServiceBySlug(req.params.slug);
+      
       if (!service) {
         return res.status(404).json({ message: "Service not found" });
       }
