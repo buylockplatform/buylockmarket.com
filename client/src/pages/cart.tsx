@@ -73,6 +73,10 @@ export default function Cart() {
   // Use either authenticated cart or guest cart
   const cartItems = isAuthenticated ? authCartItems : guestCartItems;
 
+  // Check if cart contains only services (hide delivery for services-only carts)
+  const hasProducts = cartItems.some(item => item.product);
+  const hasOnlyServices = cartItems.length > 0 && !hasProducts;
+
   const { data: couriers = [] } = useQuery<Courier[]>({
     queryKey: ["/api/couriers"],
     enabled: isAuthenticated,
@@ -417,8 +421,8 @@ export default function Cart() {
     }, 1); // Minimum 1kg
   };
 
-  const deliveryFee = courierQuote ? courierQuote.totalCost : 300;
-  const calculateTotal = () => calculateSubtotal() + deliveryFee;
+  const deliveryFee = courierQuote ? courierQuote.totalCost : (hasOnlyServices ? 0 : 300);
+  const calculateTotal = () => calculateSubtotal() + (hasOnlyServices ? 0 : deliveryFee);
 
   const calculateCourierCostMutation = useMutation({
     mutationFn: async ({ courierId, location }: { courierId: string; location: string }) => {
@@ -734,19 +738,22 @@ export default function Cart() {
                       <span className="font-semibold">{formatPrice(calculateSubtotal())}</span>
                     </div>
                     
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Delivery Fee</span>
-                      <span className="font-semibold">
-                        {courierQuote ? (
-                          <div className="text-right">
-                            <div>{formatPrice(courierQuote.totalCost)}</div>
-                            <div className="text-xs text-gray-500">{courierQuote.courierName}</div>
-                          </div>
-                        ) : (
-                          <span className="text-amber-600">Select courier</span>
-                        )}
-                      </span>
-                    </div>
+                    {/* Hide delivery fee for services-only carts */}
+                    {!hasOnlyServices && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Delivery Fee</span>
+                        <span className="font-semibold">
+                          {courierQuote ? (
+                            <div className="text-right">
+                              <div>{formatPrice(courierQuote.totalCost)}</div>
+                              <div className="text-xs text-gray-500">{courierQuote.courierName}</div>
+                            </div>
+                          ) : (
+                            <span className="text-amber-600">Select courier</span>
+                          )}
+                        </span>
+                      </div>
+                    )}
                     
                     {courierQuote && (
                       <div className="text-sm text-gray-600">
@@ -765,13 +772,14 @@ export default function Cart() {
                 </CardContent>
               </Card>
 
-              {/* Delivery Information */}
-              <Card>
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <Truck className="w-5 h-5 mr-2 text-buylock-primary" />
-                    Delivery Information
-                  </h3>
+              {/* Delivery Information - Hidden for service-only carts */}
+              {!hasOnlyServices && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <Truck className="w-5 h-5 mr-2 text-buylock-primary" />
+                      Delivery Information
+                    </h3>
                   
                   <div className="space-y-4">
                     <div>
@@ -855,6 +863,7 @@ export default function Cart() {
                   </div>
                 </CardContent>
               </Card>
+              )}
 
               {/* Checkout Button */}
               <Button
@@ -862,9 +871,7 @@ export default function Cart() {
                 disabled={
                   initializePaymentMutation.isPending || 
                   verifyPaymentMutation.isPending || 
-                  !deliveryAddress.trim() || 
-                  !selectedCourier ||
-                  !courierQuote
+                  (!hasOnlyServices && (!deliveryAddress.trim() || !selectedCourier || !courierQuote))
                 }
                 className="w-full bg-buylock-primary hover:bg-buylock-primary/90 text-white font-semibold py-3 text-lg"
                 size="lg"
