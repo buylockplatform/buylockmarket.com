@@ -5406,7 +5406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Direct Service Booking endpoint (bypasses cart)
+  // Service Booking endpoint (adds to cart)
   app.post('/api/services/book', isUserAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
@@ -5418,34 +5418,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Service not found" });
       }
 
-      // Calculate total price
-      const totalAmount = (parseFloat(service.price) * bookingData.duration).toString();
+      // Calculate price per hour * duration
+      const totalPrice = parseFloat(service.price) * bookingData.duration;
 
-      // Create order directly
-      const orderData = {
+      // Add service to cart with booking details
+      const cartItem = await storage.addToCart({
         userId,
-        vendorId: service.providerId, // Assign to service provider
-        status: "pending_payment", // Service specific status - payment first, then acceptance
-        totalAmount,
-        deliveryAddress: bookingData.serviceLocation, // Use service location as delivery address
-        deliveryFee: "0", // No delivery fee for services
-        paymentStatus: "pending",
-        paymentMethod: "card",
-        paymentReference: `SRV-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`, // Generate temporary reference
-        notes: bookingData.notes,
-        orderType: "service",
-      };
-      
-      const order = await storage.createOrder(orderData);
-
-      // Add service as order item
-      await storage.addOrderItem({
-        orderId: order.id,
         serviceId: service.id,
         quantity: 1,
-        price: totalAmount,
-        name: service.name,
-        appointmentDate: bookingData.appointmentDate,
+        price: totalPrice.toString(),
+        appointmentDate: new Date(bookingData.appointmentDate),
         appointmentTime: bookingData.appointmentTime,
         duration: bookingData.duration,
         notes: bookingData.notes,
@@ -5456,9 +5438,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json({ 
         success: true, 
-        order,
-        totalAmount,
-        message: "Service booked successfully! Proceed to payment." 
+        cartItem,
+        totalPrice,
+        message: "Service added to cart successfully!" 
       });
     } catch (error) {
       console.error("Service booking error:", error);
@@ -5468,7 +5450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           errors: error.errors 
         });
       }
-      res.status(500).json({ message: "Failed to book service" });
+      res.status(500).json({ message: "Failed to add service to cart" });
     }
   });
 
