@@ -5454,6 +5454,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Direct Service Booking endpoint (creates order immediately)
+  app.post('/api/services/book-direct', isUserAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const bookingData = serviceBookingSchema.parse(req.body);
+      
+      // Get service details
+      const service = await storage.getServiceById(bookingData.serviceId);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+
+      // Calculate total price
+      const totalAmount = (parseFloat(service.price) * bookingData.duration).toString();
+
+      // Create order directly
+      const orderData = {
+        userId,
+        vendorId: service.providerId, // Assign to service provider
+        status: "pending_payment", // Service specific status - payment first, then acceptance
+        totalAmount,
+        deliveryAddress: bookingData.serviceLocation, // Use service location as delivery address
+        deliveryFee: "0", // No delivery fee for services
+        paymentStatus: "pending",
+        paymentMethod: "card",
+        paymentReference: `SRV-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`, // Generate temporary reference
+        notes: bookingData.notes,
+        orderType: "service",
+      };
+      
+      const order = await storage.createOrder(orderData);
+
+      // Add service as order item
+      await storage.addOrderItem({
+        orderId: order.id,
+        serviceId: service.id,
+        quantity: 1,
+        price: totalAmount,
+        name: service.name,
+        appointmentDate: bookingData.appointmentDate,
+        appointmentTime: bookingData.appointmentTime,
+        duration: bookingData.duration,
+        notes: bookingData.notes,
+        serviceLocation: bookingData.serviceLocation,
+        locationCoordinates: bookingData.locationCoordinates,
+        detailedInstructions: bookingData.detailedInstructions,
+      });
+
+      res.status(201).json({ 
+        success: true, 
+        order,
+        totalAmount,
+        message: "Service booked successfully! Proceed to payment." 
+      });
+    } catch (error) {
+      console.error("Direct service booking error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid booking data", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ message: "Failed to book service" });
+    }
+  });
+
 
   // Vendor Task Management API endpoints
   

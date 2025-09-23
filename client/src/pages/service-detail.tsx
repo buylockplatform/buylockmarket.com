@@ -157,6 +157,58 @@ export default function ServiceDetail() {
     },
   });
 
+  const directBookingMutation = useMutation({
+    mutationFn: async () => {
+      if (!appointmentDate || !appointmentTime) {
+        throw new Error("Please select appointment date and time");
+      }
+      if (!serviceLocation) {
+        throw new Error("Please provide service location");
+      }
+      
+      const response = await apiRequest("/api/services/book-direct", "POST", {
+        serviceId: service?.id,
+        appointmentDate: appointmentDate.toISOString(),
+        appointmentTime,
+        duration,
+        notes,
+        serviceLocation,
+        locationCoordinates,
+        detailedInstructions,
+      });
+      
+      return response;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Service booked successfully!",
+        description: `Booking created for ${format(appointmentDate!, "PPP")} at ${appointmentTime}. Proceed to payment.`,
+      });
+      
+      // Navigate to payment with order details
+      setLocation(`/payment?orderId=${data.order.id}&amount=${data.totalAmount}`);
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Please log in",
+          description: "You need to be logged in to book services",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 1500);
+        return;
+      }
+      
+      toast({
+        title: "Booking failed",
+        description: error.message || "Failed to book service. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Format price to KES
   const { formatPrice } = useCurrency();
 
@@ -471,28 +523,50 @@ export default function ServiceDetail() {
                   )}
                 </div>
 
-                {/* Book Service Button */}
-                <Button
-                  className="w-full bg-buylock-primary hover:bg-buylock-primary/90"
-                  onClick={() => addToCartMutation.mutate()}
-                  disabled={addToCartMutation.isPending || !isAuthenticated || !appointmentDate || !appointmentTime || !serviceLocation}
-                  size="lg"
-                >
-                  {addToCartMutation.isPending ? (
-                    "Adding to Cart..."
-                  ) : !isAuthenticated ? (
-                    "Login to Add to Cart"
-                  ) : !appointmentDate || !appointmentTime ? (
-                    "Select Date & Time"
-                  ) : !serviceLocation ? (
-                    "Add Service Location"
-                  ) : (
-                    `Add to Cart - ${formatPrice(totalPrice)}`
-                  )}
-                </Button>
+                {/* Book Service Buttons */}
+                <div className="space-y-3">
+                  <Button
+                    className="w-full bg-buylock-primary hover:bg-buylock-primary/90"
+                    onClick={() => directBookingMutation.mutate()}
+                    disabled={directBookingMutation.isPending || !isAuthenticated || !appointmentDate || !appointmentTime || !serviceLocation}
+                    size="lg"
+                  >
+                    {directBookingMutation.isPending ? (
+                      "Processing..."
+                    ) : !isAuthenticated ? (
+                      "Login to Book"
+                    ) : !appointmentDate || !appointmentTime ? (
+                      "Select Date & Time"
+                    ) : !serviceLocation ? (
+                      "Add Service Location"
+                    ) : (
+                      `Pay Now - ${formatPrice(totalPrice)}`
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="w-full border-buylock-primary text-buylock-primary hover:bg-buylock-primary/10"
+                    onClick={() => addToCartMutation.mutate()}
+                    disabled={addToCartMutation.isPending || !isAuthenticated || !appointmentDate || !appointmentTime || !serviceLocation}
+                    size="lg"
+                  >
+                    {addToCartMutation.isPending ? (
+                      "Adding to Cart..."
+                    ) : !isAuthenticated ? (
+                      "Login to Add to Cart"
+                    ) : !appointmentDate || !appointmentTime ? (
+                      "Select Date & Time"
+                    ) : !serviceLocation ? (
+                      "Add Service Location"
+                    ) : (
+                      `Add to Cart - ${formatPrice(totalPrice)}`
+                    )}
+                  </Button>
+                </div>
 
                 <div className="text-xs text-gray-500 text-center">
-                  Added to cart • Flexible checkout • Secure payment
+                  Pay now for immediate booking • Or add to cart for later checkout
                 </div>
 
                 {/* Contact Info */}
