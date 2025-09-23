@@ -96,7 +96,7 @@ export default function ServiceDetail() {
     );
   };
 
-  const directBookingMutation = useMutation({
+  const addToCartMutation = useMutation({
     mutationFn: async () => {
       if (!appointmentDate || !appointmentTime) {
         throw new Error("Please select appointment date and time");
@@ -119,19 +119,28 @@ export default function ServiceDetail() {
       return response;
     },
     onSuccess: (data) => {
+      // Invalidate cart queries to refresh cart count
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      
       toast({
-        title: "Service booked successfully!",
-        description: `Booking created for ${format(appointmentDate!, "PPP")} at ${appointmentTime}. Proceed to payment.`,
+        title: "Service added to cart!",
+        description: `Appointment scheduled for ${format(appointmentDate!, "PPP")} at ${appointmentTime}. Go to cart to checkout.`,
       });
       
-      // Navigate to payment with order details
-      setLocation(`/payment?orderId=${data.order.id}&amount=${data.totalAmount}`);
+      // Reset form
+      setAppointmentDate(undefined);
+      setAppointmentTime("");
+      setNotes("");
+      setServiceLocation("");
+      setLocationCoordinates("");
+      setDetailedInstructions("");
+      setIsBookingOpen(false);
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Please log in",
-          description: "You need to be logged in to book services",
+          description: "You need to be logged in to add services to cart",
           variant: "destructive",
         });
         setTimeout(() => {
@@ -141,8 +150,8 @@ export default function ServiceDetail() {
       }
       
       toast({
-        title: "Booking failed",
-        description: error.message || "Failed to book service. Please try again.",
+        title: "Failed to add to cart",
+        description: error.message || "Failed to add service to cart. Please try again.",
         variant: "destructive",
       });
     },
@@ -465,25 +474,25 @@ export default function ServiceDetail() {
                 {/* Book Service Button */}
                 <Button
                   className="w-full bg-buylock-primary hover:bg-buylock-primary/90"
-                  onClick={() => directBookingMutation.mutate()}
-                  disabled={directBookingMutation.isPending || !isAuthenticated || !appointmentDate || !appointmentTime || !serviceLocation}
+                  onClick={() => addToCartMutation.mutate()}
+                  disabled={addToCartMutation.isPending || !isAuthenticated || !appointmentDate || !appointmentTime || !serviceLocation}
                   size="lg"
                 >
-                  {directBookingMutation.isPending ? (
-                    "Processing Booking..."
+                  {addToCartMutation.isPending ? (
+                    "Adding to Cart..."
                   ) : !isAuthenticated ? (
-                    "Login to Book Service"
+                    "Login to Add to Cart"
                   ) : !appointmentDate || !appointmentTime ? (
                     "Select Date & Time"
                   ) : !serviceLocation ? (
                     "Add Service Location"
                   ) : (
-                    `Book & Pay Now - ${formatPrice(totalPrice)}`
+                    `Add to Cart - ${formatPrice(totalPrice)}`
                   )}
                 </Button>
 
                 <div className="text-xs text-gray-500 text-center">
-                  No cart needed • Direct checkout • Secure payment
+                  Added to cart • Flexible checkout • Secure payment
                 </div>
 
                 {/* Contact Info */}
