@@ -1074,7 +1074,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
+  // Individual product by ID
+  app.get('/api/products/id/:id', async (req, res) => {
+    try {
+      const product = await storage.getProductById(req.params.id);
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+      res.json(product);
+    } catch (error) {
+      console.error('Error fetching product by ID:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
 
   // Individual product by slug - this should come AFTER other specific routes
   app.get('/api/products/:slug', async (req, res) => {
@@ -1173,7 +1185,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
+  // Individual service by ID
+  app.get('/api/services/id/:id', async (req, res) => {
+    try {
+      const service = await storage.getServiceById(req.params.id);
+      if (!service) {
+        return res.status(404).json({ message: 'Service not found' });
+      }
+      res.json(service);
+    } catch (error) {
+      console.error('Error fetching service by ID:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
 
   app.get('/api/services/:slug', async (req, res) => {
     try {
