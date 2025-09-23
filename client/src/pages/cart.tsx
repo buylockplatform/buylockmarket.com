@@ -642,25 +642,66 @@ export default function Cart() {
                             {itemData?.description || itemData?.shortDescription || "No description available"}
                           </p>
                           
+                          {/* Service Appointment Details */}
+                          {!isProduct && (item.appointmentDate || item.appointmentTime || item.serviceLocation) && (
+                            <div className="bg-blue-50 p-3 rounded-lg mb-3 space-y-1">
+                              <h4 className="text-sm font-semibold text-blue-900">Appointment Details:</h4>
+                              {item.appointmentDate && (
+                                <p className="text-sm text-blue-700">
+                                  📅 Date: {new Date(item.appointmentDate).toLocaleDateString()}
+                                </p>
+                              )}
+                              {item.appointmentTime && (
+                                <p className="text-sm text-blue-700">
+                                  🕒 Time: {item.appointmentTime}
+                                </p>
+                              )}
+                              {item.duration && (
+                                <p className="text-sm text-blue-700">
+                                  ⏱️ Duration: {item.duration} hour{item.duration !== 1 ? 's' : ''}
+                                </p>
+                              )}
+                              {item.serviceLocation && (
+                                <p className="text-sm text-blue-700">
+                                  📍 Location: {item.serviceLocation}
+                                </p>
+                              )}
+                              {item.notes && (
+                                <p className="text-sm text-blue-700">
+                                  📝 Notes: {item.notes}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          
                           <div className="flex items-center justify-between">
+                            {/* Quantity controls - only show for products */}
                             <div className="flex items-center space-x-3">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleQuantityChange(item.id, (item.quantity || 1) - 1)}
-                                disabled={updateQuantityMutation.isPending || (item.quantity || 1) <= 1}
-                              >
-                                <Minus className="w-3 h-3" />
-                              </Button>
-                              <span className="font-semibold px-3">{item.quantity || 1}</span>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleQuantityChange(item.id, (item.quantity || 1) + 1)}
-                                disabled={updateQuantityMutation.isPending}
-                              >
-                                <Plus className="w-3 h-3" />
-                              </Button>
+                              {isProduct ? (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleQuantityChange(item.id, (item.quantity || 1) - 1)}
+                                    disabled={updateQuantityMutation.isPending || (item.quantity || 1) <= 1}
+                                  >
+                                    <Minus className="w-3 h-3" />
+                                  </Button>
+                                  <span className="font-semibold px-3">{item.quantity || 1}</span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleQuantityChange(item.id, (item.quantity || 1) + 1)}
+                                    disabled={updateQuantityMutation.isPending}
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <Badge variant="outline" className="text-sm">
+                                  Service Booking
+                                </Badge>
+                              )}
                             </div>
                             
                             <div className="text-right">
