@@ -67,7 +67,7 @@ export default function Payment() {
   // Payment verification mutation
   const verifyPaymentMutation = useMutation({
     mutationFn: async ({ reference, orderId }: { reference: string; orderId: string }) => {
-      return apiRequest("/api/payments/verify", "POST", {
+      return apiRequest("/api/payments/verify-order", "POST", {
         reference,
         orderId,
       });
