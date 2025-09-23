@@ -5390,6 +5390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         deliveryFee: "0", // No delivery fee for services
         paymentStatus: "pending",
         paymentMethod: "card",
+        paymentReference: `SRV-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`, // Generate temporary reference
         notes: bookingData.notes,
         orderType: "service",
       };
