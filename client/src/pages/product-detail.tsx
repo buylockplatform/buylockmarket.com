@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { PriceDisplay } from "@/components/PriceDisplay";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { ImageGallery } from "@/components/ImageGallery";
 import type { Product } from "@shared/schema";
 
 export default function ProductDetail() {
@@ -190,13 +191,15 @@ export default function ProductDetail() {
           {/* Product Images */}
           <div className="space-y-4">
             <div className="relative">
-              <img 
-                src={product.imageUrl || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=600"} 
-                alt={product.name}
-                className="w-full h-96 object-cover rounded-xl"
+              <ImageGallery 
+                images={[
+                  product.imageUrl || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=600",
+                  ...(product.imageUrls || [])
+                ].filter(Boolean)}
+                productName={product.name}
               />
               {hasDiscount && (
-                <Badge className="absolute top-4 left-4 bg-red-500 text-white">
+                <Badge className="absolute top-4 left-4 bg-red-500 text-white z-10">
                   -{discountPercent}% OFF
                 </Badge>
               )}
@@ -204,25 +207,12 @@ export default function ProductDetail() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsWished(!isWished)}
-                className="absolute top-4 right-4 w-10 h-10 bg-white/80 hover:bg-white rounded-full"
+                className="absolute top-4 right-4 w-10 h-10 bg-white/80 hover:bg-white rounded-full z-10"
+                data-testid="button-wishlist"
               >
                 <Heart className={`w-5 h-5 ${isWished ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
               </Button>
             </div>
-            
-            {/* Thumbnail images would go here */}
-            {product.imageUrls && product.imageUrls.length > 0 && (
-              <div className="flex space-x-2 overflow-x-auto">
-                {product.imageUrls.slice(0, 4).map((url, index) => (
-                  <img 
-                    key={index}
-                    src={url}
-                    alt={`${product.name} ${index + 1}`}
-                    className="w-20 h-20 object-cover rounded-lg cursor-pointer border-2 border-transparent hover:border-buylock-primary"
-                  />
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Product Info */}
