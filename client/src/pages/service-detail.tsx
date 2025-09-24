@@ -37,6 +37,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { ServicePriceDisplay } from "@/components/ServicePriceDisplay";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { ImageGallery } from "@/components/ImageGallery";
 import type { Service } from "@shared/schema";
 
 export default function ServiceDetail() {
@@ -268,13 +269,16 @@ export default function ServiceDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Service Details */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Service Image */}
+            {/* Service Image Gallery */}
             <div className="aspect-video bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg overflow-hidden">
-              {service.imageUrl ? (
-                <img 
-                  src={service.imageUrl} 
-                  alt={service.name}
-                  className="w-full h-full object-cover"
+              {service.imageUrl || (service.imageUrls && service.imageUrls.length > 0) ? (
+                <ImageGallery 
+                  images={[
+                    service.imageUrl,
+                    ...(service.imageUrls || [])
+                  ].filter(Boolean)}
+                  productName={service.name}
+                  className="h-full"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
