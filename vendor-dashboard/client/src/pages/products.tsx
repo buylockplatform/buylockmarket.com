@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Package, Plus, Edit, Trash2, Save, X } from "lucide-react";
 import { apiRequest } from "@/lib/api";
+import MultipleImageUploader from "./components/MultipleImageUploader";
 import type { Product, Category, InsertProductInput } from "@shared/schema";
 
 export default function Products() {
@@ -254,6 +255,17 @@ export default function Products() {
                     value={formData.description}
                     onChange={handleChange}
                     className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+
+                {/* Multiple Image Upload */}
+                <div className="space-y-2">
+                  <MultipleImageUploader
+                    images={formData.images}
+                    onImagesChange={(images) => setFormData(prev => ({ ...prev, images }))}
+                    maxImages={8}
+                    label="Product Images"
+                    description="Upload high-quality images of your product. First image will be the main image. Maximum 8 images."
                   />
                 </div>
 
