@@ -14,7 +14,7 @@ export function ImageGallery({ images, productName, className }: ImageGalleryPro
   
   // Filter out empty/null images and ensure we have at least one image
   const validImages = images.filter(img => img && img.trim() !== "");
-  const displayImages = validImages.length > 0 ? validImages : ["/placeholder-image.jpg"];
+  const displayImages = validImages.length > 0 ? validImages : ["https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=600"];
   
   const handlePrevImage = () => {
     setSelectedImageIndex((prev) => 
