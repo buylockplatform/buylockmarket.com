@@ -77,7 +77,7 @@ app.use((req, res, next) => {
 
 
   const port = parseInt(process.env.PORT || '5000', 10);
-server.listen(port, () => {
-  log(`Server running on http://localhost:${port}`);
-});
+  server.listen(port, () => {
+    log(`Server running on port ${port}`);
+  });
 })();
