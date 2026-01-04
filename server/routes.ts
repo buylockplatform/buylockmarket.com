@@ -8,7 +8,7 @@ import { getSession } from "./replitAuth";
 import { sendVendorAccountUnderReviewNotification, sendVendorAccountApprovedNotification } from "./emailService";
 // import { sendPayoutStatusNotification, PayoutNotificationData } from "./emailService";
 type PayoutNotificationData = any;
-const sendPayoutStatusNotification = async (..._args: any[]) => {}; // no-op placeholder
+const sendPayoutStatusNotification = async (..._args: any[]) => { }; // no-op placeholder
 import { notificationService, type VendorNotificationData } from "./notificationService";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
@@ -22,29 +22,29 @@ const isUserAuthenticated = async (req: any, res: any, next: any) => {
     // Try JWT token authentication first
     const authHeader = req.headers.authorization;
     const token = extractBearerToken(authHeader);
-    
+
     if (token) {
       const decoded = verifyToken(token);
       if (decoded && decoded.type === 'access') {
         // JWT authentication successful
-        req.user = { 
-          id: decoded.userId, 
+        req.user = {
+          id: decoded.userId,
           email: decoded.email,
           firstName: decoded.firstName,
-          lastName: decoded.lastName 
+          lastName: decoded.lastName
         };
         req.authType = 'token';
         return next();
       }
     }
-    
+
     // Fall back to session authentication
     if (req.session?.userId && req.session?.user) {
       req.user = { id: req.session.userId, ...req.session.user };
       req.authType = 'session';
       return next();
     }
-    
+
     return res.status(401).json({ message: "Not authenticated" });
   } catch (error) {
     console.error("User authentication error:", error);
@@ -58,7 +58,7 @@ const isVendorAuthenticated = async (req: any, res: any, next: any) => {
     // Try JWT token authentication first
     const authHeader = req.headers.authorization;
     const token = extractBearerToken(authHeader);
-    
+
     if (token) {
       const decoded = verifyToken(token);
       if (decoded && decoded.type === 'access') {
@@ -71,7 +71,7 @@ const isVendorAuthenticated = async (req: any, res: any, next: any) => {
         }
       }
     }
-    
+
     // Fall back to header-based authentication
     const vendorId = req.headers['x-vendor-id'] || req.params.vendorId;
 
@@ -86,10 +86,10 @@ const isVendorAuthenticated = async (req: any, res: any, next: any) => {
     }
 
     if (vendor.verificationStatus !== 'verified') {
-      return res.status(403).json({ 
-        message: "Account not approved", 
+      return res.status(403).json({
+        message: "Account not approved",
         details: "Your vendor account is pending approval by our admin team.",
-        status: vendor.verificationStatus 
+        status: vendor.verificationStatus
       });
     }
 
@@ -108,7 +108,7 @@ const isAdminAuthenticated = async (req: any, res: any, next: any) => {
   try {
     // Check if admin is authenticated (simplified check)
     const adminAuth = req.headers['x-admin-auth'] || req.headers['authorization'];
-    
+
     // For demo purposes, we'll use a simple check
     // In production, this would verify JWT tokens or session data
     if (!adminAuth && !req.session?.adminData) {
@@ -135,7 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize Paystack SDK (only if credentials available)
   const secret = process.env.PAYSTACK_SECRET_KEY;
   const paystack = secret ? Paystack(secret) : null;
-  
+
   // Initialize PaystackService for subaccounts
   const paystackService = new PaystackService(secret);
 
@@ -165,7 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const dbInfo = await db.execute(sql`SELECT current_database(), current_user, current_schema()`);
       const columns = await db.execute(sql`SELECT column_name FROM information_schema.columns WHERE table_name='orders' ORDER BY 1`);
-      
+
       res.json({
         database: dbInfo.rows[0],
         ordersColumns: columns.rows.map(row => row.column_name),
@@ -191,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/vendor', isVendorAuthenticated, async (req: any, res) => {
     try {
       const vendor = req.vendor;
-      
+
       if (!vendor) {
         return res.status(401).json({ message: "Invalid vendor session" });
       }
@@ -231,10 +231,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if vendor is approved
       if (vendor.verificationStatus !== 'verified') {
-        return res.status(403).json({ 
-          message: "Account not approved", 
+        return res.status(403).json({
+          message: "Account not approved",
           details: "Your vendor account is pending approval by our admin team. You will be notified once your account is verified.",
-          status: vendor.verificationStatus 
+          status: vendor.verificationStatus
         });
       }
 
@@ -247,9 +247,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: vendor.contactName,
           lastName: vendor.businessName
         });
-        
+
         const { passwordHash, ...vendorData } = vendor;
-        
+
         return res.status(200).json({
           success: true,
           message: "Login successful",
@@ -277,17 +277,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/vendor/refresh-token", async (req, res) => {
     try {
       const { refreshToken } = req.body;
-      
+
       if (!refreshToken) {
         return res.status(400).json({ message: "Refresh token is required" });
       }
-      
+
       // Refresh the access token
       const newTokens = refreshAccessToken(refreshToken);
       if (!newTokens) {
         return res.status(401).json({ message: "Invalid refresh token" });
       }
-      
+
       res.json({
         success: true,
         message: "Token refreshed successfully",
@@ -303,7 +303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/vendor/me", isVendorAuthenticated, async (req: any, res) => {
     try {
       const vendor = req.vendor;
-      
+
       if (!vendor) {
         return res.status(401).json({ message: "Invalid vendor session" });
       }
@@ -322,10 +322,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { registerUserSchema } = await import("@shared/schema");
       const validatedData = registerUserSchema.parse(req.body);
-      
+
       // Normalize email to lowercase
       const normalizedEmail = validatedData.email.toLowerCase();
-      
+
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(normalizedEmail);
       if (existingUser) {
@@ -346,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Generate JWT tokens for mobile/API clients
         const tokens = generateTokens(user);
         const { passwordHash, ...userData } = user;
-        
+
         return res.status(201).json({
           success: true,
           message: "Account created successfully",
@@ -366,7 +366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error("Session regeneration error during registration:", err);
           return res.status(500).json({ message: "Registration completed but session failed" });
         }
-        
+
         // Set up session for the newly registered user
         req.session.userId = user.id;
         req.session.user = {
@@ -375,14 +375,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: user.firstName,
           lastName: user.lastName
         };
-        
+
         // Save session
         req.session.save((err) => {
           if (err) {
             console.error("Session save error during registration:", err);
             return res.status(500).json({ message: "Registration completed but session failed" });
           }
-          
+
           // Return user data (without password hash)
           const { passwordHash, ...userData } = user;
           res.status(201).json({
@@ -395,14 +395,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error) {
       console.error("User registration error:", error);
-      
+
       if (error.name === "ZodError") {
-        return res.status(400).json({ 
-          message: "Validation error", 
-          errors: error.errors 
+        return res.status(400).json({
+          message: "Validation error",
+          errors: error.errors
         });
       }
-      
+
       res.status(500).json({ message: "Registration failed" });
     }
   });
@@ -423,7 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Generate JWT tokens for mobile/API clients
         const tokens = generateTokens(user);
         const { passwordHash, ...userData } = user;
-        
+
         return res.json({
           success: true,
           message: "Login successful",
@@ -443,7 +443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error("Session regeneration error:", err);
           return res.status(500).json({ message: "Login failed" });
         }
-        
+
         // Set up session for the user
         req.session.userId = user.id;
         req.session.user = {
@@ -452,14 +452,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: user.firstName,
           lastName: user.lastName
         };
-        
+
         // Save session
         req.session.save((err) => {
           if (err) {
             console.error("Session save error:", err);
             return res.status(500).json({ message: "Login failed" });
           }
-          
+
           // Return user data (without password hash)
           const { passwordHash, ...userData } = user;
           res.json({
@@ -473,14 +473,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error) {
       console.error("User login error:", error);
-      
+
       if (error.name === "ZodError") {
-        return res.status(400).json({ 
-          message: "Validation error", 
-          errors: error.errors 
+        return res.status(400).json({
+          message: "Validation error",
+          errors: error.errors
         });
       }
-      
+
       res.status(500).json({ message: "Login failed" });
     }
   });
@@ -515,7 +515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/user/change-password", isUserAuthenticated, async (req, res) => {
     try {
       const { currentPassword, newPassword } = req.body;
-      
+
       if (!currentPassword || !newPassword) {
         return res.status(400).json({ message: "Current password and new password are required" });
       }
@@ -525,9 +525,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = req.user.id;
-      const user = await storage.getUser(userId);
+      let user: any = await storage.getUser(userId);
+      let isVendor = false;
+
+      if (!user) {
+        user = await storage.getVendorById(userId);
+        isVendor = true;
+      }
+
       if (!user || !user.passwordHash) {
-        return res.status(404).json({ message: "User not found or password not set" });
+        return res.status(404).json({ message: "User or vendor not found or password not set" });
       }
 
       // Verify current password
@@ -539,11 +546,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Hash new password and update
       const hashedPassword = await bcrypt.hash(newPassword, 10);
-      await storage.updateUser(userId, { passwordHash: hashedPassword });
+      if (isVendor) {
+        await storage.updateVendor(userId, { passwordHash: hashedPassword });
+      } else {
+        await storage.updateUser(userId, { passwordHash: hashedPassword });
+      }
 
-      res.json({ 
+      res.json({
         success: true,
-        message: "Password updated successfully" 
+        message: "Password updated successfully"
       });
     } catch (error) {
       console.error("Password change error:", error);
@@ -555,7 +566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/user/refresh-token", authRateLimit, async (req, res) => {
     try {
       const { refreshToken } = req.body;
-      
+
       if (!refreshToken) {
         return res.status(400).json({ message: "Refresh token is required" });
       }
@@ -603,7 +614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/user/me", isUserAuthenticated, async (req: any, res) => {
     try {
       const user = req.user;
-      
+
       if (!user) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -629,7 +640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get vendor statistics
       const stats = await storage.getVendorStats(vendorId);
-      
+
       res.json({
         totalProducts: stats.totalProducts || 0,
         totalServices: stats.totalServices || 0,
@@ -653,13 +664,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/vendor/register", async (req, res) => {
     try {
-      const { 
-        email, 
-        password, 
-        businessName, 
-        contactName, 
-        phone, 
-        address, 
+      const {
+        email,
+        password,
+        businessName,
+        contactName,
+        phone,
+        address,
         businessCategory,
         description,
         vendorType,
@@ -671,13 +682,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nationalIdUrl,
         taxCertificateUrl
       } = req.body;
-      
+
       // Basic validation
-      if (!email || !password || !businessName || !contactName || !businessCategory || 
-          !nationalIdNumber || !nationalIdUrl || !vendorType || 
-          !businessLatitude || !businessLongitude || !locationDescription) {
-        return res.status(400).json({ 
-          message: "Missing required fields: email, password, businessName, contactName, businessCategory, vendorType, nationalIdNumber, location coordinates, location description, and national ID document" 
+      if (!email || !password || !businessName || !contactName || !businessCategory ||
+        !nationalIdNumber || !nationalIdUrl || !vendorType ||
+        !businessLatitude || !businessLongitude || !locationDescription) {
+        return res.status(400).json({
+          message: "Missing required fields: email, password, businessName, contactName, businessCategory, vendorType, nationalIdNumber, location coordinates, location description, and national ID document"
         });
       }
 
@@ -689,11 +700,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For registered vendors, tax PIN and tax certificate are required
       if (vendorType === 'registered') {
         if (!taxPinNumber || !taxCertificateUrl) {
-          return res.status(400).json({ 
-            message: "Registered vendors must provide tax PIN and tax certificate document" 
+          return res.status(400).json({
+            message: "Registered vendors must provide tax PIN and tax certificate document"
           });
         }
-        
+
         // Validate tax PIN format (Kenyan format: A followed by 9 digits followed by letter)
         if (!/^A\d{9}[A-Z]$/.test(taxPinNumber)) {
           return res.status(400).json({ message: "Tax PIN must be in format A000000000X" });
@@ -727,11 +738,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const passwordHash = await bcrypt.hash(password, 10);
 
       // Extract bank details if provided
-      const { 
-        bankName, 
-        bankCode, 
-        accountNumber, 
-        accountName 
+      const {
+        bankName,
+        bankCode,
+        accountNumber,
+        accountName
       } = req.body;
 
       // Create vendor with pending approval status
@@ -810,7 +821,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...vendorData,
         subaccountCreated: !!subaccountInfo,
         subaccountCode: subaccountInfo?.subaccountCode,
-        message: subaccountInfo 
+        message: subaccountInfo
           ? "Vendor registration successful with Paystack subaccount. Your application and documents are now pending admin approval."
           : "Vendor registration successful. Your application and documents are now pending admin approval."
       });
@@ -825,7 +836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/orders/:orderId/fulfill", async (req, res) => {
     try {
       const { orderId } = req.params;
-      
+
       // Get the order with items
       const order = await storage.getOrderWithItems(orderId);
       if (!order) {
@@ -834,47 +845,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verify order can be fulfilled (must be ready for pickup)
       if (order.status !== 'ready_for_pickup') {
-        return res.status(400).json({ 
-          message: "Order must be ready for pickup before it can be fulfilled for payout" 
+        return res.status(400).json({
+          message: "Order must be ready for pickup before it can be fulfilled for payout"
         });
       }
 
       // Check if order has already been fulfilled
       if (order.status === 'fulfilled') {
-        return res.status(400).json({ 
-          message: "Order has already been fulfilled" 
+        return res.status(400).json({
+          message: "Order has already been fulfilled"
         });
       }
 
       // Validate vendor exists
       if (!order.vendorId) {
-        return res.status(400).json({ 
-          message: "Order has no associated vendor" 
+        return res.status(400).json({
+          message: "Order has no associated vendor"
         });
       }
 
       // Validate order items exist and have valid data
       if (!order.orderItems || order.orderItems.length === 0) {
-        return res.status(400).json({ 
-          message: "Order has no items to calculate earnings for" 
+        return res.status(400).json({
+          message: "Order has no items to calculate earnings for"
         });
       }
 
       // Validate all order items have valid price and quantity data
       for (const item of order.orderItems) {
         if (!item.price || isNaN(parseFloat(item.price)) || parseFloat(item.price) <= 0) {
-          return res.status(400).json({ 
-            message: `Invalid price for order item: ${item.name || item.id}` 
+          return res.status(400).json({
+            message: `Invalid price for order item: ${item.name || item.id}`
           });
         }
         if (!item.quantity || item.quantity <= 0) {
-          return res.status(400).json({ 
-            message: `Invalid quantity for order item: ${item.name || item.id}` 
+          return res.status(400).json({
+            message: `Invalid quantity for order item: ${item.name || item.id}`
           });
         }
         if (!item.id) {
-          return res.status(400).json({ 
-            message: "Order item missing ID" 
+          return res.status(400).json({
+            message: "Order item missing ID"
           });
         }
       }
@@ -882,20 +893,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calculate vendor earnings for each order item using precise decimal arithmetic
       const platformFeePercentage = 20; // 20% platform fee
       let totalNetEarnings = 0;
-      
+
       // Prepare earning records (but don't insert yet)
       const earningRecords = [];
-      
+
       for (const item of order.orderItems) {
         // Use parseFloat for calculations but validate first
         const price = parseFloat(item.price);
         const quantity = parseInt(item.quantity.toString());
-        
+
         // Calculate with proper rounding for financial precision
         const grossAmount = Math.round((price * quantity) * 100) / 100; // Round to 2 decimal places
         const platformFee = Math.round((grossAmount * (platformFeePercentage / 100)) * 100) / 100;
         const netEarnings = Math.round((grossAmount - platformFee) * 100) / 100;
-        
+
         totalNetEarnings += netEarnings;
 
         earningRecords.push({
@@ -925,8 +936,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`✅ Order ${orderId} fulfilled and earnings calculated for vendor ${order.vendorId}`);
       console.log(`💰 Total net earnings: ${totalNetEarnings.toFixed(2)} from ${earningRecords.length} items`);
-      
-      res.json({ 
+
+      res.json({
         message: "Order fulfilled and vendor earnings calculated",
         orderId,
         status: 'fulfilled',
@@ -989,23 +1000,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Products
   app.get('/api/products', async (req, res) => {
     try {
-      const { 
-        categoryId, 
-        categoryIds, 
-        category, 
-        search, 
-        featured, 
-        limit, 
+      const {
+        categoryId,
+        categoryIds,
+        category,
+        search,
+        featured,
+        limit,
         offset,
         customerLat,
         customerLng,
         radiusKm,
         sortByProximity
       } = req.query;
-      
+
       // Handle multiple categoryIds
       let finalCategoryIds: string[] = [];
-      
+
       if (categoryIds) {
         // Multiple category IDs provided
         finalCategoryIds = (categoryIds as string).split(',').filter(Boolean);
@@ -1019,7 +1030,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           finalCategoryIds = [categoryRecord.id];
         }
       }
-      
+
       let products = await storage.getProducts({
         categoryIds: finalCategoryIds.length > 0 ? finalCategoryIds : undefined,
         search: search as string,
@@ -1079,17 +1090,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/products/:identifier', async (req, res) => {
     try {
       const { identifier } = req.params;
-      
+
       // Check if identifier is a UUID (contains hyphens in UUID format)
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
-      
+
       let product;
       if (isUUID) {
         product = await storage.getProductById(identifier);
       } else {
         product = await storage.getProductBySlug(identifier);
       }
-      
+
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
       }
@@ -1103,23 +1114,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Services
   app.get('/api/services', async (req, res) => {
     try {
-      const { 
-        categoryId, 
-        categoryIds, 
-        search, 
-        featured, 
-        availableToday, 
-        limit, 
+      const {
+        categoryId,
+        categoryIds,
+        search,
+        featured,
+        availableToday,
+        limit,
         offset,
         customerLat,
         customerLng,
         radiusKm,
         sortByProximity
       } = req.query;
-      
+
       // Handle multiple categoryIds
       let finalCategoryIds: string[] = [];
-      
+
       if (categoryIds) {
         // Multiple category IDs provided
         finalCategoryIds = (categoryIds as string).split(',').filter(Boolean);
@@ -1127,7 +1138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Single category ID provided
         finalCategoryIds = [categoryId as string];
       }
-      
+
       let services = await storage.getServices({
         categoryIds: finalCategoryIds.length > 0 ? finalCategoryIds : undefined,
         search: search as string,
@@ -1187,17 +1198,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/services/:identifier', async (req, res) => {
     try {
       const { identifier } = req.params;
-      
+
       // Check if identifier is a UUID (contains hyphens in UUID format)
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
-      
+
       let service;
       if (isUUID) {
         service = await storage.getServiceById(identifier);
       } else {
         service = await storage.getServiceBySlug(identifier);
       }
-      
+
       if (!service) {
         return res.status(404).json({ message: "Service not found" });
       }
@@ -1239,7 +1250,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const cartItemData = insertCartItemSchema.parse({ ...req.body, userId });
-      
+
       // Fetch product or service details to get the correct price
       let itemPrice = "0.00";
       if (cartItemData.productId) {
@@ -1253,10 +1264,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           itemPrice = service.price;
         }
       }
-      
+
       // Set the correct price in the cart item data
       cartItemData.price = itemPrice;
-      
+
       const cartItem = await storage.addToCart(cartItemData);
       res.status(201).json(cartItem);
     } catch (error) {
@@ -1320,17 +1331,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const { id } = req.params;
-      
+
       const order = await storage.getOrderById(id);
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
       }
-      
+
       // Verify the order belongs to the authenticated user
       if (order.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
-      
+
       res.json(order);
     } catch (error) {
       console.error("Error fetching order:", error);
@@ -1353,7 +1364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           custom_fields: [
             {
               display_name: "User ID",
-              variable_name: "user_id", 
+              variable_name: "user_id",
               value: userId
             },
             {
@@ -1433,7 +1444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get the existing order first
       const existingOrder = await storage.getOrderById(orderId);
-      
+
       if (!existingOrder) {
         return res.status(404).json({ message: "Order not found" });
       }
@@ -1449,7 +1460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (verificationData.status && verificationData.data.status === 'success') {
         // Update order payment status - once paid, order is confirmed
-        await storage.updateOrder(orderId, { 
+        await storage.updateOrder(orderId, {
           paymentStatus: "completed",
           status: "confirmed"
         });
@@ -1457,10 +1468,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Send customer order confirmation email
         try {
           const { sendCustomerOrderConfirmation } = await import('./emailService');
-          
+
           // Get customer details
           const customer = await storage.getUser(existingOrder.userId);
-          
+
           // Get order items with names
           const orderItems = await storage.getOrderItems(orderId);
           const emailOrderItems = await Promise.all(orderItems.map(async (item) => {
@@ -1472,14 +1483,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const service = await storage.getServiceById(item.serviceId);
               itemName = service?.name || 'Unknown Service';
             }
-            
+
             return {
               name: itemName,
               quantity: item.quantity,
               price: item.price
             };
           }));
-          
+
           if (customer && customer.email && emailOrderItems.length > 0) {
             const customerOrderData = {
               customerEmail: customer.email,
@@ -1491,9 +1502,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               estimatedDelivery: existingOrder.orderType === 'service' ? 'Upon appointment scheduling' : '2-4 hours within Nairobi, 24-48 hours nationwide',
               orderItems: emailOrderItems
             };
-            
+
             const emailSent = await sendCustomerOrderConfirmation(customerOrderData);
-            
+
             if (emailSent) {
               console.log(`Order confirmation email sent to ${customer.email} for order ${orderId}`);
             } else {
@@ -1509,21 +1520,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const { sendSMS } = await import('./uwaziiService');
           const vendor = await storage.getVendorById(existingOrder.vendorId);
-          
+
           if (vendor && vendor.phone) {
             // Generate public token for order link
             const token = await storage.ensurePublicToken(orderId);
-            
+
             // Use the correct domain - REPLIT_DOMAINS contains the proper published domain
-            const baseUrl = process.env.REPLIT_DOMAINS 
-              ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+            const baseUrl = process.env.REPLIT_DOMAINS
+              ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
               : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
             const orderLink = `${baseUrl}/o/${token}`;
-            
+
             const vendorMessage = `New BuyLock Order! ID: ${orderId.slice(-8)} Customer: ${customer?.firstName || 'Customer'} Total: KES ${existingOrder.totalAmount} Track: ${orderLink}`;
-            
+
             const smsResult = await sendSMS(vendor.phone, vendorMessage);
-            
+
             if (smsResult.success) {
               console.log(`Vendor SMS notification sent to ${vendor.phone} for order ${orderId}`);
             } else {
@@ -1544,7 +1555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const firstItem = orderWithItems.orderItems[0];
             const user = await storage.getUser(existingOrder.userId);
             const service = await storage.getServiceById(firstItem.serviceId!);
-            
+
             // Create appointment for the service booking
             await storage.createAppointment({
               customerId: existingOrder.userId,
@@ -1567,15 +1578,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        res.json({ 
-          success: true, 
+        res.json({
+          success: true,
           message: "Payment confirmed successfully. Your booking is now confirmed.",
           order: existingOrder
         });
       } else {
-        res.status(400).json({ 
-          success: false, 
-          message: 'Payment verification failed. Please try again or contact support.' 
+        res.status(400).json({
+          success: false,
+          message: 'Payment verification failed. Please try again or contact support.'
         });
       }
     } catch (error) {
@@ -1592,7 +1603,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (event.event === 'charge.success') {
         const { reference, status, amount, customer, metadata } = event.data;
-        
+
         if (status === 'success') {
           console.log('Auto-processing successful payment:', reference);
         }
@@ -1609,10 +1620,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/payments/status/:reference', isUserAuthenticated, async (req: any, res) => {
     try {
       const { reference } = req.params;
-      
+
       // Check payment status using Paystack SDK
       const statusData = await paystack.transaction.verify(reference);
-      
+
       const paymentInfo = {
         reference: reference,
         status: statusData.data.status,
@@ -1632,21 +1643,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/orders', isUserAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      
+
       // Get cart items
       const cartItems = await storage.getCartItems(userId);
       if (cartItems.length === 0) {
         return res.status(400).json({ message: "Cart is empty" });
       }
-      
+
       // Calculate total amount from request body
       const totalAmount = parseFloat(req.body.totalAmount) || 0;
-      
+
       // Determine primary vendor and order type from cart items
       let primaryVendorId = null;
       let orderType = 'product';
       const orderItems = req.body.items || [];
-      
+
       if (orderItems.length > 0) {
         // Get vendor from first item (simplified - could be enhanced for multi-vendor support)
         const firstItem = orderItems[0];
@@ -1662,7 +1673,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           primaryVendorId = product?.vendorId;
         }
       }
-      
+
       // Create order with vendor assignment and courier information
       const orderData = {
         userId,
@@ -1679,9 +1690,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         courierName: req.body.courierName || 'BuyLock Dispatch',
         estimatedDeliveryTime: req.body.estimatedDeliveryTime || '2-4 hours',
       };
-      
+
       const order = await storage.createOrder(orderData);
-      
+
       // Add order items from request body
       for (const item of orderItems) {
         await storage.addOrderItem({
@@ -1693,7 +1704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: item.name || "Unknown Item",
         });
       }
-      
+
       // Generate tracking number and add initial tracking
       const trackingNumber = await storage.generateTrackingNumber(order.id);
       await storage.addOrderTracking({
@@ -1702,17 +1713,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Your ${orderType} order has been successfully placed and is awaiting vendor acceptance.`,
         location: "BuyLock Platform",
       });
-      
+
       // Clear cart
       await storage.clearCart(userId);
-      
+
       // Send SMS notification to vendor about new order
       if (primaryVendorId) {
         try {
           // Get fresh vendor details for notification (ensures updated phone number)
           const vendor = await storage.getVendorById(primaryVendorId);
           const customer = await storage.getUser(userId);
-          
+
           if (vendor && vendor.phone && customer) {
             const vendorNotificationData: VendorNotificationData = {
               orderId: order.id,
@@ -1725,7 +1736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               vendorPhone: vendor.phone,
               itemCount: orderItems.length
             };
-            
+
             // Send SMS notification (don't block the response if it fails)
             notificationService.notifyVendorNewOrder(vendorNotificationData)
               .then((success) => {
@@ -1746,7 +1757,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Don't fail the order creation if notification fails
         }
       }
-      
+
       res.status(201).json({ ...order, trackingNumber });
     } catch (error) {
       console.error("Error creating order:", error);
@@ -1758,11 +1769,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const order = await storage.getOrderWithItems(req.params.id);
-      
+
       if (!order || order.userId !== userId) {
         return res.status(404).json({ message: "Order not found" });
       }
-      
+
       res.json(order);
     } catch (error) {
       console.error("Error fetching order:", error);
@@ -1775,25 +1786,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const order = await storage.getOrderById(req.params.id);
-      
+
       console.log(`Cancel order attempt - User: ${userId}, Order: ${req.params.id}`);
       console.log(`Order found:`, order ? `Status: ${order.status}, UserId: ${order.userId}` : 'None');
-      
+
       if (!order || order.userId !== userId) {
         return res.status(404).json({ message: "Order not found" });
       }
-      
+
       // Allow cancellation for orders that are not yet delivered or already cancelled
       const nonCancellableStatuses = ["delivered", "cancelled", "shipped"];
       if (nonCancellableStatuses.includes(order.status)) {
         console.log(`Cannot cancel order with status: ${order.status}`);
-        return res.status(400).json({ 
-          message: `Cannot cancel order with status: ${order.status}` 
+        return res.status(400).json({
+          message: `Cannot cancel order with status: ${order.status}`
         });
       }
-      
+
       const cancelledOrder = await storage.cancelOrder(req.params.id);
-      
+
       // Add tracking update
       await storage.addOrderTracking({
         orderId: req.params.id,
@@ -1801,7 +1812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: "Order has been cancelled by customer request.",
         location: "Customer Service",
       });
-      
+
       console.log(`Order ${req.params.id} successfully cancelled`);
       res.json(cancelledOrder);
     } catch (error) {
@@ -1815,11 +1826,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const order = await storage.getOrderById(req.params.id);
-      
+
       if (!order || order.userId !== userId) {
         return res.status(404).json({ message: "Order not found" });
       }
-      
+
       const tracking = await storage.getOrderTracking(req.params.id);
       res.json(tracking);
     } catch (error) {
@@ -1833,11 +1844,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const order = await storage.getOrderById(req.params.id);
-      
+
       if (!order || order.userId !== userId) {
         return res.status(404).json({ message: "Order not found" });
       }
-      
+
       // Generate realistic tracking workflow
       const trackingSteps = [
         { status: "Processing", description: "Order is being prepared for shipment.", location: "Warehouse" },
@@ -1846,17 +1857,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { status: "Out for Delivery", description: "Package is out for delivery.", location: "Your Area" },
         { status: "Delivered", description: "Package has been delivered successfully.", location: "Your Address", isDelivered: true },
       ];
-      
+
       // Add next tracking step
       const currentTracking = await storage.getOrderTracking(req.params.id);
       const nextStep = trackingSteps[currentTracking.length] || trackingSteps[trackingSteps.length - 1];
-      
+
       if (nextStep) {
         await storage.addOrderTracking({
           orderId: req.params.id,
           ...nextStep,
         });
-        
+
         // Update order status if delivered
         if (nextStep.isDelivered) {
           await storage.updateOrderStatus(req.params.id, "delivered");
@@ -1864,7 +1875,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateOrderStatus(req.params.id, "shipped");
         }
       }
-      
+
       const updatedTracking = await storage.getOrderTracking(req.params.id);
       res.json(updatedTracking);
     } catch (error) {
@@ -1877,7 +1888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/login', async (req, res) => {
     try {
       const { email, password } = req.body;
-      
+
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
       }
@@ -1886,12 +1897,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (email === "admin@buylock.com" && password === "admin123") {
         const adminData = {
           id: "admin-1",
-          email: "admin@buylock.com", 
+          email: "admin@buylock.com",
           name: "Super Administrator",
           role: "superadmin",
           lastLogin: new Date().toISOString()
         };
-        
+
         res.json(adminData);
       } else {
         res.status(401).json({ message: "Invalid credentials" });
@@ -1962,7 +1973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!name) {
         return res.status(400).json({ message: "Category name is required" });
       }
-      
+
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const categoryData = {
         name,
@@ -1971,7 +1982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageUrl: imageUrl || null,
         isActive: true
       };
-      
+
       const category = await storage.createCategory(categoryData);
       res.status(201).json(category);
     } catch (error) {
@@ -1986,7 +1997,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!name) {
         return res.status(400).json({ message: "Category name is required" });
       }
-      
+
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const updates = {
         name,
@@ -1994,7 +2005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: description || null,
         imageUrl: imageUrl || null
       };
-      
+
       const category = await storage.updateCategory(req.params.id, updates);
       res.json(category);
     } catch (error) {
@@ -2030,7 +2041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!name) {
         return res.status(400).json({ message: "Category name is required" });
       }
-      
+
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const categoryData = {
         name,
@@ -2039,7 +2050,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageUrl: imageUrl || null,
         isActive: true
       };
-      
+
       const category = await storage.createCategory(categoryData);
       res.status(201).json(category);
     } catch (error) {
@@ -2054,7 +2065,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!name) {
         return res.status(400).json({ message: "Category name is required" });
       }
-      
+
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const updateData = {
         name,
@@ -2062,7 +2073,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: description || null,
         imageUrl: imageUrl || null
       };
-      
+
       const category = await storage.updateCategory(req.params.id, updateData);
       res.json(category);
     } catch (error) {
@@ -2098,7 +2109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!name || !categoryId) {
         return res.status(400).json({ message: "Name and category ID are required" });
       }
-      
+
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       const subcategoryData = {
         name,
@@ -2108,7 +2119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageUrl: imageUrl || null,
         isActive: true
       };
-      
+
       const subcategory = await storage.createSubcategory(subcategoryData);
       res.status(201).json(subcategory);
     } catch (error) {
@@ -2121,10 +2132,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/vendor/appointments/accept', isVendorAuthenticated, async (req, res) => {
     try {
       const { appointmentId, vendorNotes } = req.body;
-      
+
       // Update appointment status to 'accepted'
       const result = await storage.updateAppointmentStatus(appointmentId, 'accepted', vendorNotes);
-      
+
       if (result) {
         res.json({ message: 'Appointment accepted successfully', appointment: result });
       } else {
@@ -2139,10 +2150,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/vendor/appointments/decline', isVendorAuthenticated, async (req, res) => {
     try {
       const { appointmentId, vendorNotes } = req.body;
-      
+
       // Update appointment status to 'declined'
       const result = await storage.updateAppointmentStatus(appointmentId, 'declined', vendorNotes);
-      
+
       if (result) {
         res.json({ message: 'Appointment declined successfully', appointment: result });
       } else {
@@ -2157,27 +2168,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/vendor/appointments/complete', isVendorAuthenticated, async (req, res) => {
     try {
       const { appointmentId, vendorNotes } = req.body;
-      
+
       // Update appointment status to 'completed'
       const result = await storage.updateAppointmentStatus(appointmentId, 'completed', vendorNotes);
-      
+
       if (result) {
         // Generate confirmation token and send email notification
         try {
           const confirmationToken = randomBytes(32).toString('hex');
           // For now, skip database update since schema changes need careful migration
           // await storage.updateOrderConfirmationToken(result.orderId, confirmationToken);
-          
+
           // Get order details for email
           const order = await storage.getOrder(result.orderId);
           if (order) {
             const user = await storage.getUser(order.userId);
             const vendor = req.vendor;
-            
+
             if (user?.email) {
               const orderItems = await storage.getOrderItems(order.id);
               const itemsText = orderItems.map(item => `${item.name} (${item.quantity}x)`).join(', ');
-              
+
               // Email confirmation now handled by the new email service
               console.log(`Service completion notification sent for order ${order.id}`);
             }
@@ -2186,7 +2197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error('Error sending delivery confirmation email:', emailError);
           // Don't fail the completion if email fails
         }
-        
+
         res.json({ message: 'Appointment completed successfully', appointment: result });
       } else {
         res.status(404).json({ message: 'Appointment not found' });
@@ -2200,7 +2211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/vendor/:vendorId/appointments', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
-      
+
       const appointments = await storage.getVendorAppointments(vendorId);
       res.json(appointments);
     } catch (error) {
@@ -2235,11 +2246,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { vendorId } = req.params;
       const vendor = await storage.getVendorById(vendorId);
-      
+
       if (!vendor) {
         return res.status(404).json({ message: "Vendor not found" });
       }
-      
+
       // Return vendor profile without password and passwordHash
       const { password: _, passwordHash: __, ...vendorProfile } = vendor;
       res.json(vendorProfile);
@@ -2250,10 +2261,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Vendor management routes
-  app.get('/api/vendor/:vendorId/orders', isVendorAuthenticated, async (req, res) => {
+  app.get('/api/vendor/:vendorId/orders', isVendorAuthenticated, async (req: any, res) => {
     try {
       const { vendorId } = req.params;
-      const orders = await storage.getVendorOrders(vendorId);
+      const { status } = req.query;
+
+      let statuses: string[] | undefined;
+      if (status) {
+        if (Array.isArray(status)) {
+          statuses = status as string[];
+        } else {
+          statuses = [status as string];
+        }
+      }
+
+      const orders = await storage.getVendorOrders(vendorId, statuses);
       res.json(orders);
     } catch (error) {
       console.error("Error fetching vendor orders:", error);
@@ -2287,7 +2309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/vendor/:vendorId/orders/delivered', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
-      
+
       // Get orders that have delivery status 'delivered' and belong to this vendor
       const deliveredOrders = await storage.getVendorDeliveredOrders(vendorId);
       res.json(deliveredOrders);
@@ -2314,15 +2336,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const productData = req.body;
       const vendor = req.vendor;
-      
+
       // Validate required fields
       if (!productData.name || !productData.description || !productData.price || !productData.categoryId) {
         return res.status(400).json({ message: "Missing required fields: name, description, price, categoryId" });
       }
-      
+
       // Ensure vendor exists in users table (for foreign key constraint)
       await storage.ensureUserExists(vendor.id, vendor.email, vendor.businessName || 'Vendor');
-      
+
       // Add vendor ID and defaults
       const product = await storage.createProduct({
         ...productData,
@@ -2332,7 +2354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: new Date(),
         updatedAt: new Date()
       });
-      
+
       res.status(201).json(product);
     } catch (error) {
       console.error("Error creating vendor product:", error);
@@ -2346,18 +2368,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const productData = req.body;
       const vendor = req.vendor;
-      
+
       // Check if product belongs to this vendor
       const existingProduct = await storage.getProductById(id);
       if (!existingProduct || existingProduct.vendorId !== vendor.id) {
         return res.status(403).json({ message: "Access denied" });
       }
-      
+
       const updatedProduct = await storage.updateProduct(id, {
         ...productData,
         updatedAt: new Date()
       });
-      
+
       res.json(updatedProduct);
     } catch (error) {
       console.error("Error updating vendor product:", error);
@@ -2370,13 +2392,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const vendor = req.vendor;
-      
+
       // Check if product belongs to this vendor
       const existingProduct = await storage.getProductById(id);
       if (!existingProduct || existingProduct.vendorId !== vendor.id) {
         return res.status(403).json({ message: "Access denied" });
       }
-      
+
       await storage.deleteProduct(id);
       res.status(204).send();
     } catch (error) {
@@ -2390,15 +2412,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const serviceData = req.body;
       const vendor = req.vendor;
-      
+
       // Validate required fields
       if (!serviceData.name || !serviceData.description || !serviceData.price || !serviceData.categoryId) {
         return res.status(400).json({ message: "Missing required fields: name, description, price, categoryId" });
       }
-      
+
       // Ensure vendor exists in users table (for foreign key constraint)
       await storage.ensureUserExists(vendor.id, vendor.email, vendor.businessName || 'Vendor');
-      
+
       // Add provider ID and defaults
       const service = await storage.createService({
         ...serviceData,
@@ -2408,7 +2430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdAt: new Date(),
         updatedAt: new Date()
       });
-      
+
       res.status(201).json(service);
     } catch (error) {
       console.error("Error creating vendor service:", error);
@@ -2422,18 +2444,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const serviceData = req.body;
       const vendor = req.vendor;
-      
+
       // Check if service belongs to this vendor
       const existingService = await storage.getServiceById(id);
       if (!existingService || existingService.providerId !== vendor.id) {
         return res.status(403).json({ message: "Access denied" });
       }
-      
+
       const updatedService = await storage.updateService(id, {
         ...serviceData,
         updatedAt: new Date()
       });
-      
+
       res.json(updatedService);
     } catch (error) {
       console.error("Error updating vendor service:", error);
@@ -2446,13 +2468,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const vendor = req.vendor;
-      
+
       // Check if service belongs to this vendor
       const existingService = await storage.getServiceById(id);
       if (!existingService || existingService.providerId !== vendor.id) {
         return res.status(403).json({ message: "Access denied" });
       }
-      
+
       await storage.deleteService(id);
       res.status(204).send();
     } catch (error) {
@@ -2478,7 +2500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { imageURL } = req.body;
       const vendor = req.vendor;
-      
+
       if (!imageURL) {
         return res.status(400).json({ message: "imageURL is required" });
       }
@@ -2523,7 +2545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { orderId } = req.params;
       const { vendorNotes } = req.body;
-      
+
       const updatedOrder = await storage.acceptOrder(orderId, vendorNotes);
       res.json(updatedOrder);
     } catch (error) {
@@ -2536,7 +2558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { orderId } = req.params;
       const { status, notes } = req.body;
-      
+
       // If order is being marked as ready for pickup, notify courier
       if (status === 'ready_for_pickup') {
         try {
@@ -2546,23 +2568,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const customer = await storage.getUser(order.userId);
           const orderItems = await storage.getOrderItems(order.id);
           const itemsText = orderItems.map(item => `${item.name} (${item.quantity}x)`).join(', ');
-          
+
           // Courier phone number as provided by user
           const courierPhone = '+254740406442';
-          
+
           // Generate public token for order link
           const token = await storage.ensurePublicToken(orderId);
-          
+
           // Use the correct domain - REPLIT_DOMAINS contains the proper published domain
-          const baseUrl = process.env.REPLIT_DOMAINS 
-            ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+          const baseUrl = process.env.REPLIT_DOMAINS
+            ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
             : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
           const orderLink = `${baseUrl}/o/${token}`;
-          
+
           const courierMessage = `BuyLock Pickup! Order: ${orderId.slice(-8)} From: ${vendor.businessName} To: ${order.deliveryAddress} Total: KES ${order.totalAmount} Details: ${orderLink}`;
-          
+
           const smsResult = await sendSMS(courierPhone, courierMessage);
-          
+
           if (smsResult.success) {
             console.log(`Courier SMS notification sent to ${courierPhone} for order ${orderId}`);
           } else {
@@ -2573,7 +2595,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Don't fail the status update if SMS fails
         }
       }
-      
+
       // If order is being marked as delivered/completed, send confirmation email
       if (status === 'delivered' || status === 'completed') {
         try {
@@ -2581,12 +2603,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (order) {
             const user = await storage.getUser(order.userId);
             const vendor = req.vendor;
-            
+
             if (user?.email) {
               const confirmationToken = randomBytes(32).toString('hex');
               const orderItems = await storage.getOrderItems(order.id);
               const itemsText = orderItems.map(item => `${item.name} (${item.quantity}x)`).join(', ');
-              
+
               // Email confirmation now handled by the new email service
               console.log(`Order completion notification sent for order ${order.id}`);
             }
@@ -2596,7 +2618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Don't fail the status update if email fails
         }
       }
-      
+
       const updatedOrder = await storage.updateOrderStatusByVendor(orderId, status, notes);
       res.json(updatedOrder);
     } catch (error) {
@@ -2609,12 +2631,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/vendor/orders/:orderId/cancel', isVendorAuthenticated, async (req, res) => {
     try {
       const { orderId } = req.params;
-      
+
       // Update order status to cancelled
       const updatedOrder = await storage.updateOrder(orderId, {
         status: "cancelled"
       });
-      
+
       res.json({
         success: true,
         message: "Order cancelled successfully",
@@ -2630,7 +2652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { orderId } = req.params;
       const vendor = req.vendor; // From isVendorAuthenticated middleware
-      
+
       // Get the existing order first
       const existingOrder = await storage.getOrderById(orderId);
       if (!existingOrder) {
@@ -2651,42 +2673,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
           order: existingOrder
         });
       }
-      
+
       // Update order status to ready for pickup
       console.log(`📦 Marking order ${orderId} as ready for pickup by vendor ${vendor.businessName}`);
       const updatedOrder = await storage.updateOrder(orderId, {
         status: "ready_for_pickup"
       });
-      
+
       // Create delivery request for courier notification
       await storage.createDeliveryRequest({
         orderId: orderId,
         status: "pending"
       });
-      
+
       // Send SMS notification to courier using uwaziiService
       const courierPhone = "+254740406442"; // E.164 format
       const orderIdShort = orderId.slice(-8).toUpperCase();
       const message = `PICKUP READY! Order #${orderIdShort}. Vendor: ${vendor.businessName}. Phone: ${vendor.phone}. - BuyLock`;
-      
+
       console.log(`📱 Sending courier SMS notification for order ${orderId}`);
-      
+
       try {
         // Generate public token for order link
         const token = await storage.ensurePublicToken(orderId);
-        
+
         // Use the correct domain - REPLIT_DOMAINS contains the proper published domain
-        const baseUrl = process.env.REPLIT_DOMAINS 
-          ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
+        const baseUrl = process.env.REPLIT_DOMAINS
+          ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
           : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
         const orderLink = `${baseUrl}/o/${token}`;
-        
+
         // Update message to include order link and keep it concise
         const shortMessage = `BuyLock Ready! Order: ${orderId.slice(-8)} Pickup ready. Details: ${orderLink}`;
-        
+
         const { uwaziiService } = await import("./uwaziiService");
         const result = await uwaziiService.sendSMS(courierPhone, shortMessage);
-        
+
         if (result.success) {
           console.log(`✅ Courier SMS notification sent successfully for order ${orderId}, MessageId: ${result.messageId}`);
         } else {
@@ -2696,7 +2718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error(`❌ SMS service error for order ${orderId}:`, smsError);
         // Don't fail the order update if SMS fails
       }
-      
+
       res.json({
         success: true,
         message: "Order marked as ready for pickup. Courier has been notified.",
@@ -2712,19 +2734,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/public/orders/:token', async (req, res) => {
     try {
       const { token } = req.params;
-      
+
       if (!token || token.length < 10) {
         return res.status(400).json({ error: 'Invalid token format' });
       }
-      
+
       const order = await storage.getOrderByPublicToken(token);
       if (!order) {
         return res.status(404).json({ error: 'Order not found or token expired' });
       }
-      
+
       // Get order items with product/service details
       const orderItems = await storage.getOrderItems(order.id);
-      
+
       // Sanitize order data for public access (remove sensitive information)
       const sanitizedOrder = {
         id: order.id,
@@ -2750,7 +2772,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           duration: item.duration
         }))
       };
-      
+
       res.json(sanitizedOrder);
     } catch (error) {
       console.error('Error fetching public order:', error);
@@ -2762,22 +2784,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/orders/confirm/:token', async (req, res) => {
     try {
       const { token } = req.params;
-      
+
       // For now, simulate order lookup by token since we don't have DB fields yet
       // In production, this would query orders by confirmationToken
       const orders = await storage.getAllOrders();
-      const simulatedOrder = orders.find(o => 
+      const simulatedOrder = orders.find(o =>
         o.status === 'delivered' || o.status === 'completed'
       );
-      
+
       if (!simulatedOrder) {
         return res.status(404).json({ message: 'Order not found or confirmation link expired' });
       }
-      
+
       // Get order details with items
       const orderItems = await storage.getOrderItems(simulatedOrder.id);
       const vendor = simulatedOrder.vendorId ? await storage.getVendorById(simulatedOrder.vendorId) : null;
-      
+
       const orderDetails = {
         id: simulatedOrder.id,
         status: simulatedOrder.status,
@@ -2796,7 +2818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })),
         createdAt: simulatedOrder.createdAt
       };
-      
+
       res.json(orderDetails);
     } catch (error) {
       console.error('Error fetching order for confirmation:', error);
@@ -2808,42 +2830,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { token } = req.params;
       const { action, reason } = req.body;
-      
+
       if (!['confirm', 'dispute'].includes(action)) {
         return res.status(400).json({ message: 'Invalid action' });
       }
-      
+
       // For now, simulate order confirmation since we don't have DB fields yet
       const orders = await storage.getAllOrders();
-      const simulatedOrder = orders.find(o => 
+      const simulatedOrder = orders.find(o =>
         o.status === 'delivered' || o.status === 'completed'
       );
-      
+
       if (!simulatedOrder) {
         return res.status(404).json({ message: 'Order not found or confirmation link expired' });
       }
-      
+
       if (action === 'confirm') {
         // Update order status to customer_confirmed
         await storage.updateOrderStatus(simulatedOrder.id, 'customer_confirmed');
-        
+
         // TODO: Mark order as eligible for vendor payment disbursement
-        
-        res.json({ 
-          message: 'Delivery confirmed successfully', 
-          status: 'customer_confirmed' 
+
+        res.json({
+          message: 'Delivery confirmed successfully',
+          status: 'customer_confirmed'
         });
       } else {
         // Update order status to disputed
         await storage.updateOrderStatus(simulatedOrder.id, 'disputed');
-        
+
         // TODO: Create dispute record with reason
         // TODO: Notify admin about the dispute
-        
-        res.json({ 
-          message: 'Issue reported successfully', 
+
+        res.json({
+          message: 'Issue reported successfully',
           status: 'disputed',
-          disputeReason: reason 
+          disputeReason: reason
         });
       }
     } catch (error) {
@@ -2854,20 +2876,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Vendor earnings management endpoints
   // Vendor earnings and payout management routes (Paystack integration)
-  
+
   // Get vendor earnings summary
   app.get('/api/vendor/:vendorId/earnings', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
       const vendor = await storage.getVendorById(vendorId);
-      
+
       if (!vendor) {
         return res.status(404).json({ message: 'Vendor not found' });
       }
 
       // Get earnings history
       const recentEarnings = await storage.getVendorEarnings(vendorId);
-      
+
       const earningsData = {
         totalEarnings: vendor.totalEarnings || '0.00',
         availableBalance: vendor.availableBalance || '0.00',
@@ -2887,11 +2909,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/vendor/:vendorId/order-earnings', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
-      
+
       // Get all orders for this vendor that have earnings calculated
       const orders = await storage.getVendorOrders(vendorId);
       const orderEarnings = await storage.getVendorEarnings(vendorId);
-      
+
       // Group earnings by order ID
       const earningsByOrder = new Map();
       orderEarnings.forEach(earning => {
@@ -2900,7 +2922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         earningsByOrder.get(earning.orderId).push(earning);
       });
-      
+
       // Filter orders that have earnings and combine with their earnings data
       const ordersWithEarnings = orders
         .filter(order => earningsByOrder.has(order.id))
@@ -2909,7 +2931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const totalEarnings = earnings.reduce((sum, earning) => sum + parseFloat(earning.netEarnings), 0);
           const totalPlatformFee = earnings.reduce((sum, earning) => sum + parseFloat(earning.platformFee), 0);
           const totalGrossAmount = earnings.reduce((sum, earning) => sum + parseFloat(earning.grossAmount), 0);
-          
+
           return {
             ...order,
             earnings: earnings,
@@ -2933,7 +2955,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { vendorId } = req.params;
       const { orderId, amount, reason } = req.body;
-      
+
       if (!amount || amount <= 0) {
         return res.status(400).json({ message: 'Valid amount is required' });
       }
@@ -2981,7 +3003,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't fail the request if email fails
       }
 
-      res.json({ 
+      res.json({
         message: 'Payout request submitted successfully',
         requestId: payoutRequest.id,
         amount: payoutRequest.requestedAmount,
@@ -2997,13 +3019,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/vendor/:vendorId/payout-requests', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
-      
+
       // Set cache-control headers to prevent 304 caching issues
       res.set({
         'Cache-Control': 'no-store, no-cache, must-revalidate',
         'Pragma': 'no-cache'
       });
-      
+
       // Only return pending payout requests for vendors
       // Approved/failed requests should not show up since they're no longer actionable
       const payoutRequests = await storage.getVendorPayoutRequests(vendorId);
@@ -3021,7 +3043,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { vendorId } = req.params;
       // Return completed and approved payouts for display in Order Earnings tab
       const payoutRequests = await storage.getVendorPayoutRequests(vendorId);
-      const completedPayouts = payoutRequests.filter(request => 
+      const completedPayouts = payoutRequests.filter(request =>
         request.status === 'completed' || request.status === 'approved'
       );
       res.json(completedPayouts);
@@ -3036,18 +3058,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { vendorId } = req.params;
       const { businessName, contactName, phone, address } = req.body;
-      
+
       if (!businessName || !contactName) {
         return res.status(400).json({ message: 'Business name and contact name are required' });
       }
-      
+
       const updatedVendor = await storage.updateVendorBusinessDetails(vendorId, {
         businessName,
         contactName,
         phone,
         address
       });
-      
+
       res.json({ message: 'Business details updated successfully', vendor: updatedVendor });
     } catch (error) {
       console.error('Error updating business details:', error);
@@ -3060,11 +3082,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { vendorId } = req.params;
       const { bankName, bankCode, accountNumber, accountName } = req.body;
-      
+
       if (!bankName || !accountNumber || !accountName) {
         return res.status(400).json({ message: 'Bank name, account number, and account name are required' });
       }
-      
+
       // Validate account number (flexible for Kenyan banks and mobile money)
       if (bankName === 'm-pesa' || bankName === 'airtel-money') {
         // Mobile money: validate Kenyan mobile number format
@@ -3077,14 +3099,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: 'Bank account number must be 6-16 digits' });
         }
       }
-      
+
       const updatedVendor = await storage.updateVendorBankDetails(vendorId, {
         bankName,
         bankCode,
         accountNumber,
         accountName
       });
-      
+
       // Create Paystack subaccount when bank details are updated
       if (updatedVendor.bankName && updatedVendor.accountNumber && updatedVendor.accountName) {
         try {
@@ -3101,14 +3123,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               accountNumber: updatedVendor.accountNumber,
               accountName: updatedVendor.accountName
             });
-            
+
             // Update vendor with subaccount information
             await storage.updateVendor(vendorId, {
               paystackSubaccountId: subaccountResult.subaccountId,
               paystackSubaccountCode: subaccountResult.subaccountCode,
               subaccountActive: true
             });
-            
+
             console.log(`✅ Paystack subaccount created: ${subaccountResult.subaccountCode}`);
           }
         } catch (subaccountError) {
@@ -3116,7 +3138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Continue with success response even if subaccount creation fails
         }
       }
-      
+
       res.json({ message: 'Bank details updated successfully', vendor: updatedVendor });
     } catch (error) {
       console.error('Error updating bank details:', error);
@@ -3125,13 +3147,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin payout management routes
-  
+
   // Get all payout requests (admin)
   app.get('/api/admin/payout-requests', isAdminAuthenticated, async (req, res) => {
     try {
       const { status } = req.query;
       const payoutRequests = await storage.getAllPayoutRequests(status as string);
-      
+
       // Enhance with vendor information for frontend display
       const enhancedRequests = payoutRequests.map((request: any) => ({
         ...request,
@@ -3149,7 +3171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         requestDate: request.createdAt,
         processedDate: request.completedAt
       }));
-      
+
       res.json(enhancedRequests);
     } catch (error) {
       console.error('Error fetching admin payout requests:', error);
@@ -3180,14 +3202,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         // Initialize Paystack service
         const paystackService = new PaystackService();
-        
+
         // Ensure vendor has complete bank details
         if (!vendor.bankName || !vendor.accountNumber || !vendor.accountName) {
-          return res.status(400).json({ 
-            message: 'Vendor bank details incomplete. Bank name, account number, and account name are required.' 
+          return res.status(400).json({
+            message: 'Vendor bank details incomplete. Bank name, account number, and account name are required.'
           });
         }
-        
+
         // Create Paystack subaccount if it doesn't exist
         if (!vendor.paystackSubaccountId || !vendor.paystackSubaccountCode) {
           try {
@@ -3201,29 +3223,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
               accountNumber: vendor.accountNumber,
               accountName: vendor.accountName
             });
-            
+
             // Update vendor with subaccount information
             await storage.updateVendor(vendor.id, {
               paystackSubaccountId: subaccountResult.subaccountId,
               paystackSubaccountCode: subaccountResult.subaccountCode,
               subaccountActive: true
             });
-            
+
             // Refresh vendor data
             const refreshedVendor = await storage.getVendorById(request.vendorId);
             if (refreshedVendor) {
               Object.assign(vendor, refreshedVendor);
             }
-            
+
             console.log(`✅ Paystack subaccount created: ${subaccountResult.subaccountCode}`);
           } catch (subaccountError) {
             console.error('Failed to create Paystack subaccount:', subaccountError);
-            return res.status(400).json({ 
-              message: `Failed to create Paystack subaccount: ${subaccountError.message}` 
+            return res.status(400).json({
+              message: `Failed to create Paystack subaccount: ${subaccountError.message}`
             });
           }
         }
-        
+
         // Process the payout via Paystack
         const transferResult = await paystackService.processVendorPayout(
           {
@@ -3261,7 +3283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const platformFeePercentage = 0.20; // 20%
             const platformFee = payoutAmount * (platformFeePercentage / (1 - platformFeePercentage)); // Reverse calculate from net amount
             const grossAmount = payoutAmount + platformFee;
-            
+
             await storage.createVendorEarning({
               vendorId: request.vendorId,
               orderId: request.orderId,
@@ -3271,7 +3293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               payoutDate: new Date(),
               status: 'paid'
             });
-            
+
             console.log(`✅ Created earnings record for order ${request.orderId}: KES ${payoutAmount.toLocaleString()}`);
           } catch (earningsError) {
             console.error('Failed to create earnings record:', earningsError);
@@ -3295,7 +3317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error('Failed to send approval notification:', emailError);
         }
 
-        res.json({ 
+        res.json({
           message: 'Payout approved and transfer initiated',
           requestId: updatedRequest.id,
           transferId: transferResult.transferId,
@@ -3304,7 +3326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       } catch (paystackError: any) {
         console.error('Paystack transfer failed:', paystackError);
-        
+
         // Update request as failed
         await storage.updatePayoutRequest(requestId, {
           status: 'failed',
@@ -3318,7 +3340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Return pending balance to vendor
         await storage.updateVendorPendingBalance(request.vendorId, parseFloat(request.requestedAmount), 'subtract');
 
-        res.status(500).json({ 
+        res.status(500).json({
           message: 'Payout approval failed',
           error: paystackError.message
         });
@@ -3378,7 +3400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Failed to send rejection notification:', emailError);
       }
 
-      res.json({ 
+      res.json({
         message: 'Payout request rejected',
         requestId: updatedRequest.id,
         status: updatedRequest.status
@@ -3496,7 +3518,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get bank code from bank name mapping
       const getBankCode = (bankName: string) => {
         const bankCodes: Record<string, string> = {
-          "kcb": "01", "equity-bank": "68", "ncba-bank": "07", 
+          "kcb": "01", "equity-bank": "68", "ncba-bank": "07",
           "cooperative-bank": "11", "standard-chartered": "02", "im-bank": "57",
           "absa-bank": "03", "dtb-bank": "49", "family-bank": "70",
           "gulf-african-bank": "72", "housing-finance": "61", "national-bank": "12",
@@ -3542,7 +3564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await response.json();
-      
+
       // Update vendor with subaccount details
       await storage.updateVendorPaystackSubaccount(vendor.id, {
         paystackSubaccountId: result.data.id.toString(),
@@ -3573,7 +3595,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const trackVendorEarnings = async (orderId: string, orderItems: any[]) => {
     try {
       const commission = await getPlatformCommission();
-      
+
       for (const item of orderItems) {
         if (item.productId) {
           const product = await storage.getProduct(item.productId);
@@ -3629,22 +3651,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/vendor/:vendorId/earnings', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
-      
+
       // Set cache-control headers to prevent 304 caching issues
       res.set({
         'Cache-Control': 'no-store, no-cache, must-revalidate',
         'Pragma': 'no-cache'
       });
-      
+
       const vendor = await storage.getVendorById(vendorId);
-      
+
       if (!vendor) {
         return res.status(404).json({ message: 'Vendor not found' });
       }
 
       const earnings = await storage.getVendorEarnings(vendorId);
       const earningsHistory = await storage.getVendorEarningsHistory(vendorId);
-      
+
       res.json({
         totalEarnings: vendor.totalEarnings || '0.00',
         availableBalance: vendor.availableBalance || '0.00',
@@ -3664,7 +3686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const sendPayoutRequestNotification = async (vendor: any, payoutRequest: any) => {
     try {
       const adminEmails = ['admin@buylock.com']; // Configure admin emails
-      
+
       for (const email of adminEmails) {
         await vendorEmailService.sendPayoutRequestEmail({
           adminEmail: email,
@@ -3775,7 +3797,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedSetting = await storage.updatePlatformSetting(settingKey, settingValue, adminId);
-      
+
       res.json({
         message: 'Platform setting updated successfully',
         setting: updatedSetting
@@ -3790,11 +3812,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/webhooks/paystack', async (req, res) => {
     try {
       const event = req.body;
-      
+
       if (event.event === 'transfer.success') {
         const transfer = event.data;
         const payoutRequestId = transfer.metadata?.payout_request_id;
-        
+
         if (payoutRequestId) {
           await storage.updatePayoutRequest(payoutRequestId, {
             transferStatus: 'success',
@@ -3809,7 +3831,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (vendor) {
               const newTotalPaidOut = parseFloat(vendor.totalPaidOut || '0') + parseFloat(payoutRequest.requestedAmount.toString());
               await storage.updateVendorTotalPaidOut(vendor.id, newTotalPaidOut);
-              
+
               // Send completion notification
               await sendPayoutStatusNotification(vendor, payoutRequest, 'completed');
             }
@@ -3818,10 +3840,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (event.event === 'transfer.failed') {
         const transfer = event.data;
         const payoutRequestId = transfer.metadata?.payout_request_id;
-        
+
         if (payoutRequestId) {
           const payoutRequest = await storage.getPayoutRequest(payoutRequestId);
-          
+
           await storage.updatePayoutRequest(payoutRequestId, {
             status: 'failed',
             transferStatus: 'failed',
@@ -3850,17 +3872,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/admin/platform-earnings', isAdminAuthenticated, async (req, res) => {
     try {
       const { period = 'month' } = req.query;
-      
+
       // Get all orders
       const allOrders = await storage.getAllOrders();
-      
+
       // Filter by period if needed
       // For now, return all-time data
       const totalOrderValue = allOrders.reduce((sum, order) => sum + parseFloat(order.totalAmount), 0);
       const platformFeePercentage = await storage.getPlatformCommissionPercentage();
       const totalPlatformEarnings = totalOrderValue * (platformFeePercentage / 100);
       const totalVendorEarnings = totalOrderValue - totalPlatformEarnings;
-      
+
       // Get top earning vendors
       const vendorEarnings = new Map();
       for (const order of allOrders) {
@@ -3868,7 +3890,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currentEarnings.earnings += parseFloat(order.totalAmount) * (await storage.getVendorCommissionPercentage()) / 100;
         vendorEarnings.set(order.vendorId, currentEarnings);
       }
-      
+
       // Get vendor names and sort
       const topEarningVendors = [];
       for (const [vendorId, data] of vendorEarnings.entries()) {
@@ -3881,9 +3903,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       }
-      
+
       topEarningVendors.sort((a, b) => b.earnings - a.earnings).slice(0, 5);
-      
+
       const platformEarnings = {
         totalPlatformEarnings,
         totalVendorEarnings,
@@ -3892,7 +3914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         avgOrderValue: allOrders.length > 0 ? totalOrderValue / allOrders.length : 0,
         topEarningVendors
       };
-      
+
       res.json(platformEarnings);
     } catch (error) {
       console.error('Error fetching platform earnings:', error);
@@ -3905,23 +3927,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all vendors
       const vendors = await storage.getAllVendors();
       const vendorEarnings = [];
-      
+
       for (const vendor of vendors) {
         const vendorOrders = await storage.getVendorOrders(vendor.id);
         const confirmedOrders = vendorOrders.filter(order => order.status === 'customer_confirmed');
-        const pendingOrders = vendorOrders.filter(order => 
+        const pendingOrders = vendorOrders.filter(order =>
           ['delivered', 'completed'].includes(order.status) && order.status !== 'customer_confirmed'
         );
         const disputedOrders = vendorOrders.filter(order => order.status === 'disputed');
-        
-        const totalEarnings = confirmedOrders.reduce((sum, order) => 
+
+        const totalEarnings = confirmedOrders.reduce((sum, order) =>
           sum + parseFloat(order.totalAmount), 0
         );
-        const pendingBalance = pendingOrders.reduce((sum, order) => 
+        const pendingBalance = pendingOrders.reduce((sum, order) =>
           sum + parseFloat(order.totalAmount), 0
         );
         const availableBalance = totalEarnings * 0.8; // 80% after platform fee
-        
+
         vendorEarnings.push({
           vendorId: vendor.id,
           businessName: vendor.businessName,
@@ -3935,10 +3957,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastPayoutAmount: null
         });
       }
-      
+
       // Sort by total earnings, highest first
       vendorEarnings.sort((a, b) => b.totalEarnings - a.totalEarnings);
-      
+
       res.json(vendorEarnings);
     } catch (error) {
       console.error('Error fetching vendor earnings:', error);
@@ -3983,7 +4005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const platformCommission = await storage.getPlatformCommissionPercentage();
       const vendorCommission = await storage.getVendorCommissionPercentage();
-      
+
       res.json({
         platformCommissionPercentage: platformCommission,
         vendorCommissionPercentage: vendorCommission
@@ -4000,14 +4022,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const adminId = (req as any).user?.claims?.sub;
 
       if (!platformCommissionPercentage || platformCommissionPercentage < 0 || platformCommissionPercentage > 100) {
-        return res.status(400).json({ 
-          message: 'Platform commission percentage must be between 0 and 100' 
+        return res.status(400).json({
+          message: 'Platform commission percentage must be between 0 and 100'
         });
       }
 
       await storage.setPlatformSetting(
-        'platform_commission_percentage', 
-        platformCommissionPercentage.toString(), 
+        'platform_commission_percentage',
+        platformCommissionPercentage.toString(),
         adminId,
         'Platform commission percentage (vendor gets the remainder)'
       );
@@ -4029,31 +4051,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/vendor/:vendorId/create-subaccount', isAdminAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
-      
+
       const vendor = await storage.getVendorById(vendorId);
       if (!vendor) {
         return res.status(404).json({ message: 'Vendor not found' });
       }
-      
+
       // Check if vendor already has a subaccount
       if (vendor.paystackSubaccountId && vendor.paystackSubaccountCode) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: 'Vendor already has a Paystack subaccount',
           subaccountCode: vendor.paystackSubaccountCode
         });
       }
-      
+
       // Ensure vendor has complete bank details
       if (!vendor.bankName || !vendor.accountNumber || !vendor.accountName) {
-        return res.status(400).json({ 
-          message: 'Vendor bank details incomplete. Bank name, account number, and account name are required.' 
+        return res.status(400).json({
+          message: 'Vendor bank details incomplete. Bank name, account number, and account name are required.'
         });
       }
-      
+
       try {
         // Initialize Paystack service
         const paystackService = new PaystackService();
-        
+
         console.log(`Creating Paystack subaccount for vendor ${vendor.id}...`);
         const subaccountResult = await paystackService.createVendorSubaccount({
           businessName: vendor.businessName,
@@ -4064,17 +4086,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           accountNumber: vendor.accountNumber,
           accountName: vendor.accountName
         });
-        
+
         // Update vendor with subaccount information
         await storage.updateVendor(vendor.id, {
           paystackSubaccountId: subaccountResult.subaccountId,
           paystackSubaccountCode: subaccountResult.subaccountCode,
           subaccountActive: true
         });
-        
+
         console.log(`✅ Paystack subaccount created: ${subaccountResult.subaccountCode}`);
-        
-        res.json({ 
+
+        res.json({
           message: 'Paystack subaccount created successfully',
           subaccountId: subaccountResult.subaccountId,
           subaccountCode: subaccountResult.subaccountCode,
@@ -4087,8 +4109,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } catch (subaccountError) {
         console.error('Failed to create Paystack subaccount:', subaccountError);
-        return res.status(400).json({ 
-          message: `Failed to create Paystack subaccount: ${subaccountError.message}` 
+        return res.status(400).json({
+          message: `Failed to create Paystack subaccount: ${subaccountError.message}`
         });
       }
     } catch (error) {
@@ -4100,30 +4122,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/process-payout', isAdminAuthenticated, async (req, res) => {
     try {
       const { requestId, action, reason } = req.body;
-      
+
       if (!requestId || !action) {
         return res.status(400).json({ message: 'Request ID and action are required' });
       }
-      
+
       if (!['approve', 'reject'].includes(action)) {
         return res.status(400).json({ message: 'Action must be approve or reject' });
       }
-      
+
       // For demo purposes, simulate processing
       // In production, this would:
       // 1. Update payout request status in database
       // 2. If approved, initiate actual payout via payment processor
       // 3. Send notification to vendor
       // 4. Log the action for audit trail
-      
+
       const newStatus = action === 'approve' ? 'processing' : 'failed';
-      const responseMessage = action === 'approve' 
+      const responseMessage = action === 'approve'
         ? 'Payout approved and processing initiated'
         : `Payout rejected: ${reason || 'Administrative review'}`;
-      
+
       console.log(`Payout ${requestId} ${action}ed by admin. New status: ${newStatus}`);
-      
-      res.json({ 
+
+      res.json({
         message: responseMessage,
         requestId,
         newStatus,
@@ -4148,10 +4170,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!reference) {
         console.log('ERROR: No payment reference provided');
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
           verified: false,
-          message: "Payment reference is required" 
+          message: "Payment reference is required"
         });
       }
 
@@ -4160,17 +4182,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (verification.status && verification.data.status === 'success') {
         console.log('✅ Payment verified successfully, checking for existing order...');
-        
+
         // Check if an order already exists with this payment reference (idempotency or service booking)
         const existingOrder = await storage.getOrderByPaymentReference(reference);
         if (existingOrder) {
           console.log(`⚠️ Order already exists for payment reference ${reference}`);
-          
+
           // If order is still pending payment, update it to completed (for service bookings)
           if (existingOrder.paymentStatus === 'pending') {
             console.log(`💳 Updating order ${existingOrder.id} payment status to completed`);
             await storage.updateOrder(existingOrder.id, {
-              paymentStatus: "completed", 
+              paymentStatus: "completed",
               status: "confirmed"
             });
 
@@ -4181,7 +4203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const firstItem = orderWithItems.orderItems[0];
                 const user = await storage.getUser(existingOrder.userId);
                 const service = await storage.getServiceById(firstItem.serviceId!);
-                
+
                 // Create appointment for the service booking
                 await storage.createAppointment({
                   customerId: existingOrder.userId,
@@ -4204,7 +4226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
           }
-          
+
           return res.json({
             success: true,
             verified: true,
@@ -4215,7 +4237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             order: existingOrder
           });
         }
-        
+
         // Get user's cart items (for cart-based payments)
         const cartItems = await storage.getCartItems(userId);
         if (cartItems.length === 0) {
@@ -4230,7 +4252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const metadata = verification.data.metadata;
         const customFields = metadata?.custom_fields || [];
         const deliveryAddress = customFields.find(f => f.variable_name === 'delivery_address')?.value || "No address provided";
-        
+
         // Group cart items by vendor with debugging
         console.log('Cart items for vendor grouping:', cartItems.map(item => ({
           id: item.id,
@@ -4239,29 +4261,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           productVendorId: item.product?.vendorId,
           serviceProviderId: item.service?.providerId
         })));
-        
+
         const vendorGroups = cartItems.reduce((groups: any, item: any) => {
           let vendorId = item.product?.vendorId || item.service?.providerId;
-          
+
           // Fallback: if no vendor found, use the seeded vendor ID
           if (!vendorId || vendorId === 'undefined') {
             console.log(`⚠️ No vendor ID found for item ${item.id}, using fallback vendor`);
             vendorId = '74bf6c33-7f09-4844-903d-72bff3849c95'; // Default vendor from seeding
           }
-          
+
           console.log(`📦 Item ${item.id} assigned to vendor: ${vendorId}`);
-          
+
           if (!groups[vendorId]) {
             groups[vendorId] = [];
           }
           groups[vendorId].push(item);
           return groups;
         }, {});
-        
+
         console.log('Vendor groups:', Object.keys(vendorGroups));
 
         const createdOrders = [];
-        
+
         // Create one order per vendor
         for (const [vendorId, items] of Object.entries(vendorGroups)) {
           const vendorItems = items as any[];
@@ -4309,7 +4331,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Send vendor SMS notifications for each created order
         console.log(`📱 Sending vendor SMS notifications for ${createdOrders.length} orders...`);
-        
+
         for (const order of createdOrders) {
           try {
             // Get vendor details
@@ -4321,7 +4343,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             // Get customer details
             const customer = await storage.getUser(order.userId);
-            const customerName = customer?.firstName && customer?.lastName 
+            const customerName = customer?.firstName && customer?.lastName
               ? `${customer.firstName} ${customer.lastName}`
               : customer?.username || 'Customer';
 
@@ -4332,7 +4354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             // Send vendor SMS notification
             const { notificationService } = await import("./notificationService");
-            
+
             const vendorNotificationData = {
               orderId: order.id,
               customerName,
@@ -4346,7 +4368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
 
             const smsResult = await notificationService.notifyVendorNewOrder(vendorNotificationData);
-            
+
             if (smsResult) {
               console.log(`✅ Vendor SMS notification sent for order ${order.id}`);
             } else {
@@ -4364,7 +4386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         console.log(`✅ Created ${createdOrders.length} orders for payment ${reference}`);
-        
+
         return res.json({
           success: true,
           verified: true,
@@ -4394,10 +4416,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/payments/status/:reference', isUserAuthenticated, async (req, res) => {
     try {
       const { reference } = req.params;
-      
+
       // Check payment status with Paystack SDK
       const verification = await paystack.transaction.verify(reference);
-      
+
       res.json({
         reference,
         status: verification.data?.status || "unknown",
@@ -4417,16 +4439,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { reference, trxref } = req.query;
       const paymentReference = reference || trxref;
-      
+
       if (!paymentReference) {
         return res.redirect('/cart?payment=failed&message=No payment reference provided');
       }
 
       console.log(`Payment callback received for reference: ${paymentReference}`);
-      
+
       // Redirect to cart page with reference for verification
       res.redirect(`/cart?reference=${paymentReference}&status=returned`);
-      
+
     } catch (error) {
       console.error("Payment callback error:", error);
       res.redirect('/cart?payment=failed&message=Payment verification failed');
@@ -4440,11 +4462,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('All providers from DB:', allProviders.length);
       const dbCouriers = allProviders.filter(provider => provider.type === 'courier');
       console.log('Filtered courier providers:', dbCouriers.map(c => c.name));
-      
+
       if (dbCouriers.length === 0) {
         throw new Error('No couriers found in database');
       }
-      
+
       // Transform database format to frontend expected format
       const couriers = dbCouriers.map(courier => ({
         id: courier.id,
@@ -4458,7 +4480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phone: courier.contactPhone,
         isActive: courier.isActive
       }));
-      
+
       console.log('Transformed couriers:', couriers.map(c => c.name));
       res.json(couriers);
     } catch (error) {
@@ -4486,20 +4508,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/couriers/calculate', async (req, res) => {
     try {
       const { courierId, location, weight = 1 } = req.body;
-      
+
       const couriers = {
         "fargo-courier": { baseRate: 200, perKmRate: 18, name: "Fargo Courier Services", estimatedTime: "2-4 hours within Nairobi, 24-48 hours nationwide" }
       };
-      
+
       const courier = couriers[courierId as keyof typeof couriers];
       if (!courier) {
         return res.status(400).json({ message: "Invalid courier selected" });
       }
-      
+
       // Calculate distance based on location (simplified)
       let estimatedDistance = 5; // Default 5km
       const locationLower = location?.toLowerCase() || "";
-      
+
       if (locationLower.includes("westlands") || locationLower.includes("karen") || locationLower.includes("runda")) {
         estimatedDistance = 12;
       } else if (locationLower.includes("thika") || locationLower.includes("kiambu") || locationLower.includes("machakos")) {
@@ -4511,12 +4533,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (locationLower.includes("kasarani") || locationLower.includes("embakasi") || locationLower.includes("kahawa")) {
         estimatedDistance = 8;
       }
-      
+
       // Weight multiplier
       const weightMultiplier = Math.max(1, Math.ceil(weight / 5));
-      
+
       const totalCost = (courier.baseRate + (courier.perKmRate * estimatedDistance)) * weightMultiplier;
-      
+
       res.json({
         courierId,
         courierName: courier.name,
@@ -4528,7 +4550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         estimatedTime: courier.estimatedTime,
         location
       });
-      
+
     } catch (error) {
       console.error("Error calculating delivery cost:", error);
       res.status(500).json({ message: "Failed to calculate delivery cost" });
@@ -4536,7 +4558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ==================== DELIVERY MODULE API ENDPOINTS ====================
-  
+
   // Get all delivery providers (for admin)
   app.get('/api/delivery/providers', async (req, res) => {
     try {
@@ -4563,7 +4585,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/deliveries', async (req, res) => {
     try {
       const { status, providerId, orderId, limit = 50, offset = 0 } = req.query;
-      
+
       const deliveries = await storage.getDeliveries({
         status: status as string,
         providerId: providerId as string,
@@ -4571,7 +4593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit: parseInt(limit as string),
         offset: parseInt(offset as string),
       });
-      
+
       res.json(deliveries);
     } catch (error) {
       console.error('Error fetching deliveries:', error);
@@ -4595,11 +4617,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const delivery = await storage.getDeliveryById(id);
-      
+
       if (!delivery) {
         return res.status(404).json({ message: 'Delivery not found' });
       }
-      
+
       const updates = await storage.getDeliveryUpdates(delivery.id);
       res.json({ ...delivery, updates });
     } catch (error) {
@@ -4612,30 +4634,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/deliveries/create', async (req, res) => {
     try {
       const { orderId, providerId, pickupInstructions } = req.body;
-      
+
       // Get the order details
       const order = await storage.getOrderById(orderId);
       if (!order) {
         return res.status(404).json({ message: 'Order not found' });
       }
-      
+
       if (order.status !== 'ready_for_pickup') {
         return res.status(400).json({ message: 'Order must be ready for pickup to create delivery' });
       }
-      
+
       // Check if delivery already exists
       const existingDelivery = await storage.getDeliveryByOrderId(orderId);
       if (existingDelivery) {
         return res.json(existingDelivery);
       }
-      
+
       // Use the courier selected during checkout, or provided courier, or fallback to Fargo courier
       const courierProviderId = providerId || order.courierId || 'fargo-courier';
       const provider = await storage.getDeliveryProviderById(courierProviderId);
       if (!provider) {
         return res.status(400).json({ message: 'Courier provider not found' });
       }
-      
+
       // Create delivery record
       const delivery = await storage.createDelivery({
         orderId: order.id,
@@ -4651,7 +4673,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         vendorPhone: '0700000001', // This should come from vendor profile
         courierName: provider.name,
       });
-      
+
       // Create initial delivery update
       await storage.addDeliveryUpdate({
         deliveryId: delivery.id,
@@ -4659,27 +4681,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Pickup requested from ${provider.name}. Courier will arrive within 2 hours for collection.`,
         source: 'api',
       });
-      
+
       // Update order status to reflect delivery creation
-      await storage.updateOrder(orderId, { 
+      await storage.updateOrder(orderId, {
         status: 'dispatched',
         deliveryPickupAt: new Date(),
         courierName: provider.name
       });
-      
+
       // Send notification to courier using the new email service
       if (provider.contactEmail) {
         const { sendCourierNotification } = await import('./emailService');
-        
+
         // Get vendor details
         const vendor = await storage.getVendorById(order.vendorId);
-        
+
         // Get customer details
         const customer = await storage.getUser(order.userId);
-        
+
         // Get order items
         const orderItems = await storage.getOrderItems(order.id);
-        
+
         if (vendor && customer && orderItems.length > 0) {
           // Prepare order items for email
           const emailOrderItems = await Promise.all(orderItems.map(async (item) => {
@@ -4691,14 +4713,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const service = await storage.getServiceById(item.serviceId);
               itemName = service?.name || 'Unknown Service';
             }
-            
+
             return {
               name: itemName,
               quantity: item.quantity,
               price: item.price
             };
           }));
-          
+
           const courierNotificationData = {
             courierEmail: provider.contactEmail,
             courierName: provider.name,
@@ -4713,10 +4735,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             pickupInstructions: pickupInstructions || '',
             orderItems: emailOrderItems
           };
-          
+
           // Send courier notification email
           const emailSent = await sendCourierNotification(courierNotificationData);
-          
+
           if (emailSent) {
             console.log(`Courier notification email sent to ${provider.contactEmail} for order ${order.id}`);
           } else {
@@ -4724,7 +4746,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
-      
+
       res.json(delivery);
     } catch (error) {
       console.error('Error creating delivery:', error);
@@ -4737,15 +4759,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { providerId } = req.params;
       const webhookData = req.body;
-      
+
       // Log all webhook calls for debugging
       console.log(`🚫 WEBHOOK BLOCKED (debugging mode) from ${providerId}:`, JSON.stringify(webhookData, null, 2));
       console.log('📍 Webhook source IP:', req.ip || req.connection.remoteAddress);
       console.log('📍 Webhook headers:', JSON.stringify(req.headers, null, 2));
-      
+
       // TEMPORARILY BLOCK ALL WEBHOOK PROCESSING TO DEBUG STATUS UPDATE ISSUE
       console.log('⚠️ Webhook processing is temporarily disabled for debugging manual status updates');
-      
+
       res.json({ success: true, message: 'Webhook logged but processing disabled for debugging' });
     } catch (error) {
       console.error('Delivery webhook error:', error);
@@ -4757,29 +4779,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/delivery/analytics', async (req, res) => {
     try {
       const { providerId, dateFrom, dateTo } = req.query;
-      
+
       const analytics = await storage.getDeliveryAnalytics({
         providerId: providerId as string,
         dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
         dateTo: dateTo ? new Date(dateTo as string) : undefined,
       });
-      
+
       // Calculate real-time statistics
       const allDeliveries = await storage.getDeliveries();
       const totalDeliveries = allDeliveries.length;
       const successfulDeliveries = allDeliveries.filter(d => d.status === 'delivered').length;
       const failedDeliveries = allDeliveries.filter(d => d.status === 'failed').length;
       const pendingDeliveries = allDeliveries.filter(d => ['pending', 'pickup_scheduled', 'picked_up', 'in_transit', 'out_for_delivery'].includes(d.status)).length;
-      
+
       // Calculate average delivery time (for delivered orders)
       const deliveredOrders = allDeliveries.filter(d => d.actualDeliveryTime && d.actualPickupTime);
-      const avgDeliveryTime = deliveredOrders.length > 0 
+      const avgDeliveryTime = deliveredOrders.length > 0
         ? deliveredOrders.reduce((sum, d) => {
-            const deliveryTime = (new Date(d.actualDeliveryTime!).getTime() - new Date(d.actualPickupTime!).getTime()) / (1000 * 60); // minutes
-            return sum + deliveryTime;
-          }, 0) / deliveredOrders.length
+          const deliveryTime = (new Date(d.actualDeliveryTime!).getTime() - new Date(d.actualPickupTime!).getTime()) / (1000 * 60); // minutes
+          return sum + deliveryTime;
+        }, 0) / deliveredOrders.length
         : 0;
-      
+
       // Group by courier for performance comparison
       const courierStats = allDeliveries.reduce((acc, delivery) => {
         if (!acc[delivery.providerId]) {
@@ -4790,15 +4812,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             pending: 0,
           };
         }
-        
+
         acc[delivery.providerId].total++;
         if (delivery.status === 'delivered') acc[delivery.providerId].delivered++;
         else if (delivery.status === 'failed') acc[delivery.providerId].failed++;
         else acc[delivery.providerId].pending++;
-        
+
         return acc;
       }, {} as Record<string, any>);
-      
+
       res.json({
         summary: {
           totalDeliveries,
@@ -4822,24 +4844,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { newProviderId, reason } = req.body;
-      
+
       const delivery = await storage.getDeliveryById(id);
       if (!delivery) {
         return res.status(404).json({ message: 'Delivery not found' });
       }
-      
+
       const newProvider = await storage.getDeliveryProviderById(newProviderId);
       if (!newProvider) {
         return res.status(400).json({ message: 'New courier provider not found' });
       }
-      
+
       // Update delivery
       await storage.updateDelivery(id, {
         providerId: newProviderId,
         status: 'pending',
         failureReason: reason || 'Reassigned by admin',
       });
-      
+
       // Add reassignment update
       await storage.addDeliveryUpdate({
         deliveryId: id,
@@ -4847,7 +4869,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Delivery reassigned to ${newProvider.name}. Reason: ${reason || 'Admin decision'}`,
         source: 'manual',
       });
-      
+
       res.json({ success: true, message: 'Delivery reassigned successfully' });
     } catch (error) {
       console.error('Error reassigning delivery:', error);
@@ -4928,12 +4950,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/admin/vendors/:id/verify', async (req, res) => {
     try {
       const { verificationStatus, verificationNotes } = req.body;
-      const updates: any = { 
+      const updates: any = {
         verificationStatus,
         verificationNotes,
         updatedAt: new Date()
       };
-      
+
       if (verificationStatus === 'verified') {
         updates.verifiedAt = new Date();
         updates.verifiedBy = 'admin'; // Could be req.user.id if we have admin auth
@@ -4941,7 +4963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         updates.verified = false; // Set to false if not verified
       }
-      
+
       const vendor = await storage.updateVendor(req.params.id, updates);
       if (!vendor) {
         return res.status(404).json({ message: "Vendor not found" });
@@ -4974,7 +4996,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/vendor-documents/:vendorId/:documentType", isUserAuthenticated, async (req, res) => {
     try {
       const { vendorId, documentType } = req.params;
-      
+
       // Validate document type
       if (!['nationalId', 'taxCertificate'].includes(documentType)) {
         return res.status(400).json({ message: "Invalid document type" });
@@ -4994,7 +5016,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Extract object path from the URL
       const objectStorageService = new ObjectStorageService();
       const objectPath = objectStorageService.normalizeObjectEntityPath(documentUrl);
-      
+
       if (!objectPath.startsWith('/objects/')) {
         return res.status(400).json({ message: "Invalid document path" });
       }
@@ -5002,7 +5024,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get the file from object storage and serve it
       const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
       await objectStorageService.downloadObject(objectFile, res);
-      
+
     } catch (error) {
       console.error("Error serving vendor document:", error);
       if (error instanceof ObjectNotFoundError) {
@@ -5080,25 +5102,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin user and vendor creation endpoints
-  
+
   // Create user via admin
   app.post('/api/admin/users', async (req, res) => {
     try {
       const { email, firstName, lastName, password } = req.body;
-      
+
       if (!email || !firstName || !lastName || !password) {
         return res.status(400).json({ message: "All fields are required" });
       }
-      
+
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({ message: "User with this email already exists" });
       }
-      
+
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
-      
+
       // Create user
       const userId = crypto.randomUUID();
       const user = await storage.createUser({
@@ -5109,47 +5131,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword,
         profileImageUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${firstName}`,
       });
-      
+
       res.status(201).json({ id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName });
     } catch (error) {
       console.error("Error creating user:", error);
       res.status(500).json({ message: "Failed to create user" });
     }
   });
-  
+
   // Create vendor via admin
   app.post('/api/admin/vendors', async (req, res) => {
     try {
-      const { 
-        email, 
-        password, 
-        businessName, 
-        contactName, 
-        contactPhone, 
-        businessAddress, 
-        businessDescription, 
+      const {
+        email,
+        password,
+        businessName,
+        contactName,
+        contactPhone,
+        businessAddress,
+        businessDescription,
         registrationType,
         nationalIdNumber,
-        taxPinNumber 
+        taxPinNumber
       } = req.body;
-      
+
       if (!email || !password || !businessName || !contactName || !contactPhone || !businessAddress || !businessDescription || !nationalIdNumber) {
         return res.status(400).json({ message: "All required fields must be provided" });
       }
-      
+
       if (registrationType === "registered" && !taxPinNumber) {
         return res.status(400).json({ message: "Tax PIN number is required for registered businesses" });
       }
-      
+
       // Check if vendor already exists
       const existingVendor = await storage.getVendorByEmail(email);
       if (existingVendor) {
         return res.status(400).json({ message: "Vendor with this email already exists" });
       }
-      
+
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
-      
+
       // Create vendor with verified status (created by admin)
       const vendorId = crypto.randomUUID();
       const vendor = await storage.createVendor({
@@ -5169,10 +5191,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         verifiedAt: new Date().toISOString(),
         verifiedBy: "admin",
       });
-      
-      res.status(201).json({ 
-        id: vendor.id, 
-        email: vendor.email, 
+
+      res.status(201).json({
+        id: vendor.id,
+        email: vendor.email,
         businessName: vendor.businessName,
         verificationStatus: vendor.verificationStatus
       });
@@ -5181,9 +5203,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to create vendor" });
     }
   });
-  
+
   // Admin product and service approval endpoints
-  
+
   // Get all products for admin management
   app.get('/api/admin/products', async (req, res) => {
     try {
@@ -5200,12 +5222,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { approved } = req.body;
-      
+
       const product = await storage.updateProductApproval(id, approved);
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
       }
-      
+
       res.json(product);
     } catch (error) {
       console.error("Error updating product approval:", error);
@@ -5229,12 +5251,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { approved } = req.body;
-      
+
       const service = await storage.updateServiceApproval(id, approved);
       if (!service) {
         return res.status(404).json({ message: "Service not found" });
       }
-      
+
       res.json(service);
     } catch (error) {
       console.error("Error updating service approval:", error);
@@ -5243,15 +5265,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // New delivery workflow endpoints
-  
+
   // Vendor confirms order (paid -> confirmed)
   app.post('/api/orders/:id/confirm', async (req, res) => {
     try {
       const { id } = req.params;
       const { vendorNotes } = req.body;
-      
+
       await storage.confirmOrder(id, vendorNotes);
-      
+
       res.json({ success: true, message: 'Order confirmed successfully' });
     } catch (error) {
       console.error('Error confirming order:', error);
@@ -5264,30 +5286,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { providerId, trackingId, pickupInstructions } = req.body;
-      
+
       if (!providerId) {
         return res.status(400).json({ message: 'Provider ID is required' });
       }
-      
+
       await storage.processOrderDispatch(id, providerId, trackingId);
-      
+
       // Get order, vendor, customer, and provider details
       const order = await storage.getOrder(id);
       const provider = await storage.getDeliveryProviderById(providerId);
-      
+
       if (provider && order && provider.contactEmail) {
         // Get vendor details
         const vendor = await storage.getVendorById(order.vendorId);
-        
+
         // Get customer details
         const customer = await storage.getUser(order.userId);
-        
+
         // Get order items
         const orderItems = await storage.getOrderItems(id);
-        
+
         if (vendor && customer && orderItems.length > 0) {
           const { sendCourierNotification } = await import('./emailService');
-          
+
           // Prepare order items for email
           const emailOrderItems = await Promise.all(orderItems.map(async (item) => {
             let itemName = 'Unknown Item';
@@ -5298,14 +5320,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const service = await storage.getServiceById(item.serviceId);
               itemName = service?.name || 'Unknown Service';
             }
-            
+
             return {
               name: itemName,
               quantity: item.quantity,
               price: item.price
             };
           }));
-          
+
           const courierNotificationData = {
             courierEmail: provider.contactEmail,
             courierName: provider.name,
@@ -5320,10 +5342,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             pickupInstructions: pickupInstructions || '',
             orderItems: emailOrderItems
           };
-          
+
           // Send courier notification email
           const emailSent = await sendCourierNotification(courierNotificationData);
-          
+
           if (emailSent) {
             console.log(`Courier notification email sent to ${provider.contactEmail} for order ${id}`);
           } else {
@@ -5331,7 +5353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
-      
+
       res.json({ success: true, message: 'Order dispatched successfully' });
     } catch (error) {
       console.error('Error dispatching order:', error);
@@ -5344,7 +5366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { status, description, trackingId } = req.body;
-      
+
       // Log manual status updates for debugging
       console.log(`🔧 Manual status update for delivery ${id}:`, {
         newStatus: status,
@@ -5353,21 +5375,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: new Date().toISOString(),
         userAgent: req.headers['user-agent']
       });
-      
+
       // Get current status before update
       const currentDelivery = await storage.getDeliveryById(id);
       if (currentDelivery) {
         console.log(`📋 Current status: ${currentDelivery.status} → Updating to: ${status}`);
       }
-      
+
       await storage.updateDeliveryStatus(id, status, description, trackingId);
-      
+
       // Verify the update was successful
       const updatedDelivery = await storage.getDeliveryById(id);
       if (updatedDelivery) {
         console.log(`✅ Status update completed. Final status: ${updatedDelivery.status}`);
       }
-      
+
       res.json({ success: true, message: 'Delivery status updated' });
     } catch (error) {
       console.error('Error updating delivery status:', error);
@@ -5391,13 +5413,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { notificationMethod, webhookNotificationUrl, contactEmail, contactPhone } = req.body;
-      
+
       const updateData: any = {};
       if (notificationMethod) updateData.notificationMethod = notificationMethod;
       if (webhookNotificationUrl) updateData.webhookNotificationUrl = webhookNotificationUrl;
       if (contactEmail) updateData.contactEmail = contactEmail;
       if (contactPhone) updateData.contactPhone = contactPhone;
-      
+
       const updatedProvider = await storage.updateDeliveryProvider(id, updateData);
       res.json(updatedProvider);
     } catch (error) {
@@ -5411,7 +5433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const bookingData = serviceBookingSchema.parse(req.body);
-      
+
       // Get service details
       const service = await storage.getServiceById(bookingData.serviceId);
       if (!service) {
@@ -5436,18 +5458,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         detailedInstructions: bookingData.detailedInstructions,
       });
 
-      res.status(201).json({ 
-        success: true, 
+      res.status(201).json({
+        success: true,
         cartItem,
         totalPrice,
-        message: "Service added to cart successfully!" 
+        message: "Service added to cart successfully!"
       });
     } catch (error) {
       console.error("Service booking error:", error);
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          message: "Invalid booking data", 
-          errors: error.errors 
+        return res.status(400).json({
+          message: "Invalid booking data",
+          errors: error.errors
         });
       }
       res.status(500).json({ message: "Failed to add service to cart" });
@@ -5459,7 +5481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const bookingData = serviceBookingSchema.parse(req.body);
-      
+
       // Get service details
       const service = await storage.getServiceById(bookingData.serviceId);
       if (!service) {
@@ -5483,7 +5505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: bookingData.notes,
         orderType: "service",
       };
-      
+
       const order = await storage.createOrder(orderData);
 
       // Add service as order item
@@ -5502,18 +5524,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         detailedInstructions: bookingData.detailedInstructions,
       });
 
-      res.status(201).json({ 
-        success: true, 
+      res.status(201).json({
+        success: true,
         order,
         totalAmount,
-        message: "Service booked successfully! Proceed to payment." 
+        message: "Service booked successfully! Proceed to payment."
       });
     } catch (error) {
       console.error("Direct service booking error:", error);
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          message: "Invalid booking data", 
-          errors: error.errors 
+        return res.status(400).json({
+          message: "Invalid booking data",
+          errors: error.errors
         });
       }
       res.status(500).json({ message: "Failed to book service" });
@@ -5522,19 +5544,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Vendor Task Management API endpoints
-  
+
   // Get vendor's service appointments (tasks)
   app.get('/api/vendor/tasks', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.query;
-      
+
       if (!vendorId) {
         return res.status(400).json({ message: "Vendor ID is required" });
       }
 
       // Get appointments assigned to this vendor
       const appointments = await storage.getVendorAppointments(vendorId as string);
-      
+
       res.json(appointments);
     } catch (error) {
       console.error('Error fetching vendor tasks:', error);
@@ -5547,19 +5569,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { appointmentId } = req.params;
       const { status, vendorNotes } = req.body;
-      
+
       // Valid service statuses for comprehensive workflow
       const validStatuses = [
-        'pending_acceptance', 'accepted', 'starting_job', 'in_progress', 
+        'pending_acceptance', 'accepted', 'starting_job', 'in_progress',
         'delayed', 'almost_done', 'completed', 'cancelled', 'declined'
       ];
-      
+
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
 
       const updatedAppointment = await storage.updateAppointmentStatus(appointmentId, status, vendorNotes);
-      
+
       if (!updatedAppointment) {
         return res.status(404).json({ message: "Appointment not found" });
       }
@@ -5572,10 +5594,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Continue even if order update fails, appointment update is primary
       }
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         appointment: updatedAppointment,
-        message: `Task status updated to ${status}` 
+        message: `Task status updated to ${status}`
       });
     } catch (error) {
       console.error('Error updating task status:', error);
@@ -5610,13 +5632,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { documentUrls } = req.body;
       const objectStorageService = new ObjectStorageService();
-      
+
       const normalizedPaths = {
-        nationalIdFrontUrl: documentUrls.nationalIdFrontUrl ? 
+        nationalIdFrontUrl: documentUrls.nationalIdFrontUrl ?
           objectStorageService.normalizeObjectEntityPath(documentUrls.nationalIdFrontUrl) : null,
-        nationalIdBackUrl: documentUrls.nationalIdBackUrl ? 
+        nationalIdBackUrl: documentUrls.nationalIdBackUrl ?
           objectStorageService.normalizeObjectEntityPath(documentUrls.nationalIdBackUrl) : null,
-        taxCertificateUrl: documentUrls.taxCertificateUrl ? 
+        taxCertificateUrl: documentUrls.taxCertificateUrl ?
           objectStorageService.normalizeObjectEntityPath(documentUrls.taxCertificateUrl) : null,
       };
 
@@ -5634,15 +5656,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/test/payment-storage', async (req, res) => {
     try {
       const { reference } = req.body;
-      
+
       if (!reference) {
         return res.status(400).json({ error: 'Payment reference required' });
       }
-      
+
       console.log(`🔍 Testing payment reference: ${reference}`);
-      
+
       const existingOrder = await storage.getOrderByPaymentReference(reference);
-      
+
       res.json({
         success: true,
         found: !!existingOrder,
@@ -5663,25 +5685,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/sms/test', async (req, res) => {
     try {
       const { phone } = req.body;
-      
+
       if (!phone) {
         return res.status(400).json({ success: false, error: 'Phone number is required' });
       }
-      
+
       // Import uwaziiService
       const { uwaziiService } = await import('./uwaziiService');
-      
+
       // Create simple test message
       const message = `Test from BuyLock: Hello! This is a test message.`;
-      
+
       console.log(`📱 Sending test SMS to ${phone}`);
-      
+
       const result = await uwaziiService.sendSMS(phone, message);
-      
+
       if (result.success) {
         console.log(`✅ Test SMS sent successfully to ${phone}`);
-        res.json({ 
-          success: true, 
+        res.json({
+          success: true,
           message: 'Test SMS sent successfully',
           messageId: result.messageId,
           phone: phone,
@@ -5689,16 +5711,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } else {
         console.error(`❌ Failed to send test SMS to ${phone}:`, result.error);
-        res.status(500).json({ 
-          success: false, 
-          error: result.error || 'Failed to send SMS' 
+        res.status(500).json({
+          success: false,
+          error: result.error || 'Failed to send SMS'
         });
       }
     } catch (error) {
       console.error('SMS test error:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Internal server error' 
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
       });
     }
   });
@@ -5707,40 +5729,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/sms/dispatch', async (req, res) => {
     try {
       const { phone, orderId } = req.body;
-      
+
       if (!phone) {
         return res.status(400).json({ success: false, error: 'Phone number is required' });
       }
-      
+
       // Import uwaziiService
       const { uwaziiService } = await import('./uwaziiService');
-      
+
       // Create dispatch message
       const message = `🚚 Great news! Your order has been dispatched and is on its way to you. ${orderId ? `Order #${orderId.slice(-8).toUpperCase()} ` : ''}You will receive it within the estimated delivery time. Track your order in the BuyLock app. - BuyLock Marketplace`;
-      
+
       console.log(`📱 Sending dispatch SMS to ${phone}`);
-      
+
       const result = await uwaziiService.sendSMS(phone, message);
-      
+
       if (result.success) {
         console.log(`✅ Dispatch SMS sent successfully to ${phone}`);
-        res.json({ 
-          success: true, 
+        res.json({
+          success: true,
           message: 'Dispatch notification sent successfully',
-          messageId: result.messageId 
+          messageId: result.messageId
         });
       } else {
         console.error(`❌ Failed to send dispatch SMS to ${phone}:`, result.error);
-        res.status(500).json({ 
-          success: false, 
-          error: result.error || 'Failed to send SMS' 
+        res.status(500).json({
+          success: false,
+          error: result.error || 'Failed to send SMS'
         });
       }
     } catch (error) {
       console.error('SMS dispatch error:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Internal server error' 
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
       });
     }
   });

@@ -83,7 +83,7 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User>;
   ensureUserExists(id: string, email: string, name: string): Promise<User>;
-  
+
   // User authentication (form-based)
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
@@ -110,7 +110,7 @@ export interface IStorage {
 
   // Paystack Subaccount operations
   updateVendorPaystackSubaccount(id: string, details: { paystackSubaccountId: string; paystackSubaccountCode: string; subaccountActive: boolean }): Promise<Vendor>;
-  
+
   // Vendor Earnings operations
   createVendorEarning(earning: InsertVendorEarning): Promise<VendorEarning>;
   getVendorEarnings(vendorId: string): Promise<VendorEarning[]>;
@@ -203,9 +203,10 @@ export interface IStorage {
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrder(id: string, updates: Partial<InsertOrder>): Promise<Order>;
   getOrderItems(orderId: string): Promise<OrderItem[]>;
-  
+
   // Vendor order management
-  getVendorOrders(vendorId: string): Promise<Order[]>;
+  getVendorOrders(vendorId: string, statuses?: string[]): Promise<Order[]>;
+  getVendorOrdersByStatus(vendorId: string, status: string): Promise<Order[]>;
   getVendorDeliveredOrders(vendorId: string): Promise<Order[]>;
   acceptOrder(orderId: string, vendorNotes?: string): Promise<Order>;
   updateOrderStatusByVendor(orderId: string, status: string, notes?: string): Promise<Order>;
@@ -216,7 +217,7 @@ export interface IStorage {
   getOrderWithItems(id: string): Promise<(Order & { orderItems: OrderItem[] }) | undefined>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   cancelOrder(id: string): Promise<Order>;
-  
+
   // Order tracking operations
   addOrderTracking(tracking: InsertOrderTracking): Promise<OrderTracking>;
   getOrderTracking(orderId: string): Promise<OrderTracking[]>;
@@ -256,18 +257,18 @@ export interface IStorage {
   createCategory(category: InsertCategory): Promise<Category>;
   updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined>;
   deleteCategory(id: string): Promise<boolean>;
-  
+
   getAllSubcategories(): Promise<Subcategory[]>;
   getSubcategoriesByCategory(categoryId: string): Promise<Subcategory[]>;
   createSubcategory(subcategory: InsertSubcategory): Promise<Subcategory>;
   updateSubcategory(id: string, subcategory: Partial<InsertSubcategory>): Promise<Subcategory | undefined>;
   deleteSubcategory(id: string): Promise<boolean>;
-  
+
   getAllBrands(): Promise<Brand[]>;
   createBrand(brand: InsertBrand): Promise<Brand>;
   updateBrand(id: string, brand: Partial<InsertBrand>): Promise<Brand | undefined>;
   deleteBrand(id: string): Promise<boolean>;
-  
+
   getAllProductAttributes(): Promise<ProductAttribute[]>;
   getAttributesByCategory(categoryId: string): Promise<ProductAttribute[]>;
   getAttributesBySubcategory(subcategoryId: string): Promise<ProductAttribute[]>;
@@ -280,7 +281,7 @@ export interface IStorage {
   getDeliveryProviderById(id: string): Promise<DeliveryProvider | undefined>;
   createDeliveryProvider(provider: InsertDeliveryProvider): Promise<DeliveryProvider>;
   updateDeliveryProvider(id: string, updates: Partial<InsertDeliveryProvider>): Promise<DeliveryProvider>;
-  
+
   getDeliveries(params?: {
     status?: string;
     providerId?: string;
@@ -292,10 +293,10 @@ export interface IStorage {
   getDeliveryByOrderId(orderId: string): Promise<Delivery | undefined>;
   createDelivery(delivery: InsertDelivery): Promise<Delivery>;
   updateDelivery(id: string, updates: Partial<InsertDelivery>): Promise<Delivery>;
-  
+
   addDeliveryUpdate(update: InsertDeliveryUpdate): Promise<DeliveryUpdate>;
   getDeliveryUpdates(deliveryId: string): Promise<DeliveryUpdate[]>;
-  
+
   getDeliveryAnalytics(params?: {
     providerId?: string;
     dateFrom?: Date;
@@ -341,11 +342,11 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(users.id, id))
       .returning();
-    
+
     if (!updatedUser) {
       throw new Error("User not found");
     }
-    
+
     return updatedUser;
   }
 
@@ -354,7 +355,7 @@ export class DatabaseStorage implements IStorage {
     if (existingUser) {
       return existingUser;
     }
-    
+
     // Create user if not exists
     const [user] = await db
       .insert(users)
@@ -379,7 +380,7 @@ export class DatabaseStorage implements IStorage {
   async createUser(userData: InsertUser): Promise<User> {
     const { password, ...userDataWithoutPassword } = userData;
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     const [user] = await db
       .insert(users)
       .values({
@@ -393,7 +394,7 @@ export class DatabaseStorage implements IStorage {
   async validateUser(email: string, password: string): Promise<User | null> {
     const user = await this.getUserByEmail(email);
     if (!user || !user.passwordHash) return null;
-    
+
     const isValid = await bcrypt.compare(password, user.passwordHash);
     return isValid ? user : null;
   }
@@ -431,12 +432,12 @@ export class DatabaseStorage implements IStorage {
   async updateVendorBusinessDetails(id: string, details: { businessName: string; contactName: string; phone?: string; address?: string }): Promise<Vendor> {
     const [vendor] = await db
       .update(vendors)
-      .set({ 
+      .set({
         businessName: details.businessName,
         contactName: details.contactName,
         phone: details.phone,
         address: details.address,
-        updatedAt: new Date() 
+        updatedAt: new Date()
       })
       .where(eq(vendors.id, id))
       .returning();
@@ -446,12 +447,12 @@ export class DatabaseStorage implements IStorage {
   async updateVendorBankDetails(id: string, details: { bankName: string; bankCode?: string; accountNumber: string; accountName: string }): Promise<Vendor> {
     const [vendor] = await db
       .update(vendors)
-      .set({ 
+      .set({
         bankName: details.bankName,
         bankCode: details.bankCode,
         accountNumber: details.accountNumber,
         accountName: details.accountName,
-        updatedAt: new Date() 
+        updatedAt: new Date()
       })
       .where(eq(vendors.id, id))
       .returning();
@@ -645,9 +646,9 @@ export class DatabaseStorage implements IStorage {
       ...products,
       vendor: vendors
     }).from(products)
-    .leftJoin(vendors, eq(products.vendorId, vendors.id))
-    .where(and(...whereConditions))
-    .orderBy(desc(products.createdAt));
+      .leftJoin(vendors, eq(products.vendorId, vendors.id))
+      .where(and(...whereConditions))
+      .orderBy(desc(products.createdAt));
 
     if (params?.limit !== undefined) {
       query = query.limit(params.limit) as any;
@@ -669,10 +670,10 @@ export class DatabaseStorage implements IStorage {
         email: vendors.email
       }
     })
-    .from(products)
-    .leftJoin(vendors, eq(products.vendorId, vendors.id))
-    .where(eq(products.id, id));
-    
+      .from(products)
+      .leftJoin(vendors, eq(products.vendorId, vendors.id))
+      .where(eq(products.id, id));
+
     const [product] = result;
     return product || undefined;
   }
@@ -745,9 +746,9 @@ export class DatabaseStorage implements IStorage {
       ...services,
       vendor: vendors
     }).from(services)
-    .leftJoin(vendors, eq(services.providerId, vendors.id))
-    .where(and(...whereConditions))
-    .orderBy(desc(services.createdAt));
+      .leftJoin(vendors, eq(services.providerId, vendors.id))
+      .where(and(...whereConditions))
+      .orderBy(desc(services.createdAt));
 
     if (params?.limit !== undefined) {
       query = query.limit(params.limit) as any;
@@ -769,10 +770,10 @@ export class DatabaseStorage implements IStorage {
         email: vendors.email
       }
     })
-    .from(services)
-    .leftJoin(vendors, eq(services.providerId, vendors.id))
-    .where(eq(services.id, id));
-    
+      .from(services)
+      .leftJoin(vendors, eq(services.providerId, vendors.id))
+      .where(eq(services.id, id));
+
     const [service] = result;
     return service || undefined;
   }
@@ -833,15 +834,15 @@ export class DatabaseStorage implements IStorage {
         price: services.price,
       }
     }).from(cartItems)
-    .leftJoin(users, eq(cartItems.userId, users.id))
-    .leftJoin(products, eq(cartItems.productId, products.id))
-    .leftJoin(services, eq(cartItems.serviceId, services.id))
-    .orderBy(desc(cartItems.createdAt));
+      .leftJoin(users, eq(cartItems.userId, users.id))
+      .leftJoin(products, eq(cartItems.productId, products.id))
+      .leftJoin(services, eq(cartItems.serviceId, services.id))
+      .orderBy(desc(cartItems.createdAt));
 
     if (userId) {
       return baseQuery.where(eq(cartItems.userId, userId)) as any;
     }
-    
+
     // For admin, get all cart items
     return baseQuery as any;
   }
@@ -899,10 +900,10 @@ export class DatabaseStorage implements IStorage {
       userEmail: users.email,
       userName: sql<string>`TRIM(CONCAT(${users.firstName}, ' ', ${users.lastName}))`
     })
-    .from(orders)
-    .leftJoin(vendors, eq(orders.vendorId, vendors.id))
-    .leftJoin(users, eq(orders.userId, users.id))
-    .orderBy(desc(orders.createdAt));
+      .from(orders)
+      .leftJoin(vendors, eq(orders.vendorId, vendors.id))
+      .leftJoin(users, eq(orders.userId, users.id))
+      .orderBy(desc(orders.createdAt));
 
     return allOrders.map(order => ({
       ...order,
@@ -937,10 +938,10 @@ export class DatabaseStorage implements IStorage {
       userEmail: users.email,
       userName: sql<string>`TRIM(CONCAT(${users.firstName}, ' ', ${users.lastName}))`
     })
-    .from(orders)
-    .leftJoin(vendors, eq(orders.vendorId, vendors.id))
-    .leftJoin(users, eq(orders.userId, users.id))
-    .orderBy(desc(orders.createdAt));
+      .from(orders)
+      .leftJoin(vendors, eq(orders.vendorId, vendors.id))
+      .leftJoin(users, eq(orders.userId, users.id))
+      .orderBy(desc(orders.createdAt));
 
     if (whereConditions.length > 0) {
       query = query.where(and(...whereConditions)) as any;
@@ -967,7 +968,7 @@ export class DatabaseStorage implements IStorage {
     // TEST: Converting back to clean Drizzle ORM now that schema is fixed
     const [order] = await db.select().from(orders).where(eq(orders.id, id));
     if (!order) return undefined;
-    
+
     // Get order items for this order using Drizzle ORM
     const items = await db.select({
       id: orderItems.id,
@@ -995,10 +996,10 @@ export class DatabaseStorage implements IStorage {
         description: services.description,
       }
     })
-    .from(orderItems)
-    .leftJoin(products, eq(orderItems.productId, products.id))
-    .leftJoin(services, eq(orderItems.serviceId, services.id))
-    .where(eq(orderItems.orderId, id));
+      .from(orderItems)
+      .leftJoin(products, eq(orderItems.productId, products.id))
+      .leftJoin(services, eq(orderItems.serviceId, services.id))
+      .where(eq(orderItems.orderId, id));
 
     return {
       ...order,
@@ -1022,11 +1023,11 @@ export class DatabaseStorage implements IStorage {
       const result = await db.execute(
         sql`SELECT * FROM orders WHERE payment_reference = ${paymentReference} LIMIT 1`
       );
-      
+
       if (!result.rows || result.rows.length === 0) return undefined;
-      
+
       const order = result.rows[0] as any;
-      
+
       return {
         ...order,
         totalAmount: parseFloat(order.total_amount?.toString() || '0'),
@@ -1041,7 +1042,7 @@ export class DatabaseStorage implements IStorage {
       try {
         const [order] = await db.select().from(orders).where(eq(orders.paymentReference, paymentReference));
         if (!order) return undefined;
-        
+
         return {
           ...order,
           totalAmount: parseFloat(order.totalAmount.toString()),
@@ -1061,12 +1062,12 @@ export class DatabaseStorage implements IStorage {
     try {
       const [order] = await db.select().from(orders).where(eq(orders.publicToken, token));
       if (!order) return undefined;
-      
+
       // Check if token has expired
       if (order.publicTokenExpiresAt && new Date() > order.publicTokenExpiresAt) {
         return undefined;
       }
-      
+
       return {
         ...order,
         totalAmount: parseFloat(order.totalAmount.toString()),
@@ -1088,16 +1089,16 @@ export class DatabaseStorage implements IStorage {
       if (!order) {
         throw new Error(`Order ${orderId} not found`);
       }
-      
+
       // If token exists and hasn't expired, return it
       if (order.publicToken && (!order.publicTokenExpiresAt || new Date() < order.publicTokenExpiresAt)) {
         return order.publicToken;
       }
-      
+
       // Generate new token
       const token = generatePublicToken();
       const expiresAt = getTokenExpiration();
-      
+
       // Update order with new token
       await db
         .update(orders)
@@ -1108,7 +1109,7 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date()
         })
         .where(eq(orders.id, orderId));
-      
+
       return token;
     } catch (error) {
       console.error('Error ensuring public token:', error);
@@ -1122,7 +1123,7 @@ export class DatabaseStorage implements IStorage {
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(orders.id, id))
       .returning();
-    
+
     return {
       ...updatedOrder,
       shippingAddress: updatedOrder.deliveryAddress || '',
@@ -1139,7 +1140,7 @@ export class DatabaseStorage implements IStorage {
       paymentStatus: order.paymentStatus || 'paid',
       paymentMethod: order.paymentMethod || 'Paystack'
     }).returning();
-    
+
     return {
       ...newOrder,
       totalAmount: parseFloat(newOrder.totalAmount.toString()),
@@ -1166,7 +1167,7 @@ export class DatabaseStorage implements IStorage {
       name: orderItem.name || 'Unknown Item',
       quantity: orderItem.quantity || 1
     }).returning();
-    
+
     return {
       ...newItem,
       price: parseFloat(newItem.price.toString())
@@ -1179,10 +1180,10 @@ export class DatabaseStorage implements IStorage {
       vendorName: vendors.businessName,
       vendorEmail: vendors.email
     })
-    .from(orders)
-    .leftJoin(vendors, eq(orders.vendorId, vendors.id))
-    .where(eq(orders.userId, userId))
-    .orderBy(desc(orders.createdAt));
+      .from(orders)
+      .leftJoin(vendors, eq(orders.vendorId, vendors.id))
+      .where(eq(orders.userId, userId))
+      .orderBy(desc(orders.createdAt));
 
     return userOrders.map(order => ({
       ...order,
@@ -1200,10 +1201,10 @@ export class DatabaseStorage implements IStorage {
       userEmail: users.email,
       userName: sql<string>`TRIM(CONCAT(${users.firstName}, ' ', ${users.lastName}))`
     })
-    .from(orders)
-    .leftJoin(users, eq(orders.userId, users.id))
-    .where(eq(orders.vendorId, vendorId))
-    .orderBy(desc(orders.createdAt));
+      .from(orders)
+      .leftJoin(users, eq(orders.userId, users.id))
+      .where(eq(orders.vendorId, vendorId))
+      .orderBy(desc(orders.createdAt));
 
     return vendorOrders.map(order => ({
       ...order,
@@ -1218,14 +1219,14 @@ export class DatabaseStorage implements IStorage {
   // Get vendor orders that have been delivered (fulfilled orders ready for payout)
   async getVendorDeliveredOrders(vendorId: string): Promise<Order[]> {
     const deliveredOrders = await db.select()
-    .from(orders)
-    .where(
-      and(
-        eq(orders.vendorId, vendorId),
-        eq(orders.status, 'fulfilled') // Look for fulfilled orders (ready for payout)
+      .from(orders)
+      .where(
+        and(
+          eq(orders.vendorId, vendorId),
+          eq(orders.status, 'fulfilled') // Look for fulfilled orders (ready for payout)
+        )
       )
-    )
-    .orderBy(desc(orders.updatedAt));
+      .orderBy(desc(orders.updatedAt));
 
     return deliveredOrders.map(order => ({
       ...order,
@@ -1294,10 +1295,10 @@ export class DatabaseStorage implements IStorage {
         imageUrl: services.imageUrl
       }
     })
-    .from(orderItems)
-    .leftJoin(products, eq(orderItems.productId, products.id))
-    .leftJoin(services, eq(orderItems.serviceId, services.id))
-    .where(eq(orderItems.orderId, orderId));
+      .from(orderItems)
+      .leftJoin(products, eq(orderItems.productId, products.id))
+      .leftJoin(services, eq(orderItems.serviceId, services.id))
+      .where(eq(orderItems.orderId, orderId));
 
     return items.map(item => ({
       ...item,
@@ -1383,32 +1384,32 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(params?: { search?: string; limit?: number; offset?: number }): Promise<User[]> {
     let query = db.select().from(users);
-    
+
     if (params?.search) {
       const searchTerm = `%${params.search}%`;
       query = query.where(
         sql`${users.email} ILIKE ${searchTerm} OR ${users.firstName} ILIKE ${searchTerm} OR ${users.lastName} ILIKE ${searchTerm}`
       );
     }
-    
+
     query = query.orderBy(desc(users.createdAt));
-    
+
     if (params?.limit) {
       query = query.limit(params.limit);
     }
-    
+
     if (params?.offset) {
       query = query.offset(params.offset);
     }
-    
+
     return await query;
   }
 
   async getAllVendors(params?: { search?: string; verified?: boolean; limit?: number; offset?: number }): Promise<Vendor[]> {
     let query = db.select().from(vendors);
-    
+
     const conditions = [];
-    
+
     if (params?.search) {
       const searchTerm = `%${params.search}%`;
       conditions.push(
@@ -1419,27 +1420,27 @@ export class DatabaseStorage implements IStorage {
         )
       );
     }
-    
+
     if (params?.verified !== undefined) {
       // Map old boolean verified to new verificationStatus
       const status = params.verified ? 'verified' : 'pending';
       conditions.push(eq(vendors.verificationStatus, status));
     }
-    
+
     if (conditions.length > 0) {
       query = query.where(and(...conditions));
     }
-    
+
     query = query.orderBy(desc(vendors.createdAt));
-    
+
     if (params?.limit) {
       query = query.limit(params.limit);
     }
-    
+
     if (params?.offset) {
       query = query.offset(params.offset);
     }
-    
+
     return await query;
   }
 
@@ -1451,12 +1452,12 @@ export class DatabaseStorage implements IStorage {
     offset?: number;
   }): Promise<Vendor[]> {
     let query = db.select().from(vendors);
-    
+
     // Apply filters
     if (filters.status) {
       query = query.where(eq(vendors.verificationStatus, filters.status));
     }
-    
+
     if (filters.search) {
       query = query.where(
         or(
@@ -1466,15 +1467,15 @@ export class DatabaseStorage implements IStorage {
         )
       );
     }
-    
+
     if (filters.limit) {
       query = query.limit(filters.limit);
     }
-    
+
     if (filters.offset) {
       query = query.offset(filters.offset);
     }
-    
+
     return await query.orderBy(desc(vendors.createdAt));
   }
 
@@ -1486,7 +1487,7 @@ export class DatabaseStorage implements IStorage {
   async approveVendorApplication(applicationId: string): Promise<Vendor | undefined> {
     const [vendor] = await db
       .update(vendors)
-      .set({ 
+      .set({
         verificationStatus: 'verified',
         verifiedAt: new Date(),
         verifiedBy: 'admin',
@@ -1500,7 +1501,7 @@ export class DatabaseStorage implements IStorage {
   async rejectVendorApplication(applicationId: string, reason?: string): Promise<Vendor | undefined> {
     const [vendor] = await db
       .update(vendors)
-      .set({ 
+      .set({
         verificationStatus: 'rejected',
         verificationNotes: reason,
         updatedAt: new Date()
@@ -1516,16 +1517,16 @@ export class DatabaseStorage implements IStorage {
       .insert(appointments)
       .values(appointmentData)
       .returning();
-    
+
     return appointment;
   }
 
   async updateAppointmentStatus(appointmentId: string, status: string, vendorNotes?: string): Promise<Appointment | undefined> {
-    const updateData: any = { 
+    const updateData: any = {
       status,
       updatedAt: new Date()
     };
-    
+
     if (vendorNotes) {
       updateData.vendorNotes = vendorNotes;
     }
@@ -1535,11 +1536,11 @@ export class DatabaseStorage implements IStorage {
       .set(updateData)
       .where(eq(appointments.id, appointmentId))
       .returning();
-    
+
     // Sync appointment status to corresponding order
     if (appointment && appointment.orderId) {
       let orderStatus = status;
-      
+
       // Map appointment status to order status
       switch (status) {
         case 'pending_acceptance':
@@ -1572,13 +1573,13 @@ export class DatabaseStorage implements IStorage {
         default:
           orderStatus = status;
       }
-      
+
       // Update the corresponding order status
-      await this.updateOrder(appointment.orderId, { 
+      await this.updateOrder(appointment.orderId, {
         status: orderStatus,
         vendorNotes: vendorNotes || undefined
       });
-      
+
       // Add order tracking for the status change
       await this.addOrderTracking({
         orderId: appointment.orderId,
@@ -1587,7 +1588,7 @@ export class DatabaseStorage implements IStorage {
         location: 'Service Location',
       });
     }
-    
+
     return appointment;
   }
 
@@ -1734,10 +1735,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Vendor order management methods
-  async getVendorOrders(vendorId: string): Promise<Order[]> {
+  async getVendorOrders(vendorId: string, statuses?: string[]): Promise<Order[]> {
     try {
       // Use raw SQL query to avoid ORM field selection issues
-      const result = await db.execute(sql`
+      let query = sql`
         SELECT 
           o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
           o.delivery_fee, o.payment_status, o.payment_method,
@@ -1747,8 +1748,15 @@ export class DatabaseStorage implements IStorage {
         FROM orders o
         LEFT JOIN users u ON o.user_id = u.id
         WHERE o.vendor_id = ${vendorId}
-        ORDER BY o.created_at DESC
-      `);
+      `;
+
+      if (statuses && statuses.length > 0) {
+        query = sql`${query} AND o.status IN (${sql.join(statuses.map(s => sql`${s}`), sql`, `)})`;
+      }
+
+      query = sql`${query} ORDER BY o.created_at DESC`;
+
+      const result = await db.execute(query);
 
       const orders = result.rows as any[];
 
@@ -1825,18 +1833,22 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getVendorOrdersByStatus(vendorId: string, status: string): Promise<Order[]> {
+    return this.getVendorOrders(vendorId, [status]);
+  }
+
   async acceptOrder(orderId: string, vendorNotes?: string): Promise<Order> {
     const [updatedOrder] = await db
       .update(orders)
-      .set({ 
+      .set({
         status: 'vendor_accepted',
         vendorNotes: vendorNotes || null,
         vendorAcceptedAt: new Date(),
-        updatedAt: new Date() 
+        updatedAt: new Date()
       })
       .where(eq(orders.id, orderId))
       .returning();
-      
+
     // Add tracking entry
     await this.addOrderTracking({
       orderId: orderId,
@@ -1844,20 +1856,20 @@ export class DatabaseStorage implements IStorage {
       description: vendorNotes ? `Vendor accepted the order: ${vendorNotes}` : 'Vendor has accepted your order and will begin processing.',
       location: 'Vendor Location',
     });
-      
+
     return updatedOrder;
   }
 
   async updateOrderStatusByVendor(orderId: string, status: string, notes?: string): Promise<Order> {
-    const updateData: any = { 
-      status, 
-      updatedAt: new Date() 
+    const updateData: any = {
+      status,
+      updatedAt: new Date()
     };
-    
+
     if (notes) {
       updateData.vendorNotes = notes;
     }
-    
+
     if (status === 'ready_for_pickup') {
       // Add delivery pickup tracking
       await this.addOrderTracking({
@@ -1889,20 +1901,20 @@ export class DatabaseStorage implements IStorage {
         location: 'Service Location',
       });
     }
-    
+
     const [updatedOrder] = await db
       .update(orders)
       .set(updateData)
       .where(eq(orders.id, orderId))
       .returning();
-      
+
     return updatedOrder;
   }
 
   // New delivery workflow methods
   async processOrderDispatch(orderId: string, providerId: string, trackingId?: string): Promise<void> {
     // Update order status to awaiting_dispatch
-    await this.updateOrder(orderId, { 
+    await this.updateOrder(orderId, {
       status: 'awaiting_dispatch',
       courierId: providerId,
       trackingNumber: trackingId
@@ -1941,7 +1953,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async confirmOrder(orderId: string, vendorNotes?: string): Promise<void> {
-    await this.updateOrder(orderId, { 
+    await this.updateOrder(orderId, {
       status: 'confirmed',
       vendorAcceptedAt: new Date(),
       vendorNotes: vendorNotes
@@ -1957,7 +1969,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateDeliveryStatus(deliveryId: string, status: string, description?: string, trackingId?: string, source: 'manual' | 'webhook' = 'manual'): Promise<void> {
     const updateData: any = { status, updatedAt: new Date() };
-    
+
     // Log the status update request
     console.log(`📋 UpdateDeliveryStatus called:`, {
       deliveryId,
@@ -1965,19 +1977,19 @@ export class DatabaseStorage implements IStorage {
       source,
       timestamp: new Date().toISOString()
     });
-    
+
     if (status === 'picked_up') {
       updateData.actualPickupTime = new Date();
     } else if (status === 'delivered') {
       updateData.actualDeliveryTime = new Date();
     }
-    
+
     if (trackingId) {
       updateData.externalTrackingId = trackingId;
     }
 
     await this.updateDelivery(deliveryId, updateData);
-    
+
     // Verify the status was actually updated
     const verifyDelivery = await this.getDeliveryById(deliveryId);
     console.log(`✅ Status update result: ${verifyDelivery?.status || 'ERROR'}`);
@@ -2051,26 +2063,26 @@ export class DatabaseStorage implements IStorage {
     offset?: number;
   }): Promise<Delivery[]> {
     let query = db.select().from(deliveries);
-    
+
     const conditions = [];
     if (params?.status) conditions.push(eq(deliveries.status, params.status));
     if (params?.providerId) conditions.push(eq(deliveries.providerId, params.providerId));
     if (params?.orderId) conditions.push(eq(deliveries.orderId, params.orderId));
-    
+
     if (conditions.length > 0) {
       query = query.where(and(...conditions));
     }
-    
+
     query = query.orderBy(desc(deliveries.createdAt));
-    
+
     if (params?.limit) {
       query = query.limit(params.limit);
     }
-    
+
     if (params?.offset) {
       query = query.offset(params.offset);
     }
-    
+
     return await query;
   }
 
@@ -2117,16 +2129,16 @@ export class DatabaseStorage implements IStorage {
     dateTo?: Date;
   }): Promise<DeliveryAnalytics[]> {
     let query = db.select().from(deliveryAnalytics);
-    
+
     const conditions = [];
     if (params?.providerId) conditions.push(eq(deliveryAnalytics.providerId, params.providerId));
     if (params?.dateFrom) conditions.push(sql`${deliveryAnalytics.date} >= ${params.dateFrom}`);
     if (params?.dateTo) conditions.push(sql`${deliveryAnalytics.date} <= ${params.dateTo}`);
-    
+
     if (conditions.length > 0) {
       query = query.where(and(...conditions));
     }
-    
+
     return await query.orderBy(desc(deliveryAnalytics.date));
   }
 
@@ -2164,10 +2176,10 @@ export class DatabaseStorage implements IStorage {
         lastName: users.lastName,
       }
     })
-    .from(orders)
-    .leftJoin(users, eq(orders.userId, users.id))
-    .where(eq(orders.status, 'ready_for_pickup'))
-    .orderBy(desc(orders.updatedAt));
+      .from(orders)
+      .leftJoin(users, eq(orders.userId, users.id))
+      .where(eq(orders.status, 'ready_for_pickup'))
+      .orderBy(desc(orders.updatedAt));
 
     return result.map(order => ({
       ...order,
@@ -2196,7 +2208,7 @@ export class DatabaseStorage implements IStorage {
     const ordersCount = await db.select({ count: sql<number>`count(*)` }).from(orders);
     const pendingVendorsCount = await db.select({ count: sql<number>`count(*)` }).from(vendors).where(eq(vendors.verificationStatus, 'pending'));
     const revenueSum = await db.select({ sum: sql<number>`COALESCE(sum(total_amount), 0)` }).from(orders).where(eq(orders.status, 'delivered'));
-    
+
     return {
       totalUsers: Number(usersCount[0]?.count) || 0,
       totalVendors: Number(vendorsCount[0]?.count) || 0,
@@ -2212,24 +2224,24 @@ export class DatabaseStorage implements IStorage {
   async getVendorEarningsSummary(vendorId: string): Promise<any> {
     // Calculate real-time earnings from orders
     const vendorOrders = await this.getVendorOrders(vendorId);
-    
+
     const confirmedOrders = vendorOrders.filter(order => order.status === 'customer_confirmed');
-    const pendingOrders = vendorOrders.filter(order => 
+    const pendingOrders = vendorOrders.filter(order =>
       ['delivered', 'completed'].includes(order.status) && order.status !== 'customer_confirmed'
     );
     const disputedOrders = vendorOrders.filter(order => order.status === 'disputed');
-    
+
     const platformFeePercentage = await this.getPlatformCommissionPercentage();
     const vendorPercentage = await this.getVendorCommissionPercentage();
-    
-    const totalEarnings = confirmedOrders.reduce((sum, order) => 
+
+    const totalEarnings = confirmedOrders.reduce((sum, order) =>
       sum + (parseFloat(order.totalAmount) * vendorPercentage / 100), 0
     );
-    
-    const pendingBalance = pendingOrders.reduce((sum, order) => 
+
+    const pendingBalance = pendingOrders.reduce((sum, order) =>
       sum + (parseFloat(order.totalAmount) * vendorPercentage / 100), 0
     );
-    
+
     // Get total payouts
     const payoutRequests = await db.select()
       .from(vendorPayoutRequests)
@@ -2237,16 +2249,16 @@ export class DatabaseStorage implements IStorage {
         eq(vendorPayoutRequests.vendorId, vendorId),
         eq(vendorPayoutRequests.status, 'completed')
       ));
-    
-    const totalPayouts = payoutRequests.reduce((sum, payout) => 
+
+    const totalPayouts = payoutRequests.reduce((sum, payout) =>
       sum + parseFloat(payout.amount), 0
     );
-    
+
     const availableBalance = Math.max(0, totalEarnings - totalPayouts);
-    
+
     const lastPayout = payoutRequests
       .sort((a, b) => new Date(b.processedDate || 0).getTime() - new Date(a.processedDate || 0).getTime())[0];
-    
+
     return {
       totalEarnings,
       availableBalance,
@@ -2262,12 +2274,12 @@ export class DatabaseStorage implements IStorage {
   async getVendorOrderEarnings(vendorId: string): Promise<any[]> {
     const vendorOrders = await this.getVendorOrders(vendorId);
     const orderEarnings = [];
-    
+
     for (const order of vendorOrders) {
       const user = await this.getUser(order.userId);
       const orderItems = await this.getOrderItems(order.id);
       const itemsText = orderItems.map(item => `${item.name} (${item.quantity}x)`).join(', ');
-      
+
       let status = 'pending';
       if (order.status === 'customer_confirmed') {
         status = 'confirmed';
@@ -2276,7 +2288,7 @@ export class DatabaseStorage implements IStorage {
       } else if (['delivered', 'completed'].includes(order.status)) {
         status = 'pending';
       }
-      
+
       orderEarnings.push({
         orderId: order.id,
         customerName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : undefined,
@@ -2287,15 +2299,15 @@ export class DatabaseStorage implements IStorage {
         confirmationDate: order.status === 'customer_confirmed' ? order.updatedAt : undefined
       });
     }
-    
+
     return orderEarnings.sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
   }
 
   // Paystack Subaccount operations
-  async updateVendorPaystackSubaccount(id: string, details: { 
-    paystackSubaccountId: string; 
-    paystackSubaccountCode: string; 
-    subaccountActive: boolean 
+  async updateVendorPaystackSubaccount(id: string, details: {
+    paystackSubaccountId: string;
+    paystackSubaccountCode: string;
+    subaccountActive: boolean
   }): Promise<Vendor> {
     const [vendor] = await db
       .update(vendors)
@@ -2414,8 +2426,8 @@ export class DatabaseStorage implements IStorage {
         subaccountActive: vendors.subaccountActive
       }
     })
-    .from(payoutRequests)
-    .leftJoin(vendors, eq(payoutRequests.vendorId, vendors.id));
+      .from(payoutRequests)
+      .leftJoin(vendors, eq(payoutRequests.vendorId, vendors.id));
 
     if (status && status !== 'all') {
       query = query.where(eq(payoutRequests.status, status)) as any;
@@ -2444,10 +2456,10 @@ export class DatabaseStorage implements IStorage {
     // Try to update existing setting
     const [updated] = await db
       .update(platformSettings)
-      .set({ 
-        settingValue: value, 
-        updatedBy, 
-        updatedAt: new Date() 
+      .set({
+        settingValue: value,
+        updatedBy,
+        updatedAt: new Date()
       })
       .where(eq(platformSettings.settingKey, key))
       .returning();
@@ -2465,7 +2477,7 @@ export class DatabaseStorage implements IStorage {
         updatedBy
       })
       .returning();
-    
+
     return created;
   }
 
@@ -2474,13 +2486,13 @@ export class DatabaseStorage implements IStorage {
       .from(platformSettings)
       .where(eq(platformSettings.settingKey, key))
       .limit(1);
-    
+
     return setting?.settingValue || null;
   }
 
   async setPlatformSetting(key: string, value: string, adminId: string, description?: string): Promise<void> {
     const existing = await this.getPlatformSetting(key);
-    
+
     if (existing) {
       await db.update(platformSettings)
         .set({
