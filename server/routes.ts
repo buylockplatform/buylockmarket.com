@@ -15,6 +15,7 @@ import crypto from "crypto";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { PaystackService } from "./paystackService";
 import { generateTokens, verifyToken, extractBearerToken, wantsTokenAuth, refreshAccessToken, type JWTPayload } from "./jwtUtils";
+import { deliveryService } from "./deliveryService";
 
 // Hybrid user authentication middleware (supports both sessions and JWT tokens)
 const isUserAuthenticated = async (req: any, res: any, next: any) => {
@@ -1401,6 +1402,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
               display_name: "Delivery Fee",
               variable_name: "delivery_fee",
               value: deliveryFee || "0"
+            },
+            {
+              display_name: "City",
+              variable_name: "delivery_city",
+              value: req.body.deliveryCity || ""
+            },
+            {
+              display_name: "Suburb",
+              variable_name: "delivery_suburb",
+              value: req.body.deliverySuburb || ""
+            },
+            {
+              display_name: "Building",
+              variable_name: "delivery_building",
+              value: req.body.deliveryBuilding || ""
+            },
+            {
+              display_name: "Postal Code",
+              variable_name: "delivery_postal_code",
+              value: req.body.deliveryPostalCode || ""
             }
           ]
         },
@@ -1682,12 +1703,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "pending",
         paymentStatus: "pending",
         deliveryAddress: req.body.deliveryAddress || "",
+        deliveryCity: req.body.deliveryCity,
+        deliverySuburb: req.body.deliverySuburb,
+        deliveryBuilding: req.body.deliveryBuilding,
+        deliveryPostalCode: req.body.deliveryPostalCode,
         deliveryFee: req.body.deliveryFee || "300",
         paymentMethod: req.body.paymentMethod || "card",
         notes: req.body.notes || "",
         orderType: orderType,
-        courierId: req.body.courierId || 'dispatch_service',
-        courierName: req.body.courierName || 'BuyLock Dispatch',
+        courierId: req.body.courierId || (orderType === 'product' ? 'fargo_courier' : 'dispatch_service'),
+        courierName: req.body.courierName || (orderType === 'product' ? 'Fargo Courier Services' : 'BuyLock Dispatch'),
         estimatedDeliveryTime: req.body.estimatedDeliveryTime || '2-4 hours',
       };
 
@@ -2674,10 +2699,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Update order status to ready for pickup
+      // Determine order type if not set
+      const orderItems = await storage.getOrderItems(orderId);
+      const hasProducts = orderItems.some(item => item.productId);
+      const orderType = hasProducts ? 'product' : 'service';
+
+      // Update order status to ready for pickup with courier assignment
       console.log(`📦 Marking order ${orderId} as ready for pickup by vendor ${vendor.businessName}`);
       const updatedOrder = await storage.updateOrder(orderId, {
-        status: "ready_for_pickup"
+        status: "ready_for_pickup",
+        orderType: existingOrder.orderType || orderType,
+        courierId: existingOrder.courierId || (orderType === 'product' ? 'fargo_courier' : 'dispatch_service'),
+        courierName: existingOrder.courierName || (orderType === 'product' ? 'Fargo Courier Services' : 'BuyLock Dispatch'),
+        estimatedDeliveryTime: existingOrder.estimatedDeliveryTime || '2-4 hours',
       });
 
       // Create delivery request for courier notification
@@ -4252,6 +4286,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const metadata = verification.data.metadata;
         const customFields = metadata?.custom_fields || [];
         const deliveryAddress = customFields.find(f => f.variable_name === 'delivery_address')?.value || "No address provided";
+        const deliveryCity = customFields.find(f => f.variable_name === 'delivery_city')?.value;
+        const deliverySuburb = customFields.find(f => f.variable_name === 'delivery_suburb')?.value;
+        const deliveryBuilding = customFields.find(f => f.variable_name === 'delivery_building')?.value;
+        const deliveryPostalCode = customFields.find(f => f.variable_name === 'delivery_postal_code')?.value;
 
         // Group cart items by vendor with debugging
         console.log('Cart items for vendor grouping:', cartItems.map(item => ({
@@ -4295,6 +4333,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return sum + (itemPrice * itemQuantity);
           }, 0);
 
+          // Determine order type (product vs service)
+          const hasProducts = vendorItems.some(item => item.productId);
+          const orderType = hasProducts ? 'product' : 'service';
+
           // Create the order with 'paid' status
           console.log(`📝 Creating order for vendor ${vendorId} with total ${totalAmount}`);
           const order = await storage.createOrder({
@@ -4303,8 +4345,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: "paid",
             totalAmount: totalAmount.toString(),
             deliveryAddress,
+            deliveryCity,
+            deliverySuburb,
+            deliveryBuilding,
+            deliveryPostalCode,
             paymentReference: reference,
-            confirmedAt: new Date()
+            confirmedAt: new Date(),
+            orderType: orderType,
+            courierId: orderType === 'product' ? 'fargo_courier' : 'dispatch_service',
+            courierName: orderType === 'product' ? 'Fargo Courier Services' : 'BuyLock Dispatch',
+            estimatedDeliveryTime: '2-4 hours',
           });
 
           // Create order items
@@ -4488,7 +4538,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use fallback data with only Fargo Courier
       const fallbackCouriers = [
         {
-          id: "fargo-courier",
+          id: "fargo_courier",
           name: "Fargo Courier Services",
           logo: "🚛",
           baseRate: "200",
@@ -4507,10 +4557,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Calculate delivery cost based on location and courier
   app.post('/api/couriers/calculate', async (req, res) => {
     try {
-      const { courierId, location, weight = 1 } = req.body;
+      const { courierId, location, city, suburb, building, postalCode, weight = 1 } = req.body;
+
+      if (courierId === 'fargo_courier') {
+        const quote = await deliveryService.getQuote('fargo_courier', {
+          orderId: 'QUOTE-' + Date.now(),
+          pickupAddress: "Main Warehouse", // Default for calculation
+          pickupCity: "Nairobi",
+          pickupSuburb: "CBD",
+          pickupBuilding: "BuyLock HQ",
+          pickupPostalCode: "00100",
+          deliveryAddress: location || "Nairobi",
+          deliveryCity: city || "Nairobi",
+          deliverySuburb: suburb || "CBD",
+          deliveryBuilding: building,
+          deliveryPostalCode: postalCode,
+          customerPhone: "0700000000",
+          vendorPhone: "0700000001",
+          packageDescription: "Delivery estimate",
+          estimatedWeight: weight,
+          declaredValue: 1000,
+        });
+
+        if (!quote.success) {
+          return res.status(400).json({
+            message: quote.error || "Location validation failed",
+            code: quote.errorCode,
+            field: quote.errorCode === 'INVALID_LOCATION' ? 'location' : undefined
+          });
+        }
+
+        return res.json({
+          courierId: 'fargo_courier',
+          courierName: "Fargo Courier Services",
+          baseRate: 200,
+          distanceRate: (quote.amount || 200) - 200,
+          weightMultiplier: 1,
+          estimatedDistance: 0, // Not provided by Fargo API directly in quote
+          totalCost: quote.amount || 200,
+          estimatedTime: "2-4 hours within Nairobi, 24-48 hours nationwide",
+          location: city ? `${suburb}, ${city}` : location
+        });
+      }
 
       const couriers = {
-        "fargo-courier": { baseRate: 200, perKmRate: 18, name: "Fargo Courier Services", estimatedTime: "2-4 hours within Nairobi, 24-48 hours nationwide" }
+        "fargo_courier": { baseRate: 200, perKmRate: 18, name: "Fargo Courier Services", estimatedTime: "2-4 hours within Nairobi, 24-48 hours nationwide" }
       };
 
       const courier = couriers[courierId as keyof typeof couriers];
@@ -4520,7 +4611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Calculate distance based on location (simplified)
       let estimatedDistance = 5; // Default 5km
-      const locationLower = location?.toLowerCase() || "";
+      const locationLower = (location || city || "").toLowerCase();
 
       if (locationLower.includes("westlands") || locationLower.includes("karen") || locationLower.includes("runda")) {
         estimatedDistance = 12;
@@ -4612,6 +4703,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Refresh delivery status from external provider
+  app.post('/api/deliveries/:id/refresh', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const delivery = await storage.getDeliveryById(id);
+
+      if (!delivery) {
+        return res.status(404).json({ message: 'Delivery not found' });
+      }
+
+      // If no external tracking ID or provider is internal, return current status
+      if (!delivery.externalTrackingId || delivery.providerId === 'dispatch_service') {
+        return res.json({
+          status: delivery.status,
+          updated: false,
+          message: 'No external tracking available for this delivery'
+        });
+      }
+
+      // Call DeliveryService to get latest status
+      const provider = await storage.getDeliveryProviderById(delivery.providerId);
+      if (!provider) {
+        return res.status(400).json({ message: 'Provider not found' });
+      }
+
+      // We need to re-instantiate correct provider (Service factory handle this usually, 
+      // but here we might need to rely on existing instance or factory)
+      // For now, assume Fargo if ID matches, or use generic
+
+      let statusUpdate;
+      try {
+        // In a full implementation, we would use a factory. 
+        // For now, since we have the service instance:
+        statusUpdate = await deliveryService.getDeliveryStatus(delivery.providerId, delivery.externalTrackingId);
+      } catch (err) {
+        console.error('External API Status Check Failed:', err);
+        return res.status(502).json({
+          message: 'Failed to reach courier API',
+          details: err instanceof Error ? err.message : 'Unknown error'
+        });
+      }
+
+      if (statusUpdate && statusUpdate.status !== delivery.status) {
+        // 1. Map external status to internal status
+        const internalStatus = deliveryService.mapCourierStatusToInternal(statusUpdate.status, delivery.providerId);
+
+        // 2. Update delivery record
+        await storage.updateDeliveryStatus(delivery.id, internalStatus);
+
+        // 3. If Delivered, update parent Order to "completed" (fulfilled)
+        if (internalStatus === 'delivered' && delivery.orderId) {
+          const [updatedOrder] = await storage.updateOrderStatus(delivery.orderId, 'completed');
+          console.log(`✅ Auto-fulfilled Order ${delivery.orderId} from delivery status change`);
+        }
+
+        // Add history log
+        await storage.addDeliveryUpdate({
+          deliveryId: delivery.id,
+          status: statusUpdate.status,
+          description: statusUpdate.description || `Status updated via sync to: ${statusUpdate.status}`,
+          location: statusUpdate.location,
+          source: 'api_sync',
+          timestamp: new Date()
+        });
+
+        return res.json({
+          status: statusUpdate.status,
+          updated: true,
+          message: 'Status updated successfully'
+        });
+      }
+
+      return res.json({
+        status: delivery.status,
+        updated: false,
+        message: 'Status is up to date'
+      });
+
+    } catch (error) {
+      console.error('Error refreshing delivery status:', error);
+      res.status(500).json({ message: 'Failed to refresh delivery status' });
+    }
+  });
+
   // Get delivery by ID with updates
   app.get('/api/deliveries/:id', async (req, res) => {
     try {
@@ -4631,6 +4806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Trigger delivery creation when vendor marks order as "ready_for_pickup"
+  // (Updated to force restart for suburb cleaning logic V2)
   app.post('/api/deliveries/create', async (req, res) => {
     try {
       const { orderId, providerId, pickupInstructions } = req.body;
@@ -4652,25 +4828,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use the courier selected during checkout, or provided courier, or fallback to Fargo courier
-      const courierProviderId = providerId || order.courierId || 'fargo-courier';
+      const courierProviderId = providerId || order.courierId || 'fargo_courier';
       const provider = await storage.getDeliveryProviderById(courierProviderId);
       if (!provider) {
         return res.status(400).json({ message: 'Courier provider not found' });
       }
 
-      // Create delivery record
+      // 1. Call Courier API via DeliveryService (handles external API registration)
+      const courierResponse = await deliveryService.createDelivery(order, provider);
+
+      if (!courierResponse.success) {
+        console.error(`Courier registration failed for order ${order.id}:`, courierResponse.error);
+        return res.status(500).json({
+          message: `Failed to register delivery with ${provider.name}`,
+          error: courierResponse.error
+        });
+      }
+
+      // 2. Fetch vendor and customer details for enriched location data
+      const vendor = await storage.getVendorById(order.vendorId);
+      const customer = await storage.getUser(order.userId);
+
+      // 3. Create local delivery record with tracking information
       const delivery = await storage.createDelivery({
         orderId: order.id,
         providerId: provider.id,
+        externalTrackingId: courierResponse.trackingId,
+        courierTrackingId: courierResponse.trackingId,
         status: 'pickup_scheduled',
-        pickupAddress: 'Vendor Business Address', // This should come from vendor profile
-        deliveryAddress: order.deliveryAddress || '',
-        estimatedPickupTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-        estimatedDeliveryTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+
+        // Save structured location data to our DB
+        pickupAddress: vendor?.businessAddress || 'Vendor Address',
+        pickupCity: vendor?.city || 'Nairobi',
+        pickupSuburb: (vendor as any)?.suburb,
+        pickupBuilding: (vendor as any)?.building,
+        pickupPostalCode: (vendor as any)?.postalCode,
+
+        deliveryAddress: order.deliveryAddress || customer?.address || '',
+        deliveryCity: (order as any).deliveryCity || customer?.city || 'Nairobi',
+        deliverySuburb: (order as any).deliverySuburb || (customer as any)?.suburb || 'CBD',
+        deliveryBuilding: (order as any).deliveryBuilding || (customer as any)?.building,
+        deliveryPostalCode: (order as any).deliveryPostalCode || (customer as any)?.postalCode,
+
+        estimatedPickupTime: courierResponse.estimatedPickupTime || new Date(Date.now() + 2 * 60 * 60 * 1000),
+        estimatedDeliveryTime: courierResponse.estimatedDeliveryTime || new Date(Date.now() + 24 * 60 * 60 * 1000),
+
         deliveryFee: order.deliveryFee || '0',
         packageDescription: `Order ${order.trackingNumber} - ${order.orderType}`,
-        customerPhone: '0700000000', // This should come from user profile
-        vendorPhone: '0700000001', // This should come from vendor profile
+        customerPhone: customer?.phone || '0700000000',
+        vendorPhone: vendor?.phone || '0700000001',
         courierName: provider.name,
       });
 

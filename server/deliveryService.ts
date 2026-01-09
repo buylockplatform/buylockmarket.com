@@ -1,10 +1,10 @@
-import { 
-  DeliveryProvider, 
-  Delivery, 
-  DeliveryUpdate, 
-  InsertDelivery, 
+import {
+  DeliveryProvider,
+  Delivery,
+  DeliveryUpdate,
+  InsertDelivery,
   InsertDeliveryUpdate,
-  Order 
+  Order
 } from "@shared/schema";
 
 // Standardized courier API interface
@@ -12,12 +12,31 @@ export interface CourierAPIProvider {
   createDelivery(delivery: DeliveryRequest): Promise<CourierResponse>;
   getDeliveryStatus(trackingId: string): Promise<CourierStatus>;
   cancelDelivery(trackingId: string): Promise<boolean>;
+  requestQuote(delivery: DeliveryRequest): Promise<CourierQuoteResponse>;
+}
+
+export interface CourierQuoteResponse {
+  success: boolean;
+  amount?: number;
+  currency?: string;
+  quoteId?: string;
+  estimatedDeliveryTime?: Date;
+  error?: string;
+  errorCode?: string;
 }
 
 export interface DeliveryRequest {
   orderId: string;
   pickupAddress: string;
+  pickupCity?: string;
+  pickupSuburb?: string;
+  pickupBuilding?: string;
+  pickupPostalCode?: string;
   deliveryAddress: string;
+  deliveryCity?: string;
+  deliverySuburb?: string;
+  deliveryBuilding?: string;
+  deliveryPostalCode?: string;
   customerPhone: string;
   vendorPhone: string;
   packageDescription: string;
@@ -78,7 +97,7 @@ export class G4SCourierAPI implements CourierAPIProvider {
       }
 
       const data = await response.json();
-      
+
       return {
         success: true,
         trackingId: data.tracking_id,
@@ -107,7 +126,7 @@ export class G4SCourierAPI implements CourierAPIProvider {
       }
 
       const data = await response.json();
-      
+
       return {
         trackingId,
         status: data.status,
@@ -137,48 +156,123 @@ export class G4SCourierAPI implements CourierAPIProvider {
       return false;
     }
   }
+
+  async requestQuote(request: DeliveryRequest): Promise<CourierQuoteResponse> {
+    // G4S stub - logic could be added if G4S supports quoting
+    return {
+      success: true,
+      amount: 200,
+      currency: 'KES',
+      estimatedDeliveryTime: new Date(Date.now() + 48 * 60 * 60 * 1000),
+    };
+  }
 }
 
-// Fargo Courier Implementation
+// Fargo Courier Implementation (v1.0.0 compatible)
 export class FargoCourierAPI implements CourierAPIProvider {
   private apiKey: string;
-  private baseUrl = "https://api.fargocourier.co.ke";
+  private baseUrl: string;
+  private username: string;
+  private password: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, username: string, password: string, env: string = 'production') {
     this.apiKey = apiKey;
+    this.username = username;
+    this.password = password;
+    this.baseUrl = env.toLowerCase() === 'uat'
+      ? "https://api-uat.fargocourier.co.ke/v1"
+      : "https://api.fargocourier.co.ke/v1";
   }
 
   async createDelivery(request: DeliveryRequest): Promise<CourierResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/shipments`, {
+      // Helper to clean suburb names (remove slashes, 'ward', etc.)
+      // Helper to clean suburb names (remove slashes, 'ward', etc.)
+      const cleanSuburb = (rawSuburb: string | undefined | null) => {
+        if (!rawSuburb) return "CBD";
+        // Split by slash and take first part (e.g. "Woodley/Kenyatta" -> "Woodley")
+        let cleaned = rawSuburb.split('/')[0].trim();
+        // Remove administrative suffixes (case insensitive)
+        const suffixesToRemove = [
+          / ward$/i,
+          / division$/i,
+          / location$/i,
+          / sub-location$/i,
+          / sub location$/i,
+          / district$/i,
+          / constituency$/i
+        ];
+
+        suffixesToRemove.forEach(regex => {
+          cleaned = cleaned.replace(regex, '');
+        });
+
+        // Remove any trailing commas or spaces
+        cleaned = cleaned.replace(/,.*$/, '').trim();
+
+        return cleaned || "CBD";
+      };
+
+      const payload = {
+        credentials: {
+          username: this.username,
+          password: this.password,
+        },
+        sender: {
+          name: "BuyLock Vendor", // Should ideally come from vendor profile
+          address: request.pickupAddress,
+          building: request.pickupBuilding,
+          postalCode: request.pickupPostalCode,
+          city: request.pickupCity || "Nairobi",
+          suburb: cleanSuburb(request.pickupSuburb),
+          phone: request.vendorPhone,
+        },
+        recipient: {
+          name: "BuyLock Customer", // Should ideally come from user profile
+          address: request.deliveryAddress,
+          building: request.deliveryBuilding,
+          postalCode: request.deliveryPostalCode,
+          city: request.deliveryCity || "Nairobi",
+          suburb: cleanSuburb(request.deliverySuburb),
+          phone: request.customerPhone,
+        },
+        parcelDetails: [{
+          weight: request.estimatedWeight || 1.0,
+          length: 10,
+          breadth: 10,
+          height: 10,
+          description: request.packageDescription,
+          quantity: 1
+        }],
+        shipperReference: request.orderId.slice(-30) // Fargo API max 30 chars
+      };
+
+      console.log('🚚 Fargo API Payload:', JSON.stringify(payload, null, 2));
+
+      const response = await fetch(`${this.baseUrl}/shipmentRequest`, {
         method: 'POST',
         headers: {
-          'X-API-Key': this.apiKey,
+          'Authorization': `ApiKey ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          origin: request.pickupAddress,
-          destination: request.deliveryAddress,
-          sender_phone: request.vendorPhone,
-          recipient_phone: request.customerPhone,
-          item_description: request.packageDescription,
-          notes: request.specialInstructions,
-          weight_kg: request.estimatedWeight,
-          value: request.declaredValue,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        throw new Error(`Fargo API error: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Fargo API Error Body:', JSON.stringify(errorData, null, 2));
+        throw new Error(`Fargo API error (${response.status}): ${errorData.message || response.statusText}`);
       }
 
       const data = await response.json();
-      
+
       return {
         success: true,
-        trackingId: data.waybill_number,
-        estimatedPickupTime: new Date(data.pickup_eta),
-        estimatedDeliveryTime: new Date(data.delivery_eta),
+        trackingId: data.trackingNumber,
+        // Fargo ShipmentCreationResponse doesn't provide ETAs directly in 1.0.0 shipmentRequest response
+        // but we can estimate or fetch via status if needed.
+        estimatedPickupTime: new Date(),
+        estimatedDeliveryTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // Default 24h
       };
     } catch (error) {
       console.error('Fargo API Error:', error);
@@ -191,9 +285,9 @@ export class FargoCourierAPI implements CourierAPIProvider {
 
   async getDeliveryStatus(trackingId: string): Promise<CourierStatus> {
     try {
-      const response = await fetch(`${this.baseUrl}/shipments/${trackingId}/track`, {
+      const response = await fetch(`${this.baseUrl}/shipments/${trackingId}`, {
         headers: {
-          'X-API-Key': this.apiKey,
+          'Authorization': `ApiKey ${this.apiKey}`,
         },
       });
 
@@ -202,14 +296,14 @@ export class FargoCourierAPI implements CourierAPIProvider {
       }
 
       const data = await response.json();
-      
+
       return {
         trackingId,
-        status: data.current_status,
-        description: data.status_description,
-        location: data.current_location,
-        timestamp: new Date(data.last_updated),
-        estimatedDelivery: data.delivery_eta ? new Date(data.delivery_eta) : undefined,
+        status: data.status,
+        description: `Shipment Status: ${data.status}`,
+        location: data.recipient.city, // Rough location approximation from recipient city
+        timestamp: new Date(),
+        estimatedDelivery: undefined,
       };
     } catch (error) {
       console.error('Fargo Status API Error:', error);
@@ -218,19 +312,37 @@ export class FargoCourierAPI implements CourierAPIProvider {
   }
 
   async cancelDelivery(trackingId: string): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.baseUrl}/shipments/${trackingId}/cancel`, {
-        method: 'POST',
-        headers: {
-          'X-API-Key': this.apiKey,
-        },
-      });
+    // Note: Cancel delivery endpoint not found in v1.0.0 spec
+    console.warn(`Cancel delivery requested for ${trackingId}, but endpoint is not available in Fargo API v1.0.0`);
+    return false;
+  }
 
-      return response.ok;
-    } catch (error) {
-      console.error('Fargo Cancel API Error:', error);
-      return false;
+  async requestQuote(request: DeliveryRequest): Promise<CourierQuoteResponse> {
+    // Note: Fargo API v1.0.0 does not support direct quoting via API.
+    // The /shipmentRequest endpoint creates a shipment immediately and does not return pricing.
+    // We will perform a basic local validation and return a standard rate.
+
+    // Basic validation of required fields
+    if (!request.deliveryCity || !request.deliverySuburb) {
+      return {
+        success: false,
+        error: "City and Suburb are required for Fargo Courier",
+        errorCode: "INVALID_LOCATION"
+      };
     }
+
+    // Since we can't reliably quote via API without creating a shipment (and creating garbage data),
+    // we will return a successful "quote" with a standard base rate.
+    // The actual cost will be finalized upon shipment creation.
+    console.log(`DEBUG: Fargo quote requested (simulated). Path blocked due to API limitations.`);
+
+    return {
+      success: true,
+      amount: 250, // Standard base rate for Fargo within Nairobi
+      currency: "KES",
+      estimatedDeliveryTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // +24 hours
+      quoteId: "EST-" + Date.now()
+    };
   }
 }
 
@@ -241,7 +353,12 @@ export class DeliveryService {
   constructor() {
     // Initialize courier providers (API keys would come from environment variables)
     this.providers.set('g4s', new G4SCourierAPI(process.env.G4S_API_KEY || 'demo-key'));
-    this.providers.set('fargo_courier', new FargoCourierAPI(process.env.FARGO_API_KEY || 'demo-key'));
+    this.providers.set('fargo_courier', new FargoCourierAPI(
+      process.env.FARGO_API_KEY || 'demo-key',
+      process.env.FARGO_USERNAME || 'demo-user',
+      process.env.FARGO_PASSWORD || 'demo-pass',
+      process.env.FARGO_ENV || 'production'
+    ));
   }
 
   async createDelivery(order: Order, provider: DeliveryProvider): Promise<CourierResponse> {
@@ -250,15 +367,32 @@ export class DeliveryService {
       throw new Error(`Courier provider ${provider.id} not supported`);
     }
 
+    // Dynamic import to avoid circular dependency
+    const { storage } = await import('./storage');
+    const vendor = await storage.getVendorById(order.vendorId);
+    const customer = await storage.getUser(order.userId);
+
     const deliveryRequest: DeliveryRequest = {
       orderId: order.id,
-      pickupAddress: "BuyLock Vendor Address", // This should come from vendor profile
-      deliveryAddress: order.deliveryAddress || "No address provided",
-      customerPhone: "0700000000", // This should come from user profile
-      vendorPhone: "0700000001", // This should come from vendor profile
+      // Sender (Vendor) Info
+      pickupAddress: vendor?.businessAddress || vendor?.address || "Vendor Address",
+      pickupCity: vendor?.city || "Nairobi",
+      pickupSuburb: vendor?.suburb || "CBD",
+      pickupBuilding: vendor?.building || undefined,
+      pickupPostalCode: vendor?.postalCode || undefined,
+
+      // Recipient (Customer) Info
+      deliveryAddress: order.deliveryAddress || customer?.address || "No address provided",
+      deliveryCity: (order as any).deliveryCity || customer?.city || "Nairobi",
+      deliverySuburb: (order as any).deliverySuburb || customer?.suburb || "CBD",
+      deliveryBuilding: (order as any).deliveryBuilding || customer?.building || undefined,
+      deliveryPostalCode: (order as any).deliveryPostalCode || customer?.postalCode || undefined,
+
+      customerPhone: customer?.phone || "0700000000",
+      vendorPhone: vendor?.phone || "0700000001",
       packageDescription: `Order ${order.id} - ${order.orderType}`,
       specialInstructions: order.notes || undefined,
-      estimatedWeight: 1.0, // Default weight, could be calculated from order items
+      estimatedWeight: 1.0,
       declaredValue: parseFloat(order.totalAmount.toString()),
     };
 
@@ -283,6 +417,15 @@ export class DeliveryService {
     return await courierAPI.cancelDelivery(trackingId);
   }
 
+  async getQuote(providerId: string, request: DeliveryRequest): Promise<CourierQuoteResponse> {
+    const courierAPI = this.providers.get(providerId);
+    if (!courierAPI) {
+      throw new Error(`Courier provider ${providerId} not supported`);
+    }
+
+    return await courierAPI.requestQuote(request);
+  }
+
   mapCourierStatusToInternal(courierStatus: string, providerId: string): string {
     // Standardize status across different courier providers
     const statusMap: Record<string, Record<string, string>> = {
@@ -302,7 +445,9 @@ export class DeliveryService {
         'collected': 'picked_up',
         'in_warehouse': 'in_transit',
         'out_for_delivery': 'out_for_delivery',
+        'To Deliver': 'out_for_delivery', // Mapped from observed test data
         'delivered': 'delivered',
+        'Delivered': 'delivered', // Case sensitive check just in case
         'delivery_failed': 'failed',
         'cancelled': 'cancelled',
       },

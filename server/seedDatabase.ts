@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { 
+import {
   categories,
   subcategories,
   users,
@@ -21,7 +21,7 @@ export async function seedDatabase() {
   try {
     // 1. Create categories first
     console.log("📁 Creating categories...");
-    
+
     const categoryData: InsertCategory[] = [
       {
         name: "Electronics",
@@ -108,7 +108,7 @@ export async function seedDatabase() {
 
     // 3. Create the specific vendor that matches the API data
     console.log("👤 Creating vendor user and vendor record...");
-    
+
     // First, create/ensure the user record exists
     const vendorUserId = "74bf6c33-7f09-4844-903d-72bff3849c95";
     const vendorUserData: UpsertUser = {
@@ -146,13 +146,17 @@ export async function seedDatabase() {
       contactEmail: "vendor@buylock.com",
       contactName: "John Vendor",
       phone: "+254740717201",
-      address: "Nairobi CBD, Kenya",
+      address: "Westlands Square",
+      city: "Nairobi",
+      suburb: "Westlands", // Explicitly set valid suburb
+      postalCode: "00800",
+      country: "Kenya",
       businessCategory: "General Merchandise",
       description: "Premium products and services retailer with nationwide delivery",
       nationalIdNumber: "12345678",
-      businessLatitude: -1.286389, // Nairobi CBD coordinates
-      businessLongitude: 36.817223,
-      locationDescription: "Located in the heart of Nairobi Central Business District, easily accessible from all major roads and transport hubs",
+      businessLatitude: "-1.286389", // Nairobi CBD coordinates (as string)
+      businessLongitude: "36.817223",
+      locationDescription: "Located in the heart of Westlands, easily accessible from all major roads.",
       verificationStatus: "verified",
       isActive: true,
       createdAt: new Date(),
@@ -170,7 +174,8 @@ export async function seedDatabase() {
           phone: vendorData.phone,
           address: vendorData.address,
           city: vendorData.city,
-          country: vendorData.country,
+          suburb: vendorData.suburb,
+          postalCode: vendorData.postalCode,
           description: vendorData.description,
           verificationStatus: vendorData.verificationStatus,
           updatedAt: new Date(),
@@ -183,7 +188,7 @@ export async function seedDatabase() {
     // 4. Create comprehensive product inventory (90 products across 6 categories)
     if (electronicsCategory && fashionCategory && homeCategory && sportsCategory && healthCategory && booksCategory) {
       console.log("🛍️ Creating comprehensive product inventory (90 products)...");
-      
+
       const productData: InsertProduct[] = [
         // === ELECTRONICS CATEGORY (15 products, KES 28,000 - 299,999) ===
         {
@@ -1840,7 +1845,7 @@ export async function seedDatabase() {
     // 5. Create comprehensive service inventory (35 services across 5 service types)
     if (servicesCategory) {
       console.log("🔧 Creating comprehensive service inventory (35 services)...");
-      
+
       const serviceData: InsertService[] = [
         // === PROFESSIONAL SERVICES (10 services) ===
         {

@@ -39,6 +39,9 @@ export const users = pgTable("users", {
   phone: varchar("phone"),
   address: text("address"),
   city: varchar("city"),
+  suburb: varchar("suburb"),
+  building: varchar("building"),
+  postalCode: varchar("postal_code"),
   country: varchar("country").default("Kenya"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -175,6 +178,10 @@ export const orders = pgTable("orders", {
   status: varchar("status").notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   deliveryAddress: text("delivery_address").notNull(),
+  deliveryCity: varchar("delivery_city"),
+  deliverySuburb: varchar("delivery_suburb"),
+  deliveryBuilding: varchar("delivery_building"),
+  deliveryPostalCode: varchar("delivery_postal_code"),
   deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }),
   courierId: varchar("courier_id"),
   courierName: varchar("courier_name"),
@@ -244,7 +251,15 @@ export const deliveries = pgTable("deliveries", {
   courierTrackingId: varchar("courier_tracking_id"), // Backup field for courier tracking
   status: varchar("status", { length: 30 }).default("pending"), // pending, pickup_scheduled, picked_up, in_transit, out_for_delivery, delivered, failed, cancelled
   pickupAddress: text("pickup_address").notNull(), // Vendor address
+  pickupCity: varchar("pickup_city"),
+  pickupSuburb: varchar("pickup_suburb"),
+  pickupBuilding: varchar("pickup_building"),
+  pickupPostalCode: varchar("pickup_postal_code"),
   deliveryAddress: text("delivery_address").notNull(), // Customer address
+  deliveryCity: varchar("delivery_city"),
+  deliverySuburb: varchar("delivery_suburb"),
+  deliveryBuilding: varchar("delivery_building"),
+  deliveryPostalCode: varchar("delivery_postal_code"),
   estimatedPickupTime: timestamp("estimated_pickup_time"),
   actualPickupTime: timestamp("actual_pickup_time"),
   estimatedDeliveryTime: timestamp("estimated_delivery_time"),
@@ -500,7 +515,7 @@ export const insertCartItemSchema = createInsertSchema(cartItems).omit({
   id: true,
   createdAt: true,
 }).extend({
-  appointmentDate: z.string().optional().nullable().transform((val) => 
+  appointmentDate: z.string().optional().nullable().transform((val) =>
     val ? new Date(val) : null
   ),
 });
@@ -712,41 +727,46 @@ export const vendors = pgTable("vendors", {
   contactEmail: varchar("contact_email").notNull(),
   contactName: varchar("contact_name").notNull(),
   phone: varchar("phone"),
-  address: varchar("address"),
+  address: text("address"),
+  businessAddress: text("business_address"),
+  city: varchar("city"),
+  suburb: varchar("suburb"),
+  building: varchar("building"),
+  postalCode: varchar("postal_code"),
   businessCategory: varchar("business_category").notNull(),
   description: text("description"),
-  
+
   // Vendor Type - registered or non-registered
   vendorType: varchar("vendor_type", { length: 20 }).notNull().default('registered'), // 'registered' or 'non_registered'
-  
+
   // Identity and Tax Information (conditionally required based on vendor type)
   nationalIdNumber: varchar("national_id_number").notNull(),
   taxPinNumber: varchar("tax_pin_number"), // Only required for registered vendors
   nationalIdUrl: varchar("national_id_url"), // PDF URL for national ID document
   taxCertificateUrl: varchar("tax_certificate_url"), // PDF URL for tax certificate (only for registered vendors)
-  
+
   // Location Information (required for proximity-based services and customer matching)
   businessLatitude: decimal("business_latitude", { precision: 10, scale: 8 }).notNull(), // Business location latitude (required)
   businessLongitude: decimal("business_longitude", { precision: 11, scale: 8 }).notNull(), // Business location longitude (required)
   locationDescription: text("location_description").notNull(), // Human-readable location description from map search
-  
+
   // Bank Details for Paystack payouts
   bankName: varchar("bank_name"), // Bank name from Paystack supported banks
   bankCode: varchar("bank_code"), // Bank code for Paystack integration
   accountNumber: varchar("account_number"), // Bank account number
   accountName: varchar("account_name"), // Account holder name
-  
+
   // Paystack Subaccount Integration
   paystackSubaccountId: varchar("paystack_subaccount_id"), // Paystack subaccount ID
   paystackSubaccountCode: varchar("paystack_subaccount_code"), // Paystack subaccount code (ACCT_xxxx)
   subaccountActive: boolean("subaccount_active").default(false), // Whether subaccount is active
-  
+
   // Vendor Earnings Tracking
   totalEarnings: decimal("total_earnings", { precision: 12, scale: 2 }).default("0"), // Total lifetime earnings
   availableBalance: decimal("available_balance", { precision: 12, scale: 2 }).default("0"), // Available for payout
   pendingBalance: decimal("pending_balance", { precision: 12, scale: 2 }).default("0"), // Pending payout requests
   totalPaidOut: decimal("total_paid_out", { precision: 12, scale: 2 }).default("0"), // Total amount paid out
-  
+
   verificationStatus: varchar("verification_status", { length: 20 }).default('pending'),
   verificationNotes: text("verification_notes"),
   verifiedAt: timestamp("verified_at"),
@@ -786,23 +806,23 @@ export const payoutRequests = pgTable("payout_requests", {
   availableBalance: decimal("available_balance", { precision: 10, scale: 2 }).notNull(), // Balance at time of request
   status: varchar("status", { length: 20 }).default("pending"), // pending, approved, rejected, processing, completed, failed
   requestReason: text("request_reason"), // Optional reason from vendor
-  
+
   // Admin Review
   reviewedBy: varchar("reviewed_by"), // Admin user ID who reviewed
   reviewedAt: timestamp("reviewed_at"),
   adminNotes: text("admin_notes"), // Admin review notes
-  
+
   // Paystack Transfer Details
   paystackTransferId: varchar("paystack_transfer_id"), // Paystack transfer reference
   paystackTransferCode: varchar("paystack_transfer_code"), // Paystack transfer code
   transferStatus: varchar("transfer_status", { length: 20 }), // pending, success, failed, cancelled
   transferFailureReason: text("transfer_failure_reason"),
-  
+
   // Completion Details
   actualPaidAmount: decimal("actual_paid_amount", { precision: 10, scale: 2 }), // Actual amount transferred
   completedAt: timestamp("completed_at"), // When transfer completed successfully
   failedAt: timestamp("failed_at"), // When transfer failed
-  
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

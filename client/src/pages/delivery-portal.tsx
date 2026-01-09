@@ -90,8 +90,8 @@ export default function DeliveryPortal() {
   });
 
   const createDeliveryMutation = useMutation({
-    mutationFn: async (data: { 
-      orderId: string; 
+    mutationFn: async (data: {
+      orderId: string;
       providerId: string;
       pickupInstructions?: string;
     }) => {
@@ -104,11 +104,11 @@ export default function DeliveryPortal() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/deliveries'] });
       queryClient.invalidateQueries({ queryKey: ['/api/deliveries/pickup-orders'] });
-      
+
       const courier = providers?.find(p => p.id === variables.providerId);
       const courierName = courier?.name || 'Selected courier';
       const estimatedTime = courier?.estimatedDeliveryTime || '2-4 hours';
-      
+
       toast({
         title: "Pickup Requested Successfully! 🚚",
         description: `${courierName} has been notified. Expected pickup within ${estimatedTime}.`,
@@ -124,10 +124,10 @@ export default function DeliveryPortal() {
   });
 
   const updateDeliveryMutation = useMutation({
-    mutationFn: async (data: { 
-      deliveryId: string; 
-      status: string; 
-      description?: string; 
+    mutationFn: async (data: {
+      deliveryId: string;
+      status: string;
+      description?: string;
       trackingId?: string;
     }) => {
       return await apiRequest(`/api/deliveries/${data.deliveryId}/status`, 'PUT', {
@@ -153,7 +153,7 @@ export default function DeliveryPortal() {
     },
   });
 
-  const filteredDeliveries = deliveries?.filter(delivery => 
+  const filteredDeliveries = deliveries?.filter(delivery =>
     selectedStatus === "all" || delivery.status === selectedStatus
   ) || [];
 
@@ -232,7 +232,7 @@ export default function DeliveryPortal() {
                       <h4 className="font-semibold text-gray-900">Order #{order.trackingNumber}</h4>
                       <Badge className="bg-orange-100 text-orange-800">Ready</Badge>
                     </div>
-                    
+
                     <div className="space-y-2 text-sm text-gray-600 mb-4">
                       <div className="flex items-center space-x-2">
                         <MapPin className="w-4 h-4" />
@@ -250,10 +250,10 @@ export default function DeliveryPortal() {
                       )}
                       {(() => {
                         // Use assigned courier or default to Fargo courier
-                        const courierId = order.courierId || 'fargo-courier';
+                        const courierId = order.courierId || 'fargo_courier';
                         const courier = providers?.find(p => p.id === courierId);
                         const courierName = order.courierName || courier?.name || 'Fargo Courier Services';
-                        
+
                         return (
                           <div className="space-y-1">
                             <div className="flex items-center space-x-2">
@@ -272,7 +272,7 @@ export default function DeliveryPortal() {
                       })()}
                     </div>
 
-                    <Button 
+                    <Button
                       onClick={() => {
                         setShowInstructionsDialog(order.id);
                         setPickupInstructions("");
@@ -281,8 +281,8 @@ export default function DeliveryPortal() {
                       className="w-full bg-[#FF4605] hover:bg-[#E63E05] text-white"
                     >
                       <Truck className="w-4 h-4 mr-2" />
-                      {createDeliveryMutation.isPending ? 'Requesting...' : 
-                        `Request ${order.courierName || providers?.find(p => p.id === (order.courierId || 'fargo-courier'))?.name || 'Fargo Courier Services'} Pickup`}
+                      {createDeliveryMutation.isPending ? 'Requesting...' :
+                        `Request ${order.courierName || providers?.find(p => p.id === (order.courierId || 'fargo_courier'))?.name || 'Fargo Courier Services'} Pickup`}
                     </Button>
                   </div>
                 ))}
@@ -363,8 +363,8 @@ export default function DeliveryPortal() {
 
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full"
                       onClick={() => setSelectedDelivery(delivery)}
                     >
@@ -375,7 +375,7 @@ export default function DeliveryPortal() {
                     <DialogHeader>
                       <DialogTitle>Update Delivery Status</DialogTitle>
                     </DialogHeader>
-                    <DeliveryUpdateForm 
+                    <DeliveryUpdateForm
                       delivery={delivery}
                       onUpdate={(status, description, trackingId) => {
                         updateDeliveryMutation.mutate({
@@ -400,8 +400,8 @@ export default function DeliveryPortal() {
               <Truck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No deliveries found</h3>
               <p className="text-gray-500">
-                {selectedStatus === "all" 
-                  ? "No deliveries available in the system" 
+                {selectedStatus === "all"
+                  ? "No deliveries available in the system"
                   : `No deliveries with status: ${selectedStatus.replace('_', ' ')}`}
               </p>
             </CardContent>
@@ -418,7 +418,7 @@ export default function DeliveryPortal() {
           </CardHeader>
           <CardContent>
             <p className="text-gray-600 mb-4">
-              Internal dispatch operations for BuyLock delivery service. Orders assigned to our internal 
+              Internal dispatch operations for BuyLock delivery service. Orders assigned to our internal
               dispatch service will appear here for processing.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -479,8 +479,8 @@ export default function DeliveryPortal() {
                     if (showInstructionsDialog) {
                       const order = pickupOrders?.find(o => o.id === showInstructionsDialog);
                       if (order) {
-                        const courierId = order.courierId || 'fargo-courier';
-                        
+                        const courierId = order.courierId || 'fargo_courier';
+
                         createDeliveryMutation.mutate({
                           orderId: order.id,
                           providerId: courierId,

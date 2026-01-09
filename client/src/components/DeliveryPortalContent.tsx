@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Truck, Package, Clock, MapPin, Phone, CheckCircle, AlertCircle } from "lucide-react";
+import { Truck, Package, Clock, MapPin, Phone, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Delivery {
@@ -90,8 +90,8 @@ export default function DeliveryPortalContent() {
   });
 
   const fulfillOrderMutation = useMutation({
-    mutationFn: async (data: { 
-      orderId: string; 
+    mutationFn: async (data: {
+      orderId: string;
     }) => {
       return await apiRequest(`/api/orders/${data.orderId}/fulfill`, 'PUT');
     },
@@ -99,7 +99,7 @@ export default function DeliveryPortalContent() {
       queryClient.invalidateQueries({ queryKey: ['/api/deliveries'] });
       queryClient.invalidateQueries({ queryKey: ['/api/deliveries/pickup-orders'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
-      
+
       toast({
         title: "Order Fulfilled Successfully! ✅",
         description: "Order has been marked as fulfilled and moved to completed orders. Vendor earnings have been calculated.",
@@ -114,10 +114,37 @@ export default function DeliveryPortalContent() {
     },
   });
 
+  const notifyCourierMutation = useMutation({
+    mutationFn: async (data: {
+      orderId: string;
+      providerId: string;
+    }) => {
+      // Calls the backend to create a delivery (triggering Fargo/Courier API)
+      return await apiRequest(`/api/deliveries/create`, 'POST', data);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/deliveries'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/deliveries/pickup-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+
+      toast({
+        title: "Courier Notified Successfully! 🚛",
+        description: `Pickup request sent. Tracking ID: ${data.externalTrackingId}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Notification Failed",
+        description: error.message || "Failed to notify courier",
+        variant: "destructive",
+      });
+    },
+  });
+
   const updateDeliveryMutation = useMutation({
-    mutationFn: async (data: { 
-      deliveryId: string; 
-      status: string; 
+    mutationFn: async (data: {
+      deliveryId: string;
+      status: string;
       courierName?: string;
       courierPhone?: string;
       estimatedDeliveryTime?: string;
@@ -139,6 +166,39 @@ export default function DeliveryPortalContent() {
         variant: "destructive",
       });
     },
+  });
+
+  const refreshDeliveryMutation = useMutation({
+    mutationFn: async (deliveryId: string) => {
+      // We set selected strictly for loading state tracking in the specific button
+      setSelectedDelivery({ id: deliveryId } as Delivery);
+      return await apiRequest(`/api/deliveries/${deliveryId}/refresh`, 'POST');
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/deliveries'] });
+
+      if (data.updated) {
+        toast({
+          title: "Status Refreshed 🔄",
+          description: `Updated to: ${data.status.replace('_', ' ').toUpperCase()}`,
+        });
+      } else {
+        toast({
+          title: "Status Verified",
+          description: "Status is already up to date.",
+          variant: 'default', // plain/info
+        });
+      }
+      setSelectedDelivery(null);
+    },
+    onError: () => {
+      toast({
+        title: "Sync Failed",
+        description: "Could not fetch latest status from courier.",
+        variant: "destructive",
+      });
+      setSelectedDelivery(null);
+    }
   });
 
   const formatPrice = (price: string | number) => {
@@ -169,7 +229,7 @@ export default function DeliveryPortalContent() {
     );
   };
 
-  const filteredDeliveries = deliveries?.filter(delivery => 
+  const filteredDeliveries = deliveries?.filter(delivery =>
     selectedStatus === "all" || delivery.status === selectedStatus
   ) || [];
 
@@ -280,16 +340,30 @@ export default function DeliveryPortalContent() {
                     </div>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Order Fulfilled
+                        <Button
+                          size="sm"
+                          className={order.courierId && order.courierId !== 'dispatch_service'
+                            ? "bg-blue-600 hover:bg-blue-700"
+                            : "bg-green-600 hover:bg-green-700"}
+                        >
+                          {order.courierId && order.courierId !== 'dispatch_service' ? (
+                            <>
+                              <Truck className="w-4 h-4 mr-1" />
+                              Notify Courier
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Order Fulfilled
+                            </>
+                          )}
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>
                           <DialogTitle>Mark Order as Fulfilled - Order #{order.trackingNumber}</DialogTitle>
                         </DialogHeader>
-                        
+
                         <div className="space-y-4">
                           <div className="bg-green-50 p-4 rounded-lg">
                             <h4 className="font-semibold text-green-900 mb-2">Order Fulfillment Confirmation</h4>
@@ -313,22 +387,44 @@ export default function DeliveryPortalContent() {
                               <p><strong>Order Total:</strong> {formatPrice(order.totalAmount)}</p>
                               <p><strong>Customer:</strong> {order.user?.firstName} {order.user?.lastName}</p>
                               <p><strong>Delivery Address:</strong> {order.deliveryAddress}</p>
+                              {order.courierId && order.courierId !== 'dispatch_service' && (
+                                <p className="text-blue-600 font-medium mt-2">
+                                  <Truck className="w-3 h-3 inline mr-1" />
+                                  Courier: {order.courierName}
+                                </p>
+                              )}
                             </div>
                           </div>
-                          
+
                           <div className="pt-4">
-                            <Button 
-                              onClick={() => {
-                                fulfillOrderMutation.mutate({
-                                  orderId: order.id,
-                                });
-                              }}
-                              disabled={fulfillOrderMutation.isPending}
-                              className="w-full bg-green-600 hover:bg-green-700"
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              {fulfillOrderMutation.isPending ? 'Fulfilling Order...' : 'Confirm Order Fulfilled'}
-                            </Button>
+                            {order.courierId && order.courierId !== 'dispatch_service' ? (
+                              <Button
+                                onClick={() => {
+                                  notifyCourierMutation.mutate({
+                                    orderId: order.id,
+                                    providerId: order.courierId!, // Safe assert as we checked condition
+                                  });
+                                }}
+                                disabled={notifyCourierMutation.isPending}
+                                className="w-full bg-blue-600 hover:bg-blue-700"
+                              >
+                                <Truck className="w-4 h-4 mr-2" />
+                                {notifyCourierMutation.isPending ? 'Notifying Courier...' : 'Notify Courier to Pickup'}
+                              </Button>
+                            ) : (
+                              <Button
+                                onClick={() => {
+                                  fulfillOrderMutation.mutate({
+                                    orderId: order.id,
+                                  });
+                                }}
+                                disabled={fulfillOrderMutation.isPending}
+                                className="w-full bg-green-600 hover:bg-green-700"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                {fulfillOrderMutation.isPending ? 'Fulfilling Order...' : 'Confirm Order Fulfilled'}
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </DialogContent>
@@ -383,7 +479,7 @@ export default function DeliveryPortalContent() {
               <Truck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600">No deliveries found</p>
               <p className="text-sm text-gray-400">
-                {selectedStatus === "all" 
+                {selectedStatus === "all"
                   ? "No deliveries have been created yet"
                   : `No deliveries with status "${selectedStatus.replace('_', ' ')}"`
                 }
@@ -418,81 +514,94 @@ export default function DeliveryPortalContent() {
                       <p className="font-bold">{formatPrice(delivery.deliveryFee)}</p>
                       {getStatusBadge(delivery.status)}
                     </div>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setSelectedDelivery(delivery)}
-                        >
-                          Update Status
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Update Delivery Status</DialogTitle>
-                        </DialogHeader>
-                        
-                        <div className="space-y-4">
-                          <div>
-                            <Label>Delivery Status</Label>
-                            <Select 
-                              defaultValue={delivery.status}
-                              onValueChange={(status) => {
-                                updateDeliveryMutation.mutate({
-                                  deliveryId: delivery.id,
-                                  status: status,
-                                });
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="pending">Pending</SelectItem>
-                                <SelectItem value="in_transit">In Transit</SelectItem>
-                                <SelectItem value="delivered">Delivered</SelectItem>
-                                <SelectItem value="failed">Failed</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          refreshDeliveryMutation.mutate(delivery.id);
+                        }}
+                        disabled={refreshDeliveryMutation.isPending && selectedDelivery?.id === delivery.id}
+                      >
+                        <RefreshCw className={`w-3 h-3 mr-1 ${refreshDeliveryMutation.isPending && selectedDelivery?.id === delivery.id ? 'animate-spin' : ''}`} />
+                        Sync
+                      </Button>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedDelivery(delivery)}
+                          >
+                            Update Status
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Update Delivery Status</DialogTitle>
+                          </DialogHeader>
+
+                          <div className="space-y-4">
                             <div>
-                              <Label>Courier Name</Label>
-                              <Input 
-                                defaultValue={delivery.courierName || ''}
-                                placeholder="Enter courier name"
+                              <Label>Delivery Status</Label>
+                              <Select
+                                defaultValue={delivery.status}
+                                onValueChange={(status) => {
+                                  updateDeliveryMutation.mutate({
+                                    deliveryId: delivery.id,
+                                    status: status,
+                                  });
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pending">Pending</SelectItem>
+                                  <SelectItem value="in_transit">In Transit</SelectItem>
+                                  <SelectItem value="delivered">Delivered</SelectItem>
+                                  <SelectItem value="failed">Failed</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <Label>Courier Name</Label>
+                                <Input
+                                  defaultValue={delivery.courierName || ''}
+                                  placeholder="Enter courier name"
+                                />
+                              </div>
+                              <div>
+                                <Label>Courier Phone</Label>
+                                <Input
+                                  defaultValue={delivery.courierPhone || ''}
+                                  placeholder="Enter phone number"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <Label>Estimated Delivery Time</Label>
+                              <Input
+                                defaultValue={delivery.estimatedDeliveryTime || ''}
+                                placeholder="e.g., 2-4 hours"
                               />
                             </div>
+
                             <div>
-                              <Label>Courier Phone</Label>
-                              <Input 
-                                defaultValue={delivery.courierPhone || ''}
-                                placeholder="Enter phone number"
+                              <Label>Special Instructions</Label>
+                              <Textarea
+                                defaultValue={delivery.specialInstructions || ''}
+                                placeholder="Any special delivery instructions..."
+                                rows={3}
                               />
                             </div>
                           </div>
-                          
-                          <div>
-                            <Label>Estimated Delivery Time</Label>
-                            <Input 
-                              defaultValue={delivery.estimatedDeliveryTime || ''}
-                              placeholder="e.g., 2-4 hours"
-                            />
-                          </div>
-                          
-                          <div>
-                            <Label>Special Instructions</Label>
-                            <Textarea 
-                              defaultValue={delivery.specialInstructions || ''}
-                              placeholder="Any special delivery instructions..."
-                              rows={3}
-                            />
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   </div>
                 </div>
               ))}

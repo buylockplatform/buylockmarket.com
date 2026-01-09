@@ -18,6 +18,7 @@ import { useGuestCart } from "@/hooks/useGuestCart";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useLocation } from "wouter";
 import { Link } from "wouter";
+import { LocationAutocomplete } from "@/components/LocationAutocomplete";
 import type { CartItem, Product, Service } from "@shared/schema";
 
 interface CartItemWithDetails extends CartItem {
@@ -54,6 +55,10 @@ export default function Cart() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [selectedCourier, setSelectedCourier] = useState<string>("");
+  const [deliveryCity, setDeliveryCity] = useState("Nairobi");
+  const [deliverySuburb, setDeliverySuburb] = useState("");
+  const [deliveryBuilding, setDeliveryBuilding] = useState("");
+  const [deliveryPostalCode, setDeliveryPostalCode] = useState("");
   const [courierQuote, setCourierQuote] = useState<CourierQuote | null>(null);
   const [showCourierSelection, setShowCourierSelection] = useState(false);
   const [paymentVerificationAttempted, setPaymentVerificationAttempted] = useState(false);
@@ -185,6 +190,10 @@ export default function Cart() {
         amount: calculateTotal(),
         email: user?.email || "customer@buylock.com",
         deliveryAddress: deliveryAddress || "Default address",
+        deliveryCity: deliveryCity,
+        deliverySuburb: deliverySuburb,
+        deliveryBuilding: deliveryBuilding,
+        deliveryPostalCode: deliveryPostalCode,
         notes,
         items: orderItems,
         courierId: selectedCourier,
@@ -245,17 +254,17 @@ export default function Cart() {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       // Invalidate all vendor queries using predicate
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey?.[0];
           return typeof key === 'string' && key.startsWith('/api/vendor/');
         }
       });
-      
+
       if (result.success) {
         // Clear pending payment reference
         localStorage.removeItem('pending_payment_reference');
-        
+
         toast({
           title: "Payment Successful!",
           description: `Your order has been confirmed. Redirecting to your orders...`,
@@ -305,7 +314,7 @@ export default function Cart() {
   // Check for payment return from Paystack (single attempt)
   useEffect(() => {
     if (paymentVerificationAttempted) return;
-    
+
     const urlParams = new URLSearchParams(window.location.search);
     const reference = urlParams.get('reference');
     const status = urlParams.get('status');
@@ -315,7 +324,7 @@ export default function Cart() {
     const lastPaymentTime = localStorage.getItem('last_payment_time');
     const now = Date.now();
     const fiveMinutesAgo = now - (5 * 60 * 1000);
-    
+
     const isRecentPayment = lastPaymentTime && parseInt(lastPaymentTime) > fiveMinutesAgo;
 
     if (reference && status === 'returned' && isRecentPayment) {
@@ -336,7 +345,7 @@ export default function Cart() {
       }
       setPaymentVerificationAttempted(true);
       verifyPaymentMutation.mutate(reference);
-      
+
       // Clean up URL parameters and storage
       window.history.replaceState({}, document.title, '/cart');
       localStorage.removeItem('last_payment_time');
@@ -360,14 +369,14 @@ export default function Cart() {
   // Auto-retry payment verification for pending payments (once only)
   useEffect(() => {
     if (paymentVerificationAttempted) return;
-    
+
     const checkPendingPayments = () => {
       const pendingReference = localStorage.getItem('pending_payment_reference');
       if (pendingReference) {
         if (!isAuthenticated) {
           console.log('User not authenticated, redirecting to login');
           toast({
-            title: "Session expired", 
+            title: "Session expired",
             description: "Please log in to verify payment",
             variant: "destructive",
           });
@@ -429,6 +438,10 @@ export default function Cart() {
       const response = await apiRequest("/api/couriers/calculate", "POST", {
         courierId,
         location,
+        city: deliveryCity,
+        suburb: deliverySuburb,
+        building: deliveryBuilding,
+        postalCode: deliveryPostalCode,
         weight: calculateWeight(),
       });
       return response;
@@ -440,10 +453,21 @@ export default function Cart() {
         description: `${result.courierName}: ${formatPrice(result.totalCost)} (${result.estimatedTime})`,
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      setCourierQuote(null);
+      let errorMessage = "Failed to calculate delivery cost";
+      let title = "Error";
+
+      if (error.code === 'INVALID_LOCATION') {
+        title = "Invalid Location";
+        errorMessage = "Fargo Courier could not validate this location. Please check the city and suburb.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
       toast({
-        title: "Error",
-        description: "Failed to calculate delivery cost",
+        title,
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -451,7 +475,7 @@ export default function Cart() {
 
   const handleCourierSelect = (courierId: string) => {
     setSelectedCourier(courierId);
-    if (deliveryAddress.trim()) {
+    if (deliveryAddress.trim() || (courierId === 'fargo_courier' && deliverySuburb)) {
       calculateCourierCostMutation.mutate({ courierId, location: deliveryAddress });
     } else {
       toast({
@@ -506,10 +530,10 @@ export default function Cart() {
   // Check for payment verification on page load (single attempt)
   useEffect(() => {
     if (paymentVerificationAttempted) return;
-    
+
     const urlParams = new URLSearchParams(window.location.search);
     const reference = urlParams.get('reference');
-    
+
     if (reference) {
       setPaymentVerificationAttempted(true);
       verifyPaymentMutation.mutate(reference);
@@ -527,7 +551,7 @@ export default function Cart() {
             <ShoppingBag className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Please log in to view your cart</h1>
             <p className="text-gray-600 mb-6">You need to be logged in to access your shopping cart.</p>
-            <Button 
+            <Button
               onClick={() => window.location.href = "/login"}
               className="bg-buylock-primary hover:bg-buylock-primary/90"
             >
@@ -543,7 +567,7 @@ export default function Cart() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      
+
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
@@ -613,13 +637,13 @@ export default function Cart() {
               {cartItems && cartItems.map((item) => {
                 const itemData = item.product || item.service;
                 const isProduct = !!item.product;
-                
+
                 return (
                   <Card key={item.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-6">
                       <div className="flex space-x-4">
-                        <img 
-                          src={itemData?.imageUrl || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&h=200"} 
+                        <img
+                          src={itemData?.imageUrl || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&h=200"}
                           alt={itemData?.name || "Item"}
                           className="w-20 h-20 object-cover rounded-lg"
                         />
@@ -641,11 +665,11 @@ export default function Cart() {
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
-                          
+
                           <p className="text-sm text-gray-600 mb-3">
                             {itemData?.description || itemData?.shortDescription || "No description available"}
                           </p>
-                          
+
                           {/* Service Appointment Details */}
                           {!isProduct && (item.appointmentDate || item.appointmentTime || item.serviceLocation) && (
                             <div className="bg-blue-50 p-3 rounded-lg mb-3 space-y-1">
@@ -677,7 +701,7 @@ export default function Cart() {
                               )}
                             </div>
                           )}
-                          
+
                           <div className="flex items-center justify-between">
                             {/* Quantity controls - only show for products */}
                             <div className="flex items-center space-x-3">
@@ -707,7 +731,7 @@ export default function Cart() {
                                 </Badge>
                               )}
                             </div>
-                            
+
                             <div className="text-right">
                               <p className="font-bold text-buylock-primary text-lg">
                                 {formatPrice(parseFloat(itemData?.price || "0") * (item.quantity || 1))}
@@ -731,13 +755,13 @@ export default function Cart() {
               <Card>
                 <CardContent className="p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h3>
-                  
+
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Subtotal ({cartItems.length} items)</span>
                       <span className="font-semibold">{formatPrice(calculateSubtotal())}</span>
                     </div>
-                    
+
                     {/* Hide delivery fee for services-only carts */}
                     {!hasOnlyServices && (
                       <div className="flex justify-between">
@@ -754,16 +778,16 @@ export default function Cart() {
                         </span>
                       </div>
                     )}
-                    
+
                     {courierQuote && (
                       <div className="text-sm text-gray-600">
                         <p>Estimated time: {courierQuote.estimatedTime}</p>
                         <p>Distance: ~{courierQuote.estimatedDistance}km</p>
                       </div>
                     )}
-                    
+
                     <Separator />
-                    
+
                     <div className="flex justify-between text-lg font-bold">
                       <span>Total</span>
                       <span className="text-buylock-primary">{formatPrice(calculateTotal())}</span>
@@ -780,107 +804,169 @@ export default function Cart() {
                       <Truck className="w-5 h-5 mr-2 text-buylock-primary" />
                       Delivery Information
                     </h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="address">Delivery Address *</Label>
-                      <Textarea
-                        id="address"
-                        placeholder="Enter your delivery address (e.g., Westlands, Nairobi)..."
-                        value={deliveryAddress}
-                        onChange={(e) => handleAddressChange(e.target.value)}
-                        className="mt-1"
-                        rows={3}
-                      />
-                    </div>
 
-                    {/* Courier Selection */}
-                    {deliveryAddress.trim() && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="city">City *</Label>
+                          <Input
+                            id="city"
+                            value={deliveryCity}
+                            readOnly
+                            disabled
+                            placeholder="Auto-filled from address"
+                            className="mt-1 bg-gray-50"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="suburb">Suburb/Area *</Label>
+                          <Input
+                            id="suburb"
+                            value={deliverySuburb}
+                            readOnly
+                            disabled
+                            placeholder="Auto-filled from address"
+                            className="mt-1 bg-gray-50"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="building">Building/House No.</Label>
+                          <Input
+                            id="building"
+                            value={deliveryBuilding}
+                            onChange={(e) => setDeliveryBuilding(e.target.value)}
+                            placeholder="e.g. Mirage Towers"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="postalCode">Postal Code</Label>
+                          <Input
+                            id="postalCode"
+                            value={deliveryPostalCode}
+                            onChange={(e) => setDeliveryPostalCode(e.target.value)}
+                            placeholder="e.g. 00100"
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+
                       <div>
-                        <Label>Select Courier *</Label>
-                        <div className="grid grid-cols-1 gap-3 mt-2">
-                          {couriers.map((courier) => (
-                            <div
-                              key={courier.id}
-                              className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                                selectedCourier === courier.id
+                        <LocationAutocomplete
+                          label="Delivery Address"
+                          placeholder="Start typing your address in Kenya..."
+                          defaultValue={deliveryAddress}
+                          required
+                          onLocationSelect={(location) => {
+                            setDeliveryAddress(location.address);
+                            setDeliveryCity(location.city);
+                            setDeliverySuburb(location.suburb);
+                            setDeliveryBuilding(location.building || '');
+                            setDeliveryPostalCode(location.postalCode || '');
+
+                            // Trigger courier cost calculation if courier is selected
+                            if (selectedCourier) {
+                              calculateCourierCostMutation.mutate({
+                                courierId: selectedCourier,
+                                location: location.address
+                              });
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Select from suggestions to auto-fill city, suburb, and postal code
+                        </p>
+                      </div>
+
+                      {/* Courier Selection */}
+                      {deliveryAddress.trim() && (
+                        <div>
+                          <Label>Select Courier *</Label>
+                          <div className="grid grid-cols-1 gap-3 mt-2">
+                            {couriers.map((courier) => (
+                              <div
+                                key={courier.id}
+                                className={`border rounded-lg p-4 cursor-pointer transition-all ${selectedCourier === courier.id
                                   ? "border-buylock-primary bg-orange-50"
                                   : "border-gray-200 hover:border-gray-300"
-                              }`}
-                              onClick={() => handleCourierSelect(courier.id)}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                  <span className="text-2xl">{courier.logo}</span>
-                                  <div>
-                                    <h4 className="font-semibold text-gray-900">{courier.name}</h4>
-                                    <p className="text-sm text-gray-600">{courier.coverage}</p>
-                                    <p className="text-xs text-gray-500">Est. {courier.estimatedTime}</p>
+                                  }`}
+                                onClick={() => handleCourierSelect(courier.id)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <span className="text-2xl">{courier.logo}</span>
+                                    <div>
+                                      <h4 className="font-semibold text-gray-900">{courier.name}</h4>
+                                      <p className="text-sm text-gray-600">{courier.coverage}</p>
+                                      <p className="text-xs text-gray-500">Est. {courier.estimatedTime}</p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-bold text-buylock-primary">
+                                      {selectedCourier === courier.id && courierQuote
+                                        ? formatPrice(courierQuote.totalCost)
+                                        : `Base: ${formatPrice(courier.baseRate)}`}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      +{formatPrice(courier.perKmRate)}/km
+                                    </p>
+                                    {calculateCourierCostMutation.isPending && selectedCourier === courier.id && (
+                                      <p className="text-xs text-blue-600">Calculating...</p>
+                                    )}
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="font-bold text-buylock-primary">
-                                    {selectedCourier === courier.id && courierQuote
-                                      ? formatPrice(courierQuote.totalCost)
-                                      : `Base: ${formatPrice(courier.baseRate)}`}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    +{formatPrice(courier.perKmRate)}/km
-                                  </p>
-                                  {calculateCourierCostMutation.isPending && selectedCourier === courier.id && (
-                                    <p className="text-xs text-blue-600">Calculating...</p>
-                                  )}
-                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                        
-                        {courierQuote && (
-                          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <p className="text-sm text-green-800">
-                              <strong>{courierQuote.courierName}</strong> - {formatPrice(courierQuote.totalCost)}
-                            </p>
-                            <p className="text-xs text-green-700">
-                              Distance: ~{courierQuote.estimatedDistance}km • Weight: ~{Math.ceil(calculateWeight())}kg
-                            </p>
+                            ))}
                           </div>
-                        )}
+
+                          {courierQuote && (
+                            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <p className="text-sm text-green-800">
+                                <strong>{courierQuote.courierName}</strong> - {formatPrice(courierQuote.totalCost)}
+                              </p>
+                              <p className="text-xs text-green-700">
+                                Distance: ~{courierQuote.estimatedDistance}km • Weight: ~{Math.ceil(calculateWeight())}kg
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div>
+                        <Label htmlFor="notes">Order Notes (Optional)</Label>
+                        <Textarea
+                          id="notes"
+                          placeholder="Any special instructions..."
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          className="mt-1"
+                          rows={2}
+                        />
                       </div>
-                    )}
-                    
-                    <div>
-                      <Label htmlFor="notes">Order Notes (Optional)</Label>
-                      <Textarea
-                        id="notes"
-                        placeholder="Any special instructions..."
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        className="mt-1"
-                        rows={2}
-                      />
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Checkout Button */}
               <Button
                 onClick={handleCheckout}
                 disabled={
-                  initializePaymentMutation.isPending || 
-                  verifyPaymentMutation.isPending || 
+                  initializePaymentMutation.isPending ||
+                  verifyPaymentMutation.isPending ||
                   (!hasOnlyServices && (!deliveryAddress.trim() || !selectedCourier || !courierQuote))
                 }
                 className="w-full bg-buylock-primary hover:bg-buylock-primary/90 text-white font-semibold py-3 text-lg"
                 size="lg"
               >
                 <CreditCard className="w-5 h-5 mr-2" />
-                {initializePaymentMutation.isPending ? "Processing..." : 
-                 verifyPaymentMutation.isPending ? "Verifying Payment..." : 
-                 calculateCourierCostMutation.isPending ? "Calculating delivery..." :
-                 `Checkout • ${formatPrice(calculateTotal())}`}
+                {initializePaymentMutation.isPending ? "Processing..." :
+                  verifyPaymentMutation.isPending ? "Verifying Payment..." :
+                    calculateCourierCostMutation.isPending ? "Calculating delivery..." :
+                      `Checkout • ${formatPrice(calculateTotal())}`}
               </Button>
 
               {/* Security Notice */}
