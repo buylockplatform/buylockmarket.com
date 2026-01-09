@@ -496,6 +496,11 @@ export default function DeliveryPortalContent() {
                     <div>
                       <h4 className="font-semibold">Delivery #{delivery.id.slice(-8).toUpperCase()}</h4>
                       <p className="text-sm text-gray-600">Order: {delivery.orderId.slice(-8).toUpperCase()}</p>
+                      {delivery.externalTrackingId && (
+                        <p className="text-sm text-blue-800 font-medium bg-blue-50 px-2 py-0.5 rounded-md inline-block my-1">
+                          Waybill: {delivery.externalTrackingId}
+                        </p>
+                      )}
                       <p className="text-sm text-gray-600 flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
                         {delivery.deliveryAddress}
