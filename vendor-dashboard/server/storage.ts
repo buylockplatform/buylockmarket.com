@@ -3,6 +3,7 @@ import {
   categories,
   products,
   services,
+  passwordResetTokens,
   type Vendor,
   type InsertVendor,
   type Category,
@@ -11,6 +12,7 @@ import {
   type InsertProduct,
   type Service,
   type InsertService,
+  type PasswordResetToken,
 } from "../shared/schema.js";
 import { db } from "./db.js";
 import { eq, and, desc } from "drizzle-orm";
@@ -22,6 +24,10 @@ export interface IVendorStorage {
   getVendorByEmail(email: string): Promise<Vendor | undefined>;
   getVendorById(id: string): Promise<Vendor | undefined>;
   validateVendor(email: string, password: string): Promise<Vendor | null>;
+  updateVendorPassword(vendorId: string, hashedPassword: string): Promise<void>;
+  createPasswordResetToken(vendorId: string, token: string, expiresAt: Date): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<void>;
   
   // Categories
   getCategories(): Promise<Category[]>;
@@ -70,6 +76,36 @@ export class DatabaseVendorStorage implements IVendorStorage {
     
     const isValid = await bcrypt.compare(password, vendor.password);
     return isValid ? vendor : null;
+  }
+
+  async updateVendorPassword(vendorId: string, hashedPassword: string): Promise<void> {
+    await db
+      .update(vendors)
+      .set({ password: hashedPassword, updatedAt: new Date() })
+      .where(eq(vendors.id, vendorId));
+  }
+
+  async createPasswordResetToken(vendorId: string, token: string, expiresAt: Date): Promise<PasswordResetToken> {
+    const [record] = await db
+      .insert(passwordResetTokens)
+      .values({ vendorId, token, expiresAt })
+      .returning();
+    return record;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [record] = await db
+      .select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.token, token));
+    return record;
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db
+      .update(passwordResetTokens)
+      .set({ used: true })
+      .where(eq(passwordResetTokens.token, token));
   }
 
   // Categories

@@ -16,7 +16,14 @@ export async function apiRequest(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`${response.status}: ${errorText}`);
+    let message = errorText;
+    try {
+      const errorJson = JSON.parse(errorText);
+      if (errorJson.message) message = errorJson.message;
+    } catch {
+      // not JSON — use raw text
+    }
+    throw new Error(message);
   }
 
   return response.json();

@@ -2,9 +2,10 @@ import express from "express";
 import path from "path";
 import { registerVendorRoutes } from "./routes.js";
 import { seedVendorDatabase } from "./seed.js";
+import { pool } from "./db.js";
 
 const app = express();
-const PORT = process.env.VENDOR_PORT || 5001;
+const PORT = parseInt(process.env.VENDOR_PORT || "5001", 10);
 
 // Middleware
 app.use(express.json());
@@ -22,9 +23,30 @@ app.use((req, res, next) => {
   }
 });
 
+async function ensureTables() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS vendor_password_reset_tokens (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        vendor_id VARCHAR NOT NULL REFERENCES vendors(id),
+        token VARCHAR UNIQUE NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        used BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log("✅ vendor_password_reset_tokens table ready");
+  } finally {
+    client.release();
+  }
+}
+
 async function startServer() {
   try {
     console.log("🚀 Starting Vendor Dashboard server...");
+    
+    await ensureTables();
     
     // TODO: Set up database tables first
     // await seedVendorDatabase();

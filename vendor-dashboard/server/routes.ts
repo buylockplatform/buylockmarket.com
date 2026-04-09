@@ -4,6 +4,9 @@ import { vendorStorage } from "./storage.js";
 import { getVendorSession, isVendorAuthenticated } from "./auth.js";
 import { insertVendorSchema, loginVendorSchema, insertProductSchema, insertServiceSchema } from "../shared/schema.js";
 import { fromZodError } from "zod-validation-error";
+import { randomBytes } from "crypto";
+import * as bcrypt from "bcrypt";
+import { sendPasswordResetEmail } from "./emailService.js";
 
 export async function registerVendorRoutes(app: Express): Promise<Server> {
   // Serve a simple homepage for now
@@ -121,6 +124,70 @@ export async function registerVendorRoutes(app: Express): Promise<Server> {
       }
       console.error("Login error:", error);
       res.status(500).json({ message: "Failed to login" });
+    }
+  });
+
+  app.post('/api/auth/forgot-password', async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const vendor = await vendorStorage.getVendorByEmail(email.toLowerCase().trim());
+
+      if (!vendor) {
+        return res.json({ message: "If an account with that email exists, a reset link has been sent." });
+      }
+
+      const token = randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+      await vendorStorage.createPasswordResetToken(vendor.id, token, expiresAt);
+
+      const baseUrl = process.env.VENDOR_BASE_URL || `http://localhost:${process.env.VENDOR_PORT || 5001}`;
+      const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+
+      await sendPasswordResetEmail(vendor.email, vendor.contactName, resetUrl);
+
+      res.json({ message: "If an account with that email exists, a reset link has been sent." });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Failed to process request" });
+    }
+  });
+
+  app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        return res.status(400).json({ message: "Token and new password are required" });
+      }
+      if (typeof password !== 'string' || password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      const resetRecord = await vendorStorage.getPasswordResetToken(token);
+
+      if (!resetRecord) {
+        return res.status(400).json({ message: "Invalid or expired reset link" });
+      }
+      if (resetRecord.used) {
+        return res.status(400).json({ message: "This reset link has already been used" });
+      }
+      if (new Date() > new Date(resetRecord.expiresAt)) {
+        return res.status(400).json({ message: "This reset link has expired. Please request a new one." });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await vendorStorage.updateVendorPassword(resetRecord.vendorId, hashedPassword);
+      await vendorStorage.markPasswordResetTokenUsed(token);
+
+      res.json({ message: "Password reset successfully. You can now log in with your new password." });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Failed to reset password" });
     }
   });
 
