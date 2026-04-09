@@ -5,7 +5,7 @@ import { appointments } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql } from "drizzle-orm";
 import { getSession } from "./replitAuth";
-import { sendVendorAccountUnderReviewNotification, sendVendorAccountApprovedNotification, sendVendorPasswordResetEmail } from "./emailService";
+import { sendVendorAccountUnderReviewNotification, sendVendorAccountApprovedNotification, sendVendorPasswordResetEmail, sendUserPasswordResetEmail } from "./emailService";
 // import { sendPayoutStatusNotification, PayoutNotificationData } from "./emailService";
 type PayoutNotificationData = any;
 const sendPayoutStatusNotification = async (..._args: any[]) => { }; // no-op placeholder
@@ -550,6 +550,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  // In-memory store for user password reset tokens
+  const userResetTokens = new Map<string, { userId: string; expiresAt: Date }>();
+
+  app.post("/api/user/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email.toLowerCase().trim());
+
+      if (!user) {
+        return res.json({ message: "If an account with that email exists, a reset link has been sent." });
+      }
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      userResetTokens.set(token, { userId: user.id, expiresAt });
+
+      const baseUrl = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+      const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+
+      const userName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
+
+      await sendUserPasswordResetEmail({
+        userEmail: user.email,
+        userName,
+        resetUrl,
+      });
+
+      res.json({ message: "If an account with that email exists, a reset link has been sent." });
+    } catch (error) {
+      console.error("User forgot-password error:", error);
+      res.status(500).json({ message: "Failed to process request" });
+    }
+  });
+
+  app.post("/api/user/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        return res.status(400).json({ message: "Token and new password are required" });
+      }
+      if (typeof password !== "string" || password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      const record = userResetTokens.get(token);
+      if (!record) {
+        return res.status(400).json({ message: "Invalid or expired reset link" });
+      }
+      if (new Date() > record.expiresAt) {
+        userResetTokens.delete(token);
+        return res.status(400).json({ message: "This reset link has expired. Please request a new one." });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await storage.updateUser(record.userId, { passwordHash: hashedPassword });
+      userResetTokens.delete(token);
+
+      res.json({ message: "Password reset successfully. You can now log in with your new password." });
+    } catch (error) {
+      console.error("User reset-password error:", error);
+      res.status(500).json({ message: "Failed to reset password" });
     }
   });
 
@@ -5882,9 +5951,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Object storage routes for document uploads
   app.post("/api/objects/upload", async (req, res) => {
-    const objectStorageService = new ObjectStorageService();
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-    res.json({ uploadURL });
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Failed to generate upload URL:", error);
+      res.status(500).json({ message: "Failed to generate upload URL. Check GCS credentials and permissions." });
+    }
   });
 
   app.get("/objects/:objectPath(*)", async (req, res) => {

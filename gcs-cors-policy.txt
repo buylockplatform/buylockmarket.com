@@ -17,7 +17,8 @@
       "User-Agent",
       "X-Requested-With",
       "If-Modified-Since",
-      "Cache-Control"
+      "Cache-Control",
+      "ETag"
     ],
     "maxAgeSeconds": 3600
   }

@@ -162,11 +162,14 @@ export default function VendorRegistration() {
     },
   });
 
-  const getUploadParameters = async () => {
+  const getUploadParameters = async (file: any) => {
     const response = await apiRequest("/api/objects/upload", "POST");
     return {
       method: "PUT" as const,
       url: response.uploadURL,
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+      },
     };
   };
 

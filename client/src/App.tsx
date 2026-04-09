@@ -17,6 +17,8 @@ import MyOrders from "@/pages/my-orders";
 import Profile from "@/pages/profile";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
 
 import Shop from "@/pages/shop";
 import VendorPortal from "@/pages/vendor-portal";
@@ -44,6 +46,8 @@ function Router() {
       {/* Authentication routes - accessible without authentication */}
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
       
       {isLoading || !isAuthenticated ? (
         <>
