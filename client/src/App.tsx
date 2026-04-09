@@ -24,6 +24,8 @@ import DeliveryPortal from "@/pages/delivery-portal";
 import TestDeliveryWorkflow from "@/pages/test-delivery-workflow";
 import AdminPortalLanding from "@/pages/admin-portal";
 import VendorLogin from "@/pages/vendor-dashboard/login";
+import VendorForgotPassword from "@/pages/vendor-dashboard/forgot-password";
+import VendorResetPassword from "@/pages/vendor-dashboard/reset-password";
 
 import VendorDashboard from "@/pages/vendor-dashboard/dashboard";
 import VendorRegistration from "@/pages/VendorRegistration";
@@ -73,6 +75,8 @@ function Router() {
       
       {/* Vendor dashboard routes */}
       <Route path="/vendor-dashboard/login" component={VendorLogin} />
+      <Route path="/vendor-dashboard/forgot-password" component={VendorForgotPassword} />
+      <Route path="/vendor-dashboard/reset-password" component={VendorResetPassword} />
       <Route path="/vendor/registration" component={VendorRegistration} />
       <Route path="/vendor-dashboard" component={VendorDashboard} />
       

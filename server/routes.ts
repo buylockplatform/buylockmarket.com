@@ -5,7 +5,7 @@ import { appointments } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql } from "drizzle-orm";
 import { getSession } from "./replitAuth";
-import { sendVendorAccountUnderReviewNotification, sendVendorAccountApprovedNotification } from "./emailService";
+import { sendVendorAccountUnderReviewNotification, sendVendorAccountApprovedNotification, sendVendorPasswordResetEmail } from "./emailService";
 // import { sendPayoutStatusNotification, PayoutNotificationData } from "./emailService";
 type PayoutNotificationData = any;
 const sendPayoutStatusNotification = async (..._args: any[]) => { }; // no-op placeholder
@@ -208,6 +208,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
+  // In-memory store for vendor password reset tokens
+  const vendorResetTokens = new Map<string, { vendorId: string; expiresAt: Date }>();
+
   // Vendor authentication routes
   app.post("/api/vendor/login", async (req, res) => {
     try {
@@ -271,6 +274,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Vendor login error:", error);
       res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.post("/api/vendor/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const vendor = await storage.getVendorByEmail(email.toLowerCase().trim());
+
+      if (!vendor) {
+        return res.json({ message: "If an account with that email exists, a reset link has been sent." });
+      }
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      vendorResetTokens.set(token, { vendorId: vendor.id, expiresAt });
+
+      const baseUrl = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+      const resetUrl = `${baseUrl}/vendor-dashboard/reset-password?token=${token}`;
+
+      await sendVendorPasswordResetEmail({
+        vendorEmail: vendor.email,
+        vendorName: vendor.contactName,
+        resetUrl,
+      });
+
+      res.json({ message: "If an account with that email exists, a reset link has been sent." });
+    } catch (error) {
+      console.error("Vendor forgot-password error:", error);
+      res.status(500).json({ message: "Failed to process request" });
+    }
+  });
+
+  app.post("/api/vendor/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        return res.status(400).json({ message: "Token and new password are required" });
+      }
+      if (typeof password !== "string" || password.length < 6) {
+        return res.status(400).json({ message: "Password must be at least 6 characters" });
+      }
+
+      const record = vendorResetTokens.get(token);
+      if (!record) {
+        return res.status(400).json({ message: "Invalid or expired reset link" });
+      }
+      if (new Date() > record.expiresAt) {
+        vendorResetTokens.delete(token);
+        return res.status(400).json({ message: "This reset link has expired. Please request a new one." });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await storage.updateVendor(record.vendorId, { passwordHash: hashedPassword });
+      vendorResetTokens.delete(token);
+
+      res.json({ message: "Password reset successfully. You can now log in with your new password." });
+    } catch (error) {
+      console.error("Vendor reset-password error:", error);
+      res.status(500).json({ message: "Failed to reset password" });
     }
   });
 
