@@ -563,6 +563,19 @@ export default function Cart() {
     }
   };
 
+  // Auto-select active courier (e.g. Buylock Delivery) when courier list loads
+  useEffect(() => {
+    if (couriers.length > 0 && !selectedCourier) {
+      const active = couriers.find((c) => c.isActive) || couriers[0];
+      if (active) {
+        setSelectedCourier(active.id);
+        if (deliveryAddress.trim()) {
+          calculateCourierCostMutation.mutate({ courierId: active.id, location: deliveryAddress });
+        }
+      }
+    }
+  }, [couriers, selectedCourier, deliveryAddress]);
+
 
 
   // Check for payment verification on page load (single attempt)
@@ -960,57 +973,21 @@ export default function Cart() {
                         </div>
                       </div>
 
-                      {/* Courier Selection */}
+                      {/* Courier Cost Summary */}
                       {deliveryAddress.trim() && (
                         <div>
-                          <Label>Select Courier *</Label>
-                          <div className="grid grid-cols-1 gap-3 mt-2">
-                            {couriers.map((courier) => (
-                              <div
-                                key={courier.id}
-                                className={`border rounded-lg p-4 cursor-pointer transition-all ${selectedCourier === courier.id
-                                  ? "border-buylock-primary bg-orange-50"
-                                  : "border-gray-200 hover:border-gray-300"
-                                  }`}
-                                onClick={() => handleCourierSelect(courier.id)}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-3">
-                                    <span className="text-2xl">{courier.logo}</span>
-                                    <div>
-                                      <h4 className="font-semibold text-gray-900">{courier.name}</h4>
-                                      <p className="text-sm text-gray-600">{courier.coverage}</p>
-                                      <p className="text-xs text-gray-500">Est. {courier.estimatedTime}</p>
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="font-bold text-buylock-primary">
-                                      {selectedCourier === courier.id && courierQuote
-                                        ? formatPrice(courierQuote.totalCost)
-                                        : `Base: ${formatPrice(courier.baseRate)}`}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      +{formatPrice(courier.perKmRate)}/km
-                                    </p>
-                                    {calculateCourierCostMutation.isPending && selectedCourier === courier.id && (
-                                      <p className="text-xs text-blue-600">Calculating...</p>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {courierQuote && (
+                          {calculateCourierCostMutation.isPending ? (
+                            <p className="text-xs text-blue-600 animate-pulse mt-1">Calculating delivery cost...</p>
+                          ) : courierQuote ? (
                             <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                               <p className="text-sm text-green-800">
-                                <strong>{courierQuote.courierName}</strong> - {formatPrice(courierQuote.totalCost)}
+                                <strong>Delivery Fee ({courierQuote.courierName})</strong>: {formatPrice(courierQuote.totalCost)}
                               </p>
                               <p className="text-xs text-green-700">
-                                Distance: ~{courierQuote.estimatedDistance}km • Weight: ~{Math.ceil(calculateWeight())}kg
+                                Distance: ~{courierQuote.estimatedDistance}km • Est. Delivery: {courierQuote.estimatedTime}
                               </p>
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       )}
 

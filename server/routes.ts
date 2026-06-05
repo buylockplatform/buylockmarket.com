@@ -5207,14 +5207,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const couriers = {
-        "fargo_courier": { baseRate: 200, perKmRate: 18, name: "Fargo Courier Services", estimatedTime: "2-4 hours within Nairobi, 24-48 hours nationwide" }
-      };
-
-      const courier = couriers[courierId as keyof typeof couriers];
-      if (!courier) {
+      const dbProvider = await storage.getDeliveryProviderById(courierId);
+      if (!dbProvider) {
         return res.status(400).json({ message: "Invalid courier selected" });
       }
+
+      const baseRate = parseFloat(dbProvider.baseRate || "0");
+      const perKmRate = parseFloat(dbProvider.distanceRate || "0");
 
       // Calculate distance based on location (simplified)
       let estimatedDistance = 5; // Default 5km
@@ -5235,17 +5234,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Weight multiplier
       const weightMultiplier = Math.max(1, Math.ceil(weight / 5));
 
-      const totalCost = (courier.baseRate + (courier.perKmRate * estimatedDistance)) * weightMultiplier;
+      const totalCost = (baseRate + (perKmRate * estimatedDistance)) * weightMultiplier;
 
       res.json({
         courierId,
-        courierName: courier.name,
-        baseRate: courier.baseRate,
-        distanceRate: courier.perKmRate * estimatedDistance,
+        courierName: dbProvider.name,
+        baseRate: baseRate,
+        distanceRate: perKmRate * estimatedDistance,
         weightMultiplier,
         estimatedDistance,
         totalCost: Math.round(totalCost),
-        estimatedTime: courier.estimatedTime,
+        estimatedTime: dbProvider.estimatedDeliveryTime || "1-3 hours",
         location
       });
 
