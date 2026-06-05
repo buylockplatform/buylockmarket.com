@@ -56,7 +56,7 @@ export default function Cart() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [selectedCourier, setSelectedCourier] = useState<string>("");
-  const [deliveryCity, setDeliveryCity] = useState("Nairobi");
+  const [deliveryCity, setDeliveryCity] = useState("");
   const [deliverySuburb, setDeliverySuburb] = useState("");
   const [deliveryBuilding, setDeliveryBuilding] = useState("");
   const [deliveryPostalCode, setDeliveryPostalCode] = useState("");
@@ -513,6 +513,22 @@ export default function Cart() {
       });
       return;
     }
+    if (!deliveryCity.trim()) {
+      toast({
+        title: "City required",
+        description: "Please enter your delivery city",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!deliverySuburb.trim()) {
+      toast({
+        title: "Suburb/Area required",
+        description: "Please enter your suburb or area",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!selectedCourier) {
       toast({
         title: "Courier selection required",
@@ -828,55 +844,36 @@ export default function Cart() {
                     </h3>
 
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="city">City *</Label>
-                          <Input
-                            id="city"
-                            value={deliveryCity}
-                            readOnly
-                            disabled
-                            placeholder="Auto-filled from address"
-                            className="mt-1 bg-gray-50"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="suburb">Suburb/Area *</Label>
-                          <Input
-                            id="suburb"
-                            value={deliverySuburb}
-                            readOnly
-                            disabled
-                            placeholder="Auto-filled from address"
-                            className="mt-1 bg-gray-50"
-                          />
-                        </div>
+                      {/* 1. Delivery Address Autocomplete */}
+                      <div>
+                        <LocationAutocomplete
+                          label="Delivery Address"
+                          placeholder="Start typing your address in Kenya..."
+                          defaultValue={deliveryAddress}
+                          required
+                          onLocationSelect={(location) => {
+                            setDeliveryAddress(location.address);
+                            setDeliveryCity(location.city);
+                            setDeliverySuburb(location.suburb);
+                            setDeliveryBuilding(location.building || '');
+                            setDeliveryPostalCode(location.postalCode || '');
+                            setSelectedSavedAddressId(""); // clear saved selection when typing manually
+
+                            // Trigger courier cost calculation if courier is selected
+                            if (selectedCourier) {
+                              calculateCourierCostMutation.mutate({
+                                courierId: selectedCourier,
+                                location: location.address
+                              });
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Select from suggestions to auto-fill city, suburb, and postal code
+                        </p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="building">Building/House No.</Label>
-                          <Input
-                            id="building"
-                            value={deliveryBuilding}
-                            onChange={(e) => setDeliveryBuilding(e.target.value)}
-                            placeholder="e.g. Mirage Towers"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="postalCode">Postal Code</Label>
-                          <Input
-                            id="postalCode"
-                            value={deliveryPostalCode}
-                            onChange={(e) => setDeliveryPostalCode(e.target.value)}
-                            placeholder="e.g. 00100"
-                            className="mt-1"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Saved Addresses Selector */}
+                      {/* 2. Saved Addresses Selector */}
                       {savedAddresses.length > 0 && (
                         <div>
                           <Label className="flex items-center gap-1.5">
@@ -909,36 +906,58 @@ export default function Cart() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-gray-500 mt-1">Or type a new address below</p>
+                          <p className="text-xs text-gray-500 mt-1">Or choose a saved location above</p>
                         </div>
                       )}
 
-                      <div>
-                        <LocationAutocomplete
-                          label="Delivery Address"
-                          placeholder="Start typing your address in Kenya..."
-                          defaultValue={deliveryAddress}
-                          required
-                          onLocationSelect={(location) => {
-                            setDeliveryAddress(location.address);
-                            setDeliveryCity(location.city);
-                            setDeliverySuburb(location.suburb);
-                            setDeliveryBuilding(location.building || '');
-                            setDeliveryPostalCode(location.postalCode || '');
-                            setSelectedSavedAddressId(""); // clear saved selection when typing manually
+                      {/* 3. City and Suburb (unlocked) */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="city">City *</Label>
+                          <Input
+                            id="city"
+                            value={deliveryCity}
+                            onChange={(e) => setDeliveryCity(e.target.value)}
+                            placeholder="Enter city"
+                            className="mt-1"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="suburb">Suburb/Area *</Label>
+                          <Input
+                            id="suburb"
+                            value={deliverySuburb}
+                            onChange={(e) => setDeliverySuburb(e.target.value)}
+                            placeholder="Enter suburb"
+                            className="mt-1"
+                            required
+                          />
+                        </div>
+                      </div>
 
-                            // Trigger courier cost calculation if courier is selected
-                            if (selectedCourier) {
-                              calculateCourierCostMutation.mutate({
-                                courierId: selectedCourier,
-                                location: location.address
-                              });
-                            }
-                          }}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Select from suggestions to auto-fill city, suburb, and postal code
-                        </p>
+                      {/* 4. Building and Postal Code */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="building">Building/House No.</Label>
+                          <Input
+                            id="building"
+                            value={deliveryBuilding}
+                            onChange={(e) => setDeliveryBuilding(e.target.value)}
+                            placeholder="e.g. Mirage Towers"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="postalCode">Postal Code</Label>
+                          <Input
+                            id="postalCode"
+                            value={deliveryPostalCode}
+                            onChange={(e) => setDeliveryPostalCode(e.target.value)}
+                            placeholder="e.g. 00100"
+                            className="mt-1"
+                          />
+                        </div>
                       </div>
 
                       {/* Courier Selection */}

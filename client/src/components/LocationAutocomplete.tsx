@@ -51,6 +51,11 @@ export function LocationAutocomplete({
     const debounceTimer = useRef<NodeJS.Timeout>();
     const wrapperRef = useRef<HTMLDivElement>(null);
 
+    // Sync query with defaultValue when it changes from the parent
+    useEffect(() => {
+        setQuery(defaultValue);
+    }, [defaultValue]);
+
     // Close suggestions when clicking outside
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
