@@ -126,6 +126,13 @@ export default function LiveTracking({ orderId, className }: LiveTrackingProps) 
     refetchIntervalInBackground: false,
   });
 
+  // Nairobi center as fallback
+  const NAIROBI: [number, number] = [-1.2921, 36.8219];
+
+  // Helper: treat 0,0 coords as invalid
+  const isValidCoord = (lat: number, lng: number) =>
+    !isNaN(lat) && !isNaN(lng) && (Math.abs(lat) > 0.001 || Math.abs(lng) > 0.001);
+
   // Compute positions
   const positions = useMemo(() => {
     if (!data) return null;
@@ -135,37 +142,45 @@ export default function LiveTracking({ orderId, className }: LiveTrackingProps) 
     const destLat = parseFloat(data.destination.latitude);
     const destLng = parseFloat(data.destination.longitude);
 
+    const validShop = isValidCoord(shopLat, shopLng);
+    const validDest = isValidCoord(destLat, destLng);
+
     const result: {
       shop: [number, number];
-      destination: [number, number];
+      destination: [number, number] | null;
       rider?: [number, number];
     } = {
-      shop: [shopLat, shopLng],
-      destination: [destLat, destLng],
+      shop: validShop ? [shopLat, shopLng] : NAIROBI,
+      destination: validDest ? [destLat, destLng] : null,
     };
 
     if (data.rider) {
       const riderLat = parseFloat(data.rider.latitude);
       const riderLng = parseFloat(data.rider.longitude);
-      result.rider = [riderLat, riderLng];
+      if (isValidCoord(riderLat, riderLng)) {
+        result.rider = [riderLat, riderLng];
+      }
     }
 
     return result;
   }, [data]);
 
-  // Map bounds
+  // Map bounds — only include valid positions
   const bounds = useMemo(() => {
     if (!positions) return null;
 
-    const points: [number, number][] = [positions.shop, positions.destination];
+    const points: [number, number][] = [positions.shop];
+    if (positions.destination) points.push(positions.destination);
     if (positions.rider) points.push(positions.rider);
+
+    if (points.length < 2) return null;
 
     return L.latLngBounds(points.map((p) => L.latLng(p[0], p[1])));
   }, [positions]);
 
   // Distance calculation
   const distanceToDestination = useMemo(() => {
-    if (!positions?.rider) return null;
+    if (!positions?.rider || !positions?.destination) return null;
     return haversineDistance(
       positions.rider[0],
       positions.rider[1],
@@ -173,6 +188,7 @@ export default function LiveTracking({ orderId, className }: LiveTrackingProps) 
       positions.destination[1]
     );
   }, [positions]);
+
 
   // --- Loading state ---
   if (isLoading) {
@@ -225,9 +241,11 @@ export default function LiveTracking({ orderId, className }: LiveTrackingProps) 
                 <Marker position={positions.shop} icon={shopIcon}>
                   <Popup>{data?.shop.name || "Pickup Location"}</Popup>
                 </Marker>
-                <Marker position={positions.destination} icon={homeIcon}>
-                  <Popup>{data?.destination.address || "Delivery Destination"}</Popup>
-                </Marker>
+                {positions.destination && (
+                  <Marker position={positions.destination} icon={homeIcon}>
+                    <Popup>{data?.destination.address || "Delivery Destination"}</Popup>
+                  </Marker>
+                )}
               </MapContainer>
             </div>
           )}
@@ -281,9 +299,11 @@ export default function LiveTracking({ orderId, className }: LiveTrackingProps) 
               </Marker>
 
               {/* Destination marker */}
-              <Marker position={positions.destination} icon={homeIcon}>
-                <Popup>{data.destination.address}</Popup>
-              </Marker>
+              {positions.destination && (
+                <Marker position={positions.destination} icon={homeIcon}>
+                  <Popup>{data.destination.address}</Popup>
+                </Marker>
+              )}
             </MapContainer>
           )}
 

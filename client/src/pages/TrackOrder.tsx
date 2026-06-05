@@ -155,41 +155,81 @@ export default function TrackOrder() {
 
               {/* Milestones status tracker */}
               <Card className="shadow-sm border-gray-200">
-                <CardHeader>
-                  <CardTitle className="text-lg">Delivery Timeline</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-semibold">Delivery Timeline</CardTitle>
                 </CardHeader>
-                <CardContent className="relative pl-8 space-y-6">
-                  {/* Vertical line connecting milestones */}
-                  <div className="absolute left-4 top-2 bottom-6 w-0.5 bg-gray-200" />
+                <CardContent className="pt-0 pb-4">
+                  <div className="relative flex flex-col gap-0">
+                    {milestones.map((step, index) => {
+                      const isCompleted = index < activeMilestoneIndex;
+                      const isActive = index === activeMilestoneIndex;
+                      const isLast = index === milestones.length - 1;
 
-                  {milestones.map((step, index) => {
-                    const isCompleted = index < activeMilestoneIndex;
-                    const isActive = index === activeMilestoneIndex;
+                      return (
+                        <div key={step.label} className="relative flex gap-4 items-start py-3">
+                          {/* Vertical connector line */}
+                          {!isLast && (
+                            <div
+                              className={`absolute left-[18px] top-[36px] bottom-0 w-0.5 ${
+                                isCompleted ? "bg-green-400" : "bg-gray-200"
+                              }`}
+                              style={{ height: "calc(100% - 8px)" }}
+                            />
+                          )}
 
-                    return (
-                      <div key={step.label} className="relative flex gap-4 items-start">
-                        {/* Status Icon */}
-                        <div className="absolute -left-[22px] bg-white rounded-full p-0.5">
-                          {isCompleted ? (
-                            <CheckCircle2 className="w-5 h-5 text-green-500 fill-green-50" />
-                          ) : isActive ? (
-                            <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                          ) : (
-                            <Circle className="w-5 h-5 text-gray-300" />
+                          {/* Status icon */}
+                          <div className="flex-shrink-0 mt-0.5 z-10 bg-white">
+                            {isCompleted ? (
+                              <div className="w-9 h-9 rounded-full bg-green-100 border-2 border-green-400 flex items-center justify-center">
+                                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                              </div>
+                            ) : isActive ? (
+                              <div className="w-9 h-9 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
+                                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                              </div>
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-gray-100 border-2 border-gray-200 flex items-center justify-center">
+                                <Circle className="w-4 h-4 text-gray-300" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Step content */}
+                          <div className="flex-1 min-w-0 pt-1.5">
+                            <p className={`font-semibold text-sm leading-tight ${
+                              isActive ? "text-primary" : isCompleted ? "text-gray-900" : "text-gray-400"
+                            }`}>
+                              {step.label}
+                            </p>
+                            <p className={`text-xs mt-0.5 leading-relaxed ${
+                              isActive ? "text-primary/70" : "text-gray-400"
+                            }`}>
+                              {step.desc}
+                            </p>
+                          </div>
+
+                          {/* Active badge */}
+                          {isActive && (
+                            <div className="flex-shrink-0 pt-1.5">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                Now
+                              </span>
+                            </div>
+                          )}
+                          {isCompleted && (
+                            <div className="flex-shrink-0 pt-1.5">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">
+                                ✓ Done
+                              </span>
+                            </div>
                           )}
                         </div>
-
-                        <div>
-                          <p className={`font-semibold text-sm ${isActive ? "text-primary" : "text-gray-900"}`}>
-                            {step.label}
-                          </p>
-                          <p className="text-xs text-gray-500">{step.desc}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </CardContent>
               </Card>
+
             </div>
 
             {/* Checklist and summary */}

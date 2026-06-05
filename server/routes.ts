@@ -7507,10 +7507,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vendor = await storage.getVendorById(order.vendorId);
       const locations = await storage.getVendorLocations(order.vendorId);
       const mainBranch = locations[0]; // fallback
+      // Prefer vendor.businessLatitude (set via profile autocomplete) over legacy branch coords
+      const shopLat = (vendor?.businessLatitude && parseFloat(vendor.businessLatitude) !== 0)
+        ? vendor.businessLatitude
+        : (mainBranch?.latitude && parseFloat(mainBranch.latitude) !== 0)
+          ? mainBranch.latitude
+          : "-1.2921"; // Nairobi default
+      const shopLng = (vendor?.businessLongitude && parseFloat(vendor.businessLongitude) !== 0)
+        ? vendor.businessLongitude
+        : (mainBranch?.longitude && parseFloat(mainBranch.longitude) !== 0)
+          ? mainBranch.longitude
+          : "36.8219"; // Nairobi default
       const shop = {
         name: vendor?.businessName || "Vendor Shop",
-        latitude: mainBranch?.latitude || vendor?.businessLatitude || "0.0",
-        longitude: mainBranch?.longitude || vendor?.businessLongitude || "0.0",
+        latitude: shopLat,
+        longitude: shopLng,
       };
 
       // Destination details
