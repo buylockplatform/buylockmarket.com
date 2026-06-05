@@ -92,6 +92,7 @@ import { generatePublicToken, getTokenExpiration } from "./tokenUtils";
 export interface IStorage {
   // User operations (supports both Replit Auth and form authentication)
   getUser(id: string): Promise<User | undefined>;
+  getUserByPhone(phone: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User>;
   ensureUserExists(id: string, email: string, name: string): Promise<User>;
@@ -105,6 +106,7 @@ export interface IStorage {
   getAllVendors(): Promise<Vendor[]>;
   getVendorById(id: string): Promise<Vendor | undefined>;
   getVendorByEmail(email: string): Promise<Vendor | undefined>;
+  getVendorByPhone(phone: string): Promise<Vendor | undefined>;
   getVendor(id: string): Promise<Vendor | undefined>;
   createVendor(vendor: InsertVendor): Promise<Vendor>;
   updateVendor(id: string, updates: Partial<InsertVendor>): Promise<Vendor>;
@@ -344,8 +346,10 @@ export interface IStorage {
 
   // Delivery Job operations
   getDeliveryJobByOrderId(orderId: string): Promise<DeliveryJob | undefined>;
+  getDeliveryJobById(id: string): Promise<DeliveryJob | undefined>;
   createDeliveryJob(data: InsertDeliveryJob): Promise<DeliveryJob>;
   updateDeliveryJob(id: string, updates: Partial<DeliveryJob>): Promise<DeliveryJob>;
+  updateDeliveryJobStatus(id: string, status: string): Promise<DeliveryJob>;
 
   // User location operations
   updateUserLocation(userId: string, latitude: string, longitude: string, isOnline: boolean): Promise<User>;
@@ -356,6 +360,11 @@ export class DatabaseStorage implements IStorage {
   // User operations (mandatory for Replit Auth)
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByPhone(phone: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.phone, phone));
     return user || undefined;
   }
 
@@ -448,6 +457,11 @@ export class DatabaseStorage implements IStorage {
 
   async getVendorByEmail(email: string): Promise<Vendor | undefined> {
     const [vendor] = await db.select().from(vendors).where(eq(vendors.email, email));
+    return vendor || undefined;
+  }
+
+  async getVendorByPhone(phone: string): Promise<Vendor | undefined> {
+    const [vendor] = await db.select().from(vendors).where(eq(vendors.phone, phone));
     return vendor || undefined;
   }
 
@@ -2884,6 +2898,24 @@ export class DatabaseStorage implements IStorage {
       .where(eq(deliveryJobs.orderId, orderId))
       .orderBy(desc(deliveryJobs.createdAt))
       .limit(1);
+    return job;
+  }
+
+  async getDeliveryJobById(id: string): Promise<DeliveryJob | undefined> {
+    const [job] = await db
+      .select()
+      .from(deliveryJobs)
+      .where(eq(deliveryJobs.id, id));
+    return job || undefined;
+  }
+
+  async updateDeliveryJobStatus(id: string, status: string): Promise<DeliveryJob> {
+    const [job] = await db
+      .update(deliveryJobs)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(deliveryJobs.id, id))
+      .returning();
+    if (!job) throw new Error("Delivery job not found");
     return job;
   }
 

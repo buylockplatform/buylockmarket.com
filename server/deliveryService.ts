@@ -417,7 +417,7 @@ export class BuylockDeliveryAPI implements CourierAPIProvider {
         trackingId,
         status: job.status,
         description: statusDescriptions[job.status] ?? job.status,
-        timestamp: new Date(job.updatedAt ?? job.createdAt),
+        timestamp: (job.updatedAt ?? job.createdAt) ?? new Date(),
       };
     } catch (error) {
       console.error('Buylock Delivery getDeliveryStatus error:', error);
