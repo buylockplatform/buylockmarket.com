@@ -110,7 +110,7 @@ export interface IStorage {
   getVendor(id: string): Promise<Vendor | undefined>;
   createVendor(vendor: InsertVendor): Promise<Vendor>;
   updateVendor(id: string, updates: Partial<InsertVendor>): Promise<Vendor>;
-  updateVendorBusinessDetails(id: string, details: { businessName: string; contactName: string; phone?: string; address?: string }): Promise<Vendor>;
+  updateVendorBusinessDetails(id: string, details: { businessName: string; contactName: string; phone?: string; address?: string; city?: string; suburb?: string; building?: string; postalCode?: string; businessLatitude?: string; businessLongitude?: string; locationDescription?: string }): Promise<Vendor>;
   updateVendorBankDetails(id: string, details: { bankName: string; bankCode?: string; accountNumber: string; accountName: string }): Promise<Vendor>;
   getVendorStats(vendorId: string): Promise<{
     totalProducts: number;
@@ -484,7 +484,7 @@ export class DatabaseStorage implements IStorage {
     return vendor;
   }
 
-  async updateVendorBusinessDetails(id: string, details: { businessName: string; contactName: string; phone?: string; address?: string }): Promise<Vendor> {
+  async updateVendorBusinessDetails(id: string, details: { businessName: string; contactName: string; phone?: string; address?: string; city?: string; suburb?: string; building?: string; postalCode?: string; businessLatitude?: string; businessLongitude?: string; locationDescription?: string }): Promise<Vendor> {
     const [vendor] = await db
       .update(vendors)
       .set({
@@ -492,6 +492,13 @@ export class DatabaseStorage implements IStorage {
         contactName: details.contactName,
         phone: details.phone,
         address: details.address,
+        city: details.city,
+        suburb: details.suburb,
+        building: details.building,
+        postalCode: details.postalCode,
+        businessLatitude: details.businessLatitude,
+        businessLongitude: details.businessLongitude,
+        locationDescription: details.locationDescription,
         updatedAt: new Date()
       })
       .where(eq(vendors.id, id))

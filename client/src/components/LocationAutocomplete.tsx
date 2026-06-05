@@ -27,6 +27,8 @@ interface LocationData {
     suburb: string;
     building?: string;
     postalCode?: string;
+    latitude?: string;
+    longitude?: string;
 }
 
 interface LocationAutocompleteProps {
@@ -144,6 +146,8 @@ export function LocationAutocomplete({
             suburb: suburb,
             building: addr.building,
             postalCode: addr.postcode,
+            latitude: result.lat,
+            longitude: result.lon,
         });
     };
 

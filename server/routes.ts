@@ -3661,7 +3661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/vendor/:vendorId/business-details', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
-      const { businessName, contactName, phone, address } = req.body;
+      const { businessName, contactName, phone, address, city, suburb, building, postalCode, businessLatitude, businessLongitude, locationDescription } = req.body;
 
       if (!businessName || !contactName) {
         return res.status(400).json({ message: 'Business name and contact name are required' });
@@ -3671,7 +3671,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         businessName,
         contactName,
         phone,
-        address
+        address,
+        city,
+        suburb,
+        building,
+        postalCode,
+        businessLatitude,
+        businessLongitude,
+        locationDescription
       });
 
       res.json({ message: 'Business details updated successfully', vendor: updatedVendor });
@@ -7507,10 +7514,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Destination details
+      let destLatitude = "0.0";
+      let destLongitude = "0.0";
+
+      if (order.isGuest) {
+        destLatitude = order.guestLatitude?.toString() || "0.0";
+        destLongitude = order.guestLongitude?.toString() || "0.0";
+      } else if (order.deliveryAddressId) {
+        try {
+          const { customerAddresses } = await import("@shared/schema");
+          const [addressRecord] = await db
+            .select()
+            .from(customerAddresses)
+            .where(eq(customerAddresses.id, order.deliveryAddressId));
+          if (addressRecord) {
+            destLatitude = addressRecord.latitude?.toString() || "0.0";
+            destLongitude = addressRecord.longitude?.toString() || "0.0";
+          }
+        } catch (addrError) {
+          console.error("Failed to fetch customer address coordinates:", addrError);
+        }
+      }
+
       const destination = {
         address: order.guestAddress || order.deliveryAddress || "Customer Address",
-        latitude: order.guestLatitude?.toString() || "0.0",
-        longitude: order.guestLongitude?.toString() || "0.0",
+        latitude: destLatitude,
+        longitude: destLongitude,
       };
 
       // Check for assigned delivery job

@@ -13,6 +13,7 @@ import EditServiceModal from "./components/EditServiceModal";
 import StoreHoursManager from "./components/StoreHoursManager";
 import CollectionsManager from "./components/CollectionsManager";
 import BranchLocationsManager from "./components/BranchLocationsManager";
+import { LocationAutocomplete } from "@/components/LocationAutocomplete";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,7 +75,14 @@ export default function VendorDashboard() {
     businessName: "",
     contactName: "",
     phone: "",
-    address: ""
+    address: "",
+    city: "",
+    suburb: "",
+    building: "",
+    postalCode: "",
+    businessLatitude: "",
+    businessLongitude: "",
+    locationDescription: ""
   });
 
   // Bank details form state
@@ -98,11 +106,16 @@ export default function VendorDashboard() {
       if (!vendorData?.id) throw new Error("No vendor ID");
       return vendorApiRequest(`/api/vendor/${vendorData.id}/business-details`, "PUT", details);
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       toast({
         title: "Business Details Updated",
         description: "Your business information has been updated successfully.",
       });
+      queryClient.invalidateQueries({ queryKey: [`/api/vendor/current`] });
+      if (data && data.vendor) {
+        localStorage.setItem('vendorData', JSON.stringify(data.vendor));
+        setVendorData(data.vendor);
+      }
     },
     onError: (error: any) => {
       toast({
@@ -299,7 +312,14 @@ export default function VendorDashboard() {
         businessName: vendor.businessName || "",
         contactName: vendor.contactName || "",
         phone: vendor.phone || "",
-        address: vendor.address || ""
+        address: vendor.address || "",
+        city: vendor.city || "",
+        suburb: vendor.suburb || "",
+        building: vendor.building || "",
+        postalCode: vendor.postalCode || "",
+        businessLatitude: vendor.businessLatitude || "",
+        businessLongitude: vendor.businessLongitude || "",
+        locationDescription: vendor.locationDescription || ""
       });
       
       setBankDetails({
@@ -329,7 +349,14 @@ export default function VendorDashboard() {
         businessName: currentVendorData.businessName || "",
         contactName: currentVendorData.contactName || "",
         phone: currentVendorData.phone || "",
-        address: currentVendorData.address || ""
+        address: currentVendorData.address || "",
+        city: currentVendorData.city || "",
+        suburb: currentVendorData.suburb || "",
+        building: currentVendorData.building || "",
+        postalCode: currentVendorData.postalCode || "",
+        businessLatitude: currentVendorData.businessLatitude || "",
+        businessLongitude: currentVendorData.businessLongitude || "",
+        locationDescription: currentVendorData.locationDescription || ""
       });
     }
   }, [currentVendorData]);
@@ -897,11 +924,10 @@ export default function VendorDashboard() {
 
               {/* Profile Tabs */}
               <Tabs defaultValue="business" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="business">Business Details</TabsTrigger>
                   <TabsTrigger value="bank">Bank Details</TabsTrigger>
                   <TabsTrigger value="hours">Store Hours</TabsTrigger>
-                  <TabsTrigger value="branches">Branches</TabsTrigger>
                 </TabsList>
 
                 {/* Business Details Tab */}
@@ -956,13 +982,78 @@ export default function VendorDashboard() {
                             />
                           </div>
                           <div className="md:col-span-2">
-                            <Label htmlFor="address">Business Address</Label>
+                            <LocationAutocomplete
+                              label="Store Location Address"
+                              placeholder="Search your business address in Kenya..."
+                              defaultValue={businessDetails.address}
+                              required
+                              onLocationSelect={(location) => {
+                                setBusinessDetails(prev => ({
+                                  ...prev,
+                                  address: location.address,
+                                  city: location.city,
+                                  suburb: location.suburb,
+                                  building: location.building || "",
+                                  postalCode: location.postalCode || "",
+                                  businessLatitude: location.latitude || "",
+                                  businessLongitude: location.longitude || "",
+                                  locationDescription: location.address
+                                }));
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="city">City</Label>
                             <Input 
-                              id="address" 
-                              placeholder="Enter your business address"
-                              value={businessDetails.address}
-                              onChange={(e) => setBusinessDetails(prev => ({ ...prev, address: e.target.value }))}
+                              id="city" 
+                              value={businessDetails.city}
+                              disabled
+                              className="mt-1 bg-gray-50 text-gray-500" 
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="suburb">Suburb/Area</Label>
+                            <Input 
+                              id="suburb" 
+                              value={businessDetails.suburb}
+                              disabled
+                              className="mt-1 bg-gray-50 text-gray-500" 
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="building">Building (Optional)</Label>
+                            <Input 
+                              id="building" 
+                              value={businessDetails.building}
+                              onChange={(e) => setBusinessDetails(prev => ({ ...prev, building: e.target.value }))}
                               className="mt-1" 
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="postalCode">Postal Code (Optional)</Label>
+                            <Input 
+                              id="postalCode" 
+                              value={businessDetails.postalCode}
+                              onChange={(e) => setBusinessDetails(prev => ({ ...prev, postalCode: e.target.value }))}
+                              className="mt-1" 
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="latitude">Latitude</Label>
+                            <Input 
+                              id="latitude" 
+                              value={businessDetails.businessLatitude}
+                              disabled
+                              className="mt-1 bg-gray-50 text-gray-500 font-mono" 
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="longitude">Longitude</Label>
+                            <Input 
+                              id="longitude" 
+                              value={businessDetails.businessLongitude}
+                              disabled
+                              className="mt-1 bg-gray-50 text-gray-500 font-mono" 
                             />
                           </div>
                         </div>
@@ -1122,9 +1213,7 @@ export default function VendorDashboard() {
                   <StoreHoursManager />
                 </TabsContent>
 
-                <TabsContent value="branches">
-                  <BranchLocationsManager />
-                </TabsContent>
+                {/* Branches tab content hidden */}
               </Tabs>
             </div>
           )}
