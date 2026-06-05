@@ -1627,6 +1627,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               display_name: "Postal Code",
               variable_name: "delivery_postal_code",
               value: req.body.deliveryPostalCode || ""
+            },
+            {
+              display_name: "Delivery Address ID",
+              variable_name: "delivery_address_id",
+              value: req.body.deliveryAddressId || ""
+            },
+            {
+              display_name: "Delivery Latitude",
+              variable_name: "delivery_latitude",
+              value: req.body.deliveryLat || ""
+            },
+            {
+              display_name: "Delivery Longitude",
+              variable_name: "delivery_longitude",
+              value: req.body.deliveryLng || ""
             }
           ]
         },
@@ -4882,6 +4897,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const deliverySuburb = customFields.find((f: any) => f.variable_name === 'delivery_suburb')?.value;
         const deliveryBuilding = customFields.find((f: any) => f.variable_name === 'delivery_building')?.value;
         const deliveryPostalCode = customFields.find((f: any) => f.variable_name === 'delivery_postal_code')?.value;
+        const deliveryAddressId = customFields.find((f: any) => f.variable_name === 'delivery_address_id')?.value || null;
+        const deliveryLatitude = customFields.find((f: any) => f.variable_name === 'delivery_latitude')?.value || null;
+        const deliveryLongitude = customFields.find((f: any) => f.variable_name === 'delivery_longitude')?.value || null;
 
         // Group cart items by vendor with debugging
         console.log('Cart items for vendor grouping:', cartItems.map(item => ({
@@ -4947,7 +4965,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               deliveryPostalCode,
               paymentReference: vendorReference,
               orderType: orderType,
-              paymentMethod: "card"
+              paymentMethod: "card",
+              deliveryAddressId: deliveryAddressId || null,
+              guestLatitude: deliveryLatitude || null,
+              guestLongitude: deliveryLongitude || null
             });
           } catch (error: any) {
             if (error.code === '23505' || error.message?.includes('unique constraint') || error.message?.includes('unique')) {
@@ -7528,7 +7549,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let destLatitude = "0.0";
       let destLongitude = "0.0";
 
-      if (order.isGuest) {
+      if (order.guestLatitude && parseFloat(order.guestLatitude) !== 0) {
+        destLatitude = order.guestLatitude.toString();
+        destLongitude = order.guestLongitude?.toString() || "0.0";
+      } else if (order.isGuest) {
         destLatitude = order.guestLatitude?.toString() || "0.0";
         destLongitude = order.guestLongitude?.toString() || "0.0";
       } else if (order.deliveryAddressId) {

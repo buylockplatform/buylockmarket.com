@@ -60,6 +60,8 @@ export default function Cart() {
   const [deliverySuburb, setDeliverySuburb] = useState("");
   const [deliveryBuilding, setDeliveryBuilding] = useState("");
   const [deliveryPostalCode, setDeliveryPostalCode] = useState("");
+  const [deliveryLat, setDeliveryLat] = useState<string | null>(null);
+  const [deliveryLng, setDeliveryLng] = useState<string | null>(null);
   const [courierQuote, setCourierQuote] = useState<CourierQuote | null>(null);
   const [showCourierSelection, setShowCourierSelection] = useState(false);
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<string>("");
@@ -201,6 +203,9 @@ export default function Cart() {
         deliverySuburb: deliverySuburb,
         deliveryBuilding: deliveryBuilding,
         deliveryPostalCode: deliveryPostalCode,
+        deliveryAddressId: selectedSavedAddressId || null,
+        deliveryLat: deliveryLat,
+        deliveryLng: deliveryLng,
         notes,
         items: orderItems,
         courierId: selectedCourier,
@@ -550,7 +555,11 @@ export default function Cart() {
 
   const handleSavedAddressSelect = (addressId: string) => {
     setSelectedSavedAddressId(addressId);
-    if (!addressId) return;
+    if (!addressId) {
+      setDeliveryLat(null);
+      setDeliveryLng(null);
+      return;
+    }
     const addr = savedAddresses.find((a) => a.id === addressId);
     if (!addr) return;
     setDeliveryAddress(addr.addressLine);
@@ -558,6 +567,8 @@ export default function Cart() {
     setDeliverySuburb(addr.suburb || "");
     setDeliveryBuilding(addr.building || "");
     setDeliveryPostalCode(addr.postalCode || "");
+    setDeliveryLat(addr.latitude?.toString() || null);
+    setDeliveryLng(addr.longitude?.toString() || null);
     if (selectedCourier) {
       calculateCourierCostMutation.mutate({ courierId: selectedCourier, location: addr.addressLine });
     }
@@ -870,6 +881,8 @@ export default function Cart() {
                             setDeliverySuburb(location.suburb);
                             setDeliveryBuilding(location.building || '');
                             setDeliveryPostalCode(location.postalCode || '');
+                            setDeliveryLat(location.latitude || null);
+                            setDeliveryLng(location.longitude || null);
                             setSelectedSavedAddressId(""); // clear saved selection when typing manually
 
                             // Trigger courier cost calculation if courier is selected
