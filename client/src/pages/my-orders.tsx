@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { format } from "date-fns";
 import { 
   Package, 
@@ -305,15 +306,16 @@ export default function MyOrders() {
         )}
 
         <div className="flex gap-2 pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => getOrderDetails(order.id)}
-            className="flex items-center gap-2"
-          >
-            <Eye className="w-4 h-4" />
-            View Details
-          </Button>
+          <Link href={`/track/${order.id}`}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Eye className="w-4 h-4" />
+              View Details
+            </Button>
+          </Link>
 
           {order.status && order.status.toLowerCase() === "delivered" && (
             <Button
@@ -329,22 +331,16 @@ export default function MyOrders() {
 
           {order.status && !["delivered", "cancelled"].includes(order.status.toLowerCase()) && (
             <>
-              <Dialog open={trackingDialogOpen} onOpenChange={setTrackingDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedOrder(order as OrderWithItems);
-                      setTrackingDialogOpen(true);
-                    }}
-                    className="flex items-center gap-2"
-                  >
-                    <Truck className="w-4 h-4" />
-                    Track Order
-                  </Button>
-                </DialogTrigger>
-              </Dialog>
+              <Link href={`/track/${order.id}`}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <Truck className="w-4 h-4" />
+                  Track Order
+                </Button>
+              </Link>
 
               <Button
                 variant="outline"
