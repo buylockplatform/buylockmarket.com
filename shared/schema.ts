@@ -43,6 +43,10 @@ export const users = pgTable("users", {
   building: varchar("building"),
   postalCode: varchar("postal_code"),
   country: varchar("country").default("Kenya"),
+  fcmToken: varchar("fcm_token"),
+  isOnline: boolean("is_online").default(false),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -55,6 +59,7 @@ export const categories = pgTable("categories", {
   description: text("description"),
   imageUrl: varchar("image_url"),
   isActive: boolean("is_active").default(true),
+  verticalId: uuid("vertical_id").references(() => verticals.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -164,6 +169,8 @@ export const cartItems = pgTable("cart_items", {
   serviceLocation: text("service_location"), // Address where service will be performed
   locationCoordinates: varchar("location_coordinates"), // lat,lng format
   detailedInstructions: text("detailed_instructions"), // Additional instructions for service provider
+  productNameSnapshot: varchar("product_name_snapshot"),
+  vendorNameSnapshot: varchar("vendor_name_snapshot"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -173,7 +180,7 @@ export const orderStatusEnum = pgEnum("order_status", ["paid", "ready_for_pickup
 
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: varchar("user_id").notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   vendorId: varchar("vendor_id").notNull(),
   status: varchar("status").notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
@@ -204,6 +211,30 @@ export const orders = pgTable("orders", {
   publicToken: varchar("public_token", { length: 32 }).unique(), // Secure token for public order access
   publicTokenCreatedAt: timestamp("public_token_created_at"),
   publicTokenExpiresAt: timestamp("public_token_expires_at"),
+  
+  // New Guest Checkout fields
+  isGuest: boolean("is_guest").default(false),
+  guestName: text("guest_name"),
+  guestPhone: varchar("guest_phone"),
+  guestEmail: varchar("guest_email"),
+  guestAddress: text("guest_address"),
+  guestLatitude: decimal("guest_latitude", { precision: 10, scale: 8 }),
+  guestLongitude: decimal("guest_longitude", { precision: 11, scale: 8 }),
+  
+  // New Address / Rider fields
+  deliveryAddressId: uuid("delivery_address_id").references(() => customerAddresses.id),
+  deliveryPersonId: varchar("delivery_person_id").references(() => users.id),
+  
+  // New Amount breakdowns
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }),
+  
+  // New milestone timestamps
+  assignedAt: timestamp("assigned_at"),
+  pickedUpAt: timestamp("picked_up_at"),
+  deliveredAt: timestamp("delivered_at"),
+  verifiedAt: timestamp("verified_at"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -336,6 +367,50 @@ export const orderItems = pgTable("order_items", {
   serviceLocation: text("service_location"), // Address where service will be performed
   locationCoordinates: varchar("location_coordinates"), // lat,lng format
   detailedInstructions: text("detailed_instructions"), // Additional instructions for service provider
+  vendorConfirmedQuantity: integer("vendor_confirmed_quantity"),
+  vendorConfirmedAt: timestamp("vendor_confirmed_at"),
+  vendorNotes: text("vendor_notes"),
+  
+  // Snapshot details
+  productName: varchar("product_name", { length: 200 }),
+  itemName: varchar("item_name", { length: 200 }),
+  collectionName: varchar("collection_name", { length: 100 }),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }),
+});
+
+// Safaricom M-Pesa Transactions
+export const mpesaTransactions = pgTable("mpesa_transactions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: uuid("order_id").references(() => orders.id).notNull(),
+  merchantRequestId: varchar("merchant_request_id").notNull(),
+  checkoutRequestId: varchar("checkout_request_id").notNull().unique(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  phoneNumber: varchar("phone_number").notNull(),
+  mpesaReceiptNumber: varchar("mpesa_receipt_number"),
+  transactionDate: timestamp("transaction_date"),
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, completed, failed
+  resultDesc: text("result_desc"),
+  rawCallbackData: jsonb("raw_callback_data"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Courier Delivery Jobs
+export const deliveryJobs = pgTable("delivery_jobs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: uuid("order_id").references(() => orders.id).notNull(),
+  pickupAddress: text("pickup_address").notNull(),
+  dropoffAddress: text("dropoff_address").notNull(),
+  pickupLatitude: decimal("pickup_latitude", { precision: 10, scale: 8 }),
+  pickupLongitude: decimal("pickup_longitude", { precision: 11, scale: 8 }),
+  dropoffLatitude: decimal("dropoff_latitude", { precision: 10, scale: 8 }),
+  dropoffLongitude: decimal("dropoff_longitude", { precision: 11, scale: 8 }),
+  deliveryPersonId: varchar("delivery_person_id").references(() => users.id),
+  status: varchar("status", { length: 30 }).default("ASSIGNING").notNull(), // ASSIGNING, AWAITING_ACCEPTANCE, ASSIGNED, PICKED_UP, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
+  jobType: varchar("job_type", { length: 20 }).notNull(), // 'PICKUP' | 'DELIVERY'
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Relations
@@ -434,6 +509,26 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   orderItems: many(orderItems),
   tracking: many(orderTracking),
   delivery: one(deliveries),
+  deliveryJob: one(deliveryJobs),
+  mpesaTransaction: one(mpesaTransactions),
+}));
+
+export const mpesaTransactionsRelations = relations(mpesaTransactions, ({ one }) => ({
+  order: one(orders, {
+    fields: [mpesaTransactions.orderId],
+    references: [orders.id],
+  }),
+}));
+
+export const deliveryJobsRelations = relations(deliveryJobs, ({ one }) => ({
+  order: one(orders, {
+    fields: [deliveryJobs.orderId],
+    references: [orders.id],
+  }),
+  deliveryPerson: one(users, {
+    fields: [deliveryJobs.deliveryPersonId],
+    references: [users.id],
+  }),
 }));
 
 export const deliveryProvidersRelations = relations(deliveryProviders, ({ many }) => ({
@@ -771,6 +866,7 @@ export const vendors = pgTable("vendors", {
   verificationNotes: text("verification_notes"),
   verifiedAt: timestamp("verified_at"),
   verifiedBy: varchar("verified_by"),
+  fcmToken: varchar("fcm_token"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -887,4 +983,209 @@ export type InsertPayoutHistory = typeof payoutHistory.$inferInsert;
 
 export type EmailNotification = typeof emailNotifications.$inferSelect;
 export type InsertEmailNotification = typeof emailNotifications.$inferInsert;
+
+// Merchant Locations (Multi-branch)
+export const merchantLocations = pgTable("merchant_locations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
+  branchName: varchar("branch_name").notNull(),
+  branchCode: varchar("branch_code").unique(),
+  address: text("address").notNull(),
+  city: varchar("city"),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  supportsDelivery: boolean("supports_delivery").default(true),
+  supportsPickup: boolean("supports_pickup").default(true),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Verticals
+export const verticals = pgTable("verticals", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  slug: varchar("slug").notNull().unique(),
+  iconUrl: varchar("icon_url"),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Vendor Verticals
+export const vendorVerticals = pgTable("vendor_verticals", {
+  vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
+  verticalId: uuid("vertical_id").notNull().references(() => verticals.id),
+});
+
+// Store Hours
+export const storeHours = pgTable("store_hours", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
+  locationId: uuid("location_id").references(() => merchantLocations.id),
+  dayOfWeek: integer("day_of_week").notNull(),
+  openTime: varchar("open_time").notNull(),
+  closeTime: varchar("close_time").notNull(),
+  isClosed: boolean("is_closed").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Delivery Zones
+export const deliveryZones = pgTable("delivery_zones", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
+  locationId: uuid("location_id").references(() => merchantLocations.id),
+  zoneName: varchar("zone_name").notNull(),
+  maxRadiusKm: decimal("max_radius_km", { precision: 5, scale: 2 }),
+  geoJson: jsonb("geo_json"),
+  minOrderAmount: decimal("min_order_amount", { precision: 10, scale: 2 }).default("0"),
+  deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }),
+  estimatedEtaMinutes: integer("estimated_eta_minutes"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Disputes
+export const disputes = pgTable("disputes", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: uuid("order_id").notNull().references(() => orders.id),
+  customerId: varchar("customer_id").notNull(),
+  reason: text("reason").notNull(),
+  vendorResponse: text("vendor_response"),
+  adminResolution: text("admin_resolution"),
+  resolutionType: varchar("resolution_type"),
+  status: varchar("status").default("open"),
+  createdAt: timestamp("created_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+// Vendor Collections
+export const vendorCollections = pgTable("vendor_collections", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Product Collections
+export const productCollections = pgTable("product_collections", {
+  productId: uuid("product_id").notNull().references(() => products.id),
+  collectionId: uuid("collection_id").notNull().references(() => vendorCollections.id),
+});
+
+// Product Variants
+export const productVariants = pgTable("product_variants", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: uuid("product_id").notNull().references(() => products.id),
+  sku: varchar("sku").unique(),
+  attributes: jsonb("attributes").notNull(),
+  priceModifier: decimal("price_modifier", { precision: 10, scale: 2 }).default("0"),
+  stock: integer("stock").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Reviews
+export const reviews = pgTable("reviews", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: uuid("order_id").notNull().references(() => orders.id),
+  customerId: varchar("customer_id").notNull().references(() => users.id),
+  vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
+  vendorRating: integer("vendor_rating"),
+  vendorComment: text("vendor_comment"),
+  deliveryRating: integer("delivery_rating"),
+  deliveryComment: text("delivery_comment"),
+  isVisible: boolean("is_visible").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Wishlists
+export const wishlists = pgTable("wishlists", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  productId: uuid("product_id").references(() => products.id),
+  serviceId: uuid("service_id").references(() => services.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Customer Addresses
+export const customerAddresses = pgTable("customer_addresses", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  label: varchar("label"),
+  addressLine: text("address_line").notNull(),
+  city: varchar("city"),
+  suburb: varchar("suburb"),
+  building: varchar("building"),
+  postalCode: varchar("postal_code"),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payment Transactions
+export const paymentTransactions = pgTable("payment_transactions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: uuid("order_id").references(() => orders.id),
+  paymentReference: varchar("payment_reference").notNull().unique(),
+  gateway: varchar("gateway").default("paystack"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").default("KES"),
+  status: varchar("status").notNull(),
+  gatewayResponse: jsonb("gateway_response"),
+  initiatedAt: timestamp("initiated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  failureReason: text("failure_reason"),
+});
+
+// Device Tokens
+export const deviceTokens = pgTable("device_tokens", {
+  id:        uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId:    varchar("user_id").notNull(),
+  userType:  varchar("user_type", { length: 10 }).notNull(),
+  token:     varchar("token", { length: 512 }).notNull().unique(),
+  platform:  varchar("platform", { length: 20 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_device_tokens_user").on(table.userId),
+  index("idx_device_tokens_token").on(table.token),
+]);
+
+// Types for new tables
+export type MerchantLocation = typeof merchantLocations.$inferSelect;
+export type InsertMerchantLocation = typeof merchantLocations.$inferInsert;
+export type Vertical = typeof verticals.$inferSelect;
+export type InsertVertical = typeof verticals.$inferInsert;
+export type VendorVertical = typeof vendorVerticals.$inferSelect;
+export type StoreHour = typeof storeHours.$inferSelect;
+export type InsertStoreHour = typeof storeHours.$inferInsert;
+export type DeliveryZone = typeof deliveryZones.$inferSelect;
+export type InsertDeliveryZone = typeof deliveryZones.$inferInsert;
+export type Dispute = typeof disputes.$inferSelect;
+export type InsertDispute = typeof disputes.$inferInsert;
+export type VendorCollection = typeof vendorCollections.$inferSelect;
+export type InsertVendorCollection = typeof vendorCollections.$inferInsert;
+export type ProductCollection = typeof productCollections.$inferSelect;
+export type ProductVariant = typeof productVariants.$inferSelect;
+export type InsertProductVariant = typeof productVariants.$inferInsert;
+export type Review = typeof reviews.$inferSelect;
+export type InsertReview = typeof reviews.$inferInsert;
+export type Wishlist = typeof wishlists.$inferSelect;
+export type InsertWishlist = typeof wishlists.$inferInsert;
+export type CustomerAddress = typeof customerAddresses.$inferSelect;
+export type InsertCustomerAddress = typeof customerAddresses.$inferInsert;
+export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
+export type InsertPaymentTransaction = typeof paymentTransactions.$inferInsert;
+export type MpesaTransaction = typeof mpesaTransactions.$inferSelect;
+export type InsertMpesaTransaction = typeof mpesaTransactions.$inferInsert;
+export type DeliveryJob = typeof deliveryJobs.$inferSelect;
+export type InsertDeliveryJob = typeof deliveryJobs.$inferInsert;
+export type DeviceToken = typeof deviceTokens.$inferSelect;
+export type InsertDeviceToken = typeof deviceTokens.$inferInsert;
+
 export type InsertAdmin = typeof admins.$inferInsert;
+

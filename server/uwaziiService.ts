@@ -4,10 +4,8 @@ interface UwaziiResponse {
   Data?: Array<{
     MessageId: string;
   }>;
-  // Alternative format: phone number as key with array of id_state objects
-  [phoneNumber: string]: Array<{
-    id_state: number;
-  }>;
+  // Alternative format: phone number as key
+  [phoneNumber: string]: any;
 }
 
 export class UwaziiSMSService {

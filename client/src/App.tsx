@@ -14,6 +14,7 @@ import Services from "@/pages/services";
 import ServiceDetail from "@/pages/service-detail";
 import Cart from "@/pages/cart";
 import MyOrders from "@/pages/my-orders";
+import Wishlist from "@/pages/wishlist";
 import Profile from "@/pages/profile";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
@@ -23,7 +24,6 @@ import ResetPassword from "@/pages/reset-password";
 import Shop from "@/pages/shop";
 import VendorPortal from "@/pages/vendor-portal";
 import DeliveryPortal from "@/pages/delivery-portal";
-import TestDeliveryWorkflow from "@/pages/test-delivery-workflow";
 import AdminPortalLanding from "@/pages/admin-portal";
 import VendorLogin from "@/pages/vendor-dashboard/login";
 import VendorForgotPassword from "@/pages/vendor-dashboard/forgot-password";
@@ -37,6 +37,8 @@ import VendorTasks from "@/pages/vendor-tasks";
 import Payment from "@/pages/payment";
 import DeliveryConfirmation from "@/pages/customer-portal/DeliveryConfirmation";
 import PublicOrder from "@/pages/public-order";
+import Checkout from "@/pages/Checkout";
+import TrackOrder from "@/pages/TrackOrder";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -64,6 +66,7 @@ function Router() {
           <Route path="/shop" component={Shop} />
           <Route path="/cart" component={Cart} />
           <Route path="/my-orders" component={MyOrders} />
+          <Route path="/wishlist" component={Wishlist} />
           <Route path="/profile" component={Profile} />
           <Route path="/vendor-tasks" component={VendorTasks} />
           <Route path="/payment" component={Payment} />
@@ -72,7 +75,6 @@ function Router() {
       {/* Portal routes - accessible without authentication */}
       <Route path="/vendor-portal" component={VendorPortal} />
       <Route path="/delivery-portal" component={DeliveryPortal} />
-      <Route path="/test-delivery" component={TestDeliveryWorkflow} />
       
       {/* Public order access - no authentication required */}
       <Route path="/o/:token" component={PublicOrder} />
@@ -82,15 +84,21 @@ function Router() {
       <Route path="/vendor-dashboard/forgot-password" component={VendorForgotPassword} />
       <Route path="/vendor-dashboard/reset-password" component={VendorResetPassword} />
       <Route path="/vendor/registration" component={VendorRegistration} />
+      <Route path="/vendor-dashboard/:section" component={VendorDashboard} />
       <Route path="/vendor-dashboard" component={VendorDashboard} />
       
       {/* Admin portal routes */}
       <Route path="/admin-portal/login" component={AdminLogin} />
+      <Route path="/admin-portal/dashboard/:section" component={AdminDashboard} />
       <Route path="/admin-portal/dashboard" component={AdminDashboard} />
       <Route path="/admin-portal" component={AdminPortalLanding} />
       
       {/* Customer delivery confirmation - public route */}
       <Route path="/confirm-delivery/:token" component={DeliveryConfirmation} />
+
+      {/* Checkout and Tracking routes */}
+      <Route path="/checkout" component={Checkout} />
+      <Route path="/track/:id" component={TrackOrder} />
       
       <Route component={NotFound} />
     </Switch>

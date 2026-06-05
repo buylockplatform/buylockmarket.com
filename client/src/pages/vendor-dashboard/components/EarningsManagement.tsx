@@ -62,6 +62,19 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
   const [activeTab, setActiveTab] = useState("overview");
   const { toast } = useToast();
 
+  // Safe date formatter — never shows "Invalid Date"
+  const safeDate = (val: string | null | undefined) => {
+    if (!val) return '—';
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  // Safe currency formatter — handles string amounts from API
+  const safeMoney = (val: string | number | null | undefined) => {
+    const n = parseFloat(String(val ?? ''));
+    return formatPrice(isNaN(n) ? 0 : n);
+  };
+
   // Fetch vendor earnings data
   const { data: earnings, isLoading: earningsLoading } = useQuery({
     queryKey: [`/api/vendor/${vendorId}/earnings`],
@@ -364,7 +377,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                           {earning.status}
                         </Badge>
                         <p className="text-xs text-gray-500 mt-1">
-                          {new Date(earning.orderDate).toLocaleDateString()}
+                          {safeDate(earning.orderDate || earning.confirmationDate)}
                         </p>
                       </div>
                     </div>
@@ -412,14 +425,14 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                           <div>
                             <p className="font-semibold text-gray-900">Order #{order.id ? order.id.slice(0, 8) : 'N/A'}</p>
                             <p className="text-sm text-gray-600">{order.userName || order.userEmail || 'Customer'}</p>
-                            <p className="text-xs text-gray-500">Delivered: {new Date(order.updatedAt).toLocaleDateString()}</p>
+                            <p className="text-xs text-gray-500">Delivered: {safeDate(order.updatedAt || order.createdAt)}</p>
                             <p className="text-xs text-gray-500">Address: {order.deliveryAddress}</p>
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-green-600">
-                          {formatPrice(order.totalAmount)}
+                          {safeMoney(order.totalAmount)}
                         </p>
                         <Badge variant="default" className="bg-green-600">
                           Delivered
@@ -493,11 +506,11 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                               {request.bankAccount || 'Bank details provided'}
                             </p>
                             <p className="text-xs text-gray-500">
-                              Requested: {new Date(request.requestDate).toLocaleDateString()}
+                              Requested: {safeDate(request.requestDate || (request as any).createdAt)}
                             </p>
-                            {request.processedDate && (
+                            {(request.processedDate || (request as any).reviewedAt) && (
                               <p className="text-xs text-gray-500">
-                                Processed: {new Date(request.processedDate).toLocaleDateString()}
+                                Processed: {safeDate(request.processedDate || (request as any).reviewedAt)}
                               </p>
                             )}
                           </div>
@@ -505,7 +518,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-buylock-primary">
-                          {formatPrice(request.amount)}
+                          {safeMoney(request.amount || (request as any).requestedAmount)}
                         </p>
                         <Badge 
                           variant={request.status === 'completed' ? 'default' : 

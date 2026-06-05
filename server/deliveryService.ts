@@ -346,6 +346,114 @@ export class FargoCourierAPI implements CourierAPIProvider {
   }
 }
 
+// Buylock Internal Delivery Implementation
+// Uses the delivery_jobs table directly — no external API call needed.
+// Rider mobile app polls for AWAITING_ACCEPTANCE jobs and accepts them.
+export class BuylockDeliveryAPI implements CourierAPIProvider {
+
+  async createDelivery(request: DeliveryRequest): Promise<CourierResponse> {
+    try {
+      // Dynamic import to avoid circular dependency with storage
+      const { storage } = await import('./storage');
+
+      // Resolve vendor / customer GPS from their stored profiles
+      const vendor = await storage.getVendorByPhone?.(request.vendorPhone) ?? null;
+      const customer = await storage.getUserByPhone?.(request.customerPhone) ?? null;
+
+      // Create a delivery_jobs record in ASSIGNING status.
+      // The job will move to AWAITING_ACCEPTANCE once payment is confirmed
+      // and FCM broadcasts to nearby online riders.
+      const jobId = await storage.createDeliveryJob?.({
+        orderId: request.orderId,
+        pickupAddress: request.pickupAddress,
+        dropoffAddress: request.deliveryAddress,
+        pickupLatitude: vendor?.businessLatitude ?? null,
+        pickupLongitude: vendor?.businessLongitude ?? null,
+        dropoffLatitude: customer?.latitude ?? null,
+        dropoffLongitude: customer?.longitude ?? null,
+        deliveryPersonId: null,
+        status: 'ASSIGNING',
+        jobType: 'DELIVERY',
+      }) ?? request.orderId; // Fallback to orderId as internal tracking ref
+
+      console.log(`🏍️  Buylock Delivery job created: ${jobId}`);
+
+      return {
+        success: true,
+        trackingId: String(jobId),
+        estimatedPickupTime: new Date(Date.now() + 30 * 60 * 1000),     // ~30 min pickup
+        estimatedDeliveryTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // ~3 hr delivery
+      };
+    } catch (error) {
+      console.error('Buylock Delivery createDelivery error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal delivery job creation failed',
+      };
+    }
+  }
+
+  async getDeliveryStatus(trackingId: string): Promise<CourierStatus> {
+    try {
+      const { storage } = await import('./storage');
+
+      // trackingId is the delivery_jobs UUID
+      const job = await storage.getDeliveryJobById?.(trackingId);
+      if (!job) {
+        throw new Error(`Buylock delivery job not found: ${trackingId}`);
+      }
+
+      const statusDescriptions: Record<string, string> = {
+        ASSIGNING: 'Looking for a rider near you',
+        AWAITING_ACCEPTANCE: 'Rider found — awaiting confirmation',
+        ASSIGNED: 'Rider is on the way to pick up your order',
+        PICKED_UP: 'Rider has collected your items',
+        OUT_FOR_DELIVERY: 'Your order is on the way',
+        DELIVERED: 'Order delivered successfully',
+        CANCELLED: 'Delivery was cancelled',
+      };
+
+      return {
+        trackingId,
+        status: job.status,
+        description: statusDescriptions[job.status] ?? job.status,
+        timestamp: new Date(job.updatedAt ?? job.createdAt),
+      };
+    } catch (error) {
+      console.error('Buylock Delivery getDeliveryStatus error:', error);
+      throw error;
+    }
+  }
+
+  async cancelDelivery(trackingId: string): Promise<boolean> {
+    try {
+      const { storage } = await import('./storage');
+      await storage.updateDeliveryJobStatus?.(trackingId, 'CANCELLED');
+      console.log(`🏍️  Buylock Delivery job cancelled: ${trackingId}`);
+      return true;
+    } catch (error) {
+      console.error('Buylock Delivery cancelDelivery error:', error);
+      return false;
+    }
+  }
+
+  async requestQuote(request: DeliveryRequest): Promise<CourierQuoteResponse> {
+    // Flat base rate — actual rate is pulled from delivery_providers.baseRate in DB.
+    // Using 150 KES as the default; admin can update via Courier Configuration panel.
+    const baseRate = parseFloat(process.env.BUYLOCK_DELIVERY_BASE_RATE ?? '150');
+    const distanceRate = parseFloat(process.env.BUYLOCK_DELIVERY_DISTANCE_RATE ?? '15');
+    const estimatedAmount = baseRate + (distanceRate * 3); // Assume ~3 km average
+
+    return {
+      success: true,
+      amount: estimatedAmount,
+      currency: 'KES',
+      quoteId: `BLD-${Date.now()}`,
+      estimatedDeliveryTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours
+    };
+  }
+}
+
 // Delivery Service Manager
 export class DeliveryService {
   private providers: Map<string, CourierAPIProvider> = new Map();
@@ -359,6 +467,8 @@ export class DeliveryService {
       process.env.FARGO_PASSWORD || 'demo-pass',
       process.env.FARGO_ENV || 'production'
     ));
+    // Buylock in-house rider fleet — no external API keys needed
+    this.providers.set('buylock_delivery', new BuylockDeliveryAPI());
   }
 
   async createDelivery(order: Order, provider: DeliveryProvider): Promise<CourierResponse> {
@@ -450,6 +560,16 @@ export class DeliveryService {
         'Delivered': 'delivered', // Case sensitive check just in case
         'delivery_failed': 'failed',
         'cancelled': 'cancelled',
+      },
+      // Internal rider fleet — maps LaundryFlow delivery_jobs status enum to BuyLock internal statuses
+      buylock_delivery: {
+        'ASSIGNING': 'pending',
+        'AWAITING_ACCEPTANCE': 'pending',
+        'ASSIGNED': 'pickup_scheduled',
+        'PICKED_UP': 'picked_up',
+        'OUT_FOR_DELIVERY': 'out_for_delivery',
+        'DELIVERED': 'delivered',
+        'CANCELLED': 'cancelled',
       },
     };
 

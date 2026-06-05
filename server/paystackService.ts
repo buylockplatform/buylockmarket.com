@@ -235,12 +235,29 @@ export class PaystackService {
       throw new Error(`Invalid account details: ${error}`);
     }
 
-    // Create the subaccount
+    // Create the subaccount — read commission from platformSettings, fallback to 15%
+    let platformCommissionPercent = 15;
+    try {
+      const { db: database } = await import("./db");
+      const { platformSettings } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [commissionSetting] = await database
+        .select()
+        .from(platformSettings)
+        .where(eq(platformSettings.settingKey, "platform_commission_percent"))
+        .limit(1);
+      if (commissionSetting) {
+        platformCommissionPercent = parseFloat(commissionSetting.settingValue) || 15;
+      }
+    } catch {
+      // DB not available (e.g. test env) — use default
+    }
+
     const subaccountData: PaystackSubaccountData = {
       business_name: vendor.businessName,
       settlement_bank: bankCode!,
       account_number: vendor.accountNumber,
-      percentage_charge: 80, // Vendor gets 80%, platform gets 20%
+      percentage_charge: platformCommissionPercent, // Platform takes this %, vendor keeps the rest
       description: `Subaccount for ${vendor.businessName}`,
       primary_contact_email: vendor.email,
       primary_contact_name: vendor.contactName,

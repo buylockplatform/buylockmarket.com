@@ -37,7 +37,7 @@ export default function UserManagement() {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
 
   // Fetch real users from API
-  const { data: users = [], isLoading } = useQuery({
+  const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ['/api/admin/users', searchTerm],
     retry: false,
   });

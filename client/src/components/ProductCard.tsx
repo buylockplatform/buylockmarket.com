@@ -47,7 +47,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           <div className="flex flex-col gap-4">
             <PriceDisplay 
               price={product.price} 
-              originalPrice={product.originalPrice}
+              originalPrice={product.originalPrice ?? undefined}
               size="lg" 
             />
             <Button 

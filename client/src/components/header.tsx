@@ -8,6 +8,7 @@ import {
   Menu,
   X,
   Clock,
+  Heart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -593,6 +594,12 @@ export function Header() {
                     >
                       My Orders
                     </Link>
+                    <Link
+                      href="/wishlist"
+                      className="block px-4 py-2 text-buylock-charcoal hover:bg-buylock-cyan/10 hover:text-buylock-cyan transition-colors"
+                    >
+                      My Wishlist
+                    </Link>
                     <button
                       onClick={(e) => {
                         e.preventDefault();
@@ -784,6 +791,12 @@ export function Header() {
                     className="block text-gray-700 hover:text-buylock-primary font-medium"
                   >
                     My Orders
+                  </Link>
+                  <Link
+                    href="/wishlist"
+                    className="block text-gray-700 hover:text-buylock-primary font-medium"
+                  >
+                    My Wishlist
                   </Link>
                   <button
                     onClick={(e) => {

@@ -241,7 +241,7 @@ export default function ProductDetail() {
             <div className="space-y-2">
               <PriceDisplay 
                 price={product.price} 
-                originalPrice={product.originalPrice}
+                originalPrice={product.originalPrice ?? undefined}
                 size="xl"
                 className="text-buylock-primary"
               />

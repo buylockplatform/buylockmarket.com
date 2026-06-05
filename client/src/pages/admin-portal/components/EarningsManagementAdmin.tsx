@@ -146,6 +146,43 @@ export default function EarningsManagementAdmin() {
     },
   });
 
+  // Mutation for running weekly auto-settlement
+  const settlementMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/admin/settlement/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Failed to run settlement");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Settlement Run Complete",
+        description: data.message || "Auto-settlement processed successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/payout-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/vendor-earnings'] });
+      refetchPayouts();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Settlement Failed",
+        description: error.message || "Failed to process settlement.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRunSettlement = () => {
+    if (confirm("Are you sure you want to run the weekly settlement? This will automatically queue payout requests for all eligible vendors with outstanding balances.")) {
+      settlementMutation.mutate();
+    }
+  };
+
   const formatPrice = (amount: string | number) => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-KE', {
@@ -362,11 +399,24 @@ export default function EarningsManagementAdmin() {
 
         <TabsContent value="payouts" className="space-y-6">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5" />
                 Requested Payouts
               </CardTitle>
+              <Button
+                size="sm"
+                className="bg-buylock-primary hover:bg-buylock-primary/90 text-white"
+                onClick={() => handleRunSettlement()}
+                disabled={settlementMutation.isPending}
+              >
+                {settlementMutation.isPending ? (
+                  <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                Run Weekly Settlement
+              </Button>
             </CardHeader>
             <CardContent>
               {payoutLoading ? (

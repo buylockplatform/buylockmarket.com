@@ -322,6 +322,7 @@ export default function DeliveryManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Couriers</SelectItem>
+                  <SelectItem value="buylock_delivery">🏍️ Buylock Delivery (In-House)</SelectItem>
                   <SelectItem value="g4s">G4S Courier</SelectItem>
                   <SelectItem value="fargo_courier">Fargo Courier</SelectItem>
                   <SelectItem value="pickup-mtaani">Pickup Mtaani</SelectItem>
@@ -463,6 +464,7 @@ export default function DeliveryManagement() {
                                       <SelectValue placeholder="Select new courier" />
                                     </SelectTrigger>
                                     <SelectContent>
+                                      <SelectItem value="buylock_delivery">🏍️ Buylock Delivery (In-House)</SelectItem>
                                       <SelectItem value="g4s">G4S Courier</SelectItem>
                                       <SelectItem value="fargo_courier">Fargo Courier</SelectItem>
                                       <SelectItem value="pickup-mtaani">Pickup Mtaani</SelectItem>

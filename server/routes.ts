@@ -6,9 +6,15 @@ import { db } from "./db";
 import { eq, sql } from "drizzle-orm";
 import { getSession } from "./replitAuth";
 import { sendVendorAccountUnderReviewNotification, sendVendorAccountApprovedNotification, sendVendorPasswordResetEmail, sendUserPasswordResetEmail } from "./emailService";
-// import { sendPayoutStatusNotification, PayoutNotificationData } from "./emailService";
+// Mock vendorEmailService
+const vendorEmailService = {
+  sendPayoutRequestEmail: async (data: any) => {},
+  sendPayoutStatusEmail: async (data: any) => {},
+  sendPayoutRejectedNotification: async (data: any) => {},
+  sendPayoutCompletedNotification: async (data: any) => {}
+};
 type PayoutNotificationData = any;
-const sendPayoutStatusNotification = async (..._args: any[]) => { }; // no-op placeholder
+const sendPayoutStatusNotification = async (..._args: any[]) => { };
 import { notificationService, type VendorNotificationData } from "./notificationService";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
@@ -16,6 +22,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { PaystackService } from "./paystackService";
 import { generateTokens, verifyToken, extractBearerToken, wantsTokenAuth, refreshAccessToken, type JWTPayload } from "./jwtUtils";
 import { deliveryService } from "./deliveryService";
+import { pushRouter } from "./pushRoutes";
 
 // Hybrid user authentication middleware (supports both sessions and JWT tokens)
 const isUserAuthenticated = async (req: any, res: any, next: any) => {
@@ -140,6 +147,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize PaystackService for subaccounts
   const paystackService = new PaystackService(secret);
 
+  app.use(pushRouter);
+
   // Rate limiting for authentication endpoints
   const authRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -172,7 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ordersColumns: columns.rows.map(row => row.column_name),
         hasPaymentReference: columns.rows.some(row => row.column_name === 'payment_reference')
       });
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
@@ -412,7 +421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if client wants token-based authentication
       if (wantsTokenAuth(req)) {
         // Generate JWT tokens for mobile/API clients
-        const tokens = generateTokens(user);
+        const tokens = generateTokens(user as any);
         const { passwordHash, ...userData } = user;
 
         return res.status(201).json({
@@ -436,8 +445,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Set up session for the newly registered user
-        req.session.userId = user.id;
-        req.session.user = {
+        (req.session as any).userId = user.id;
+        (req.session as any).user = {
           id: user.id,
           email: user.email,
           firstName: user.firstName,
@@ -461,7 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("User registration error:", error);
 
       if (error.name === "ZodError") {
@@ -489,7 +498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if client wants token-based authentication
       if (wantsTokenAuth(req)) {
         // Generate JWT tokens for mobile/API clients
-        const tokens = generateTokens(user);
+        const tokens = generateTokens(user as any);
         const { passwordHash, ...userData } = user;
 
         return res.json({
@@ -513,8 +522,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Set up session for the user
-        req.session.userId = user.id;
-        req.session.user = {
+        (req.session as any).userId = user.id;
+        (req.session as any).user = {
           id: user.id,
           email: user.email,
           firstName: user.firstName,
@@ -542,10 +551,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("User login error:", error);
 
-      if (error.name === "ZodError") {
+      if ((error as any).name === "ZodError") {
         return res.status(400).json({
           message: "Validation error",
-          errors: error.errors
+          errors: (error as any).errors
         });
       }
 
@@ -579,8 +588,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
 
       await sendUserPasswordResetEmail({
-        userEmail: user.email,
-        userName,
+        userEmail: user.email ?? '',
+        userName: userName ?? '',
         resetUrl,
       });
 
@@ -625,7 +634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User profile update endpoint
   app.put("/api/user/profile", isUserAuthenticated, async (req, res) => {
     try {
-      const userId = req.user.id;
+      const userId = (req as any).user.id;
       const { firstName, lastName, phone, address, city, country } = req.body;
 
       const updatedUser = await storage.updateUser(userId, {
@@ -661,7 +670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "New password must be at least 8 characters long" });
       }
 
-      const userId = req.user.id;
+      const userId = (req as any).user.id;
       let user: any = await storage.getUser(userId);
       let isVendor = false;
 
@@ -766,6 +775,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get current user error:", error);
       res.status(500).json({ message: "Failed to get user" });
+    }
+  });
+
+  // Save FCM token for push notifications
+  app.post('/api/user/fcm-token', isUserAuthenticated, async (req: any, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ message: "Token is required" });
+      await storage.updateUser(req.user.id, { fcmToken: token });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to save FCM token:", error);
+      res.status(500).json({ message: "Failed to save FCM token" });
+    }
+  });
+
+  app.post('/api/vendor/fcm-token', isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ message: "Token is required" });
+      await storage.updateVendor(req.vendor.id, { fcmToken: token });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to save vendor FCM token:", error);
+      res.status(500).json({ message: "Failed to save FCM token" });
     }
   });
 
@@ -906,8 +940,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bankName,
         bankCode,
         accountNumber,
-        accountName,
       });
+
+      // Automatically set up the Main branch location for the newly registered vendor
+      try {
+        await storage.createVendorLocation({
+          vendorId: newVendor.id,
+          branchName: "Main",
+          address: locationDescription || address || "Main Shop Location",
+          city: null,
+          latitude: lat.toString(),
+          longitude: lng.toString(),
+          supportsDelivery: true,
+          supportsPickup: true,
+          isActive: true,
+        });
+        console.log(`✅ Main branch auto-created for newly registered vendor: ${newVendor.id}`);
+      } catch (locationError) {
+        console.error("Failed to auto-create Main branch on vendor registration:", locationError);
+      }
 
       // Create Paystack subaccount if bank details are complete
       let subaccountInfo = null;
@@ -988,7 +1039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if order has already been fulfilled
-      if (order.status === 'fulfilled') {
+      if ((order.status as string) === 'fulfilled') {
         return res.status(400).json({
           message: "Order has already been fulfilled"
         });
@@ -1028,7 +1079,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Calculate vendor earnings for each order item using precise decimal arithmetic
-      const platformFeePercentage = 20; // 20% platform fee
+      const platformFeePercentage = await storage.getPlatformCommissionPercentage();
       let totalNetEarnings = 0;
 
       // Prepare earning records (but don't insert yet)
@@ -1199,8 +1250,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const radius = parseFloat(radiusKm as string);
           products = filterByRadius(products, customerLocation, radius, getVendorLocation);
         }
-        // Sort by proximity if requested or add distance data
-        else if (sortByProximity === 'true') {
+        // Always sort by proximity by default when location is provided
+        if (sortByProximity !== 'false') {
           products = sortByDistance(products, customerLocation, getVendorLocation);
         } else {
           // Add distance data without sorting
@@ -1308,8 +1359,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const radius = parseFloat(radiusKm as string);
           services = filterByRadius(services, customerLocation, radius, getVendorLocation);
         }
-        // Sort by proximity if requested or add distance data
-        else if (sortByProximity === 'true') {
+        // Always sort by proximity by default when location is provided
+        if (sortByProximity !== 'false') {
           services = sortByDistance(services, customerLocation, getVendorLocation);
         } else {
           // Add distance data without sorting
@@ -1388,24 +1439,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const cartItemData = insertCartItemSchema.parse({ ...req.body, userId });
 
-      // Fetch product or service details to get the correct price
+      // Fetch product or service details to get the correct price and snapshots
       let itemPrice = "0.00";
+      let productNameSnapshot: string | null = null;
+      let vendorNameSnapshot: string | null = null;
+
       if (cartItemData.productId) {
         const product = await storage.getProductById(cartItemData.productId);
         if (product) {
           itemPrice = product.price;
+          productNameSnapshot = product.name;
+          if (product.vendorId) {
+            const vendor = await storage.getVendorById(product.vendorId);
+            vendorNameSnapshot = vendor?.businessName || vendor?.contactName || null;
+          }
         }
       } else if (cartItemData.serviceId) {
         const service = await storage.getServiceById(cartItemData.serviceId);
         if (service) {
           itemPrice = service.price;
+          productNameSnapshot = service.name;
+          if (service.providerId) {
+            const vendor = await storage.getVendorById(service.providerId);
+            vendorNameSnapshot = vendor?.businessName || vendor?.contactName || null;
+          }
         }
       }
 
-      // Set the correct price in the cart item data
-      cartItemData.price = itemPrice;
+      // Prepare final cart item data with snapshots
+      const finalCartItemData = {
+        ...cartItemData,
+        price: itemPrice,
+        productNameSnapshot,
+        vendorNameSnapshot
+      };
 
-      const cartItem = await storage.addToCart(cartItemData);
+      const cartItem = await storage.addToCart(finalCartItemData);
       res.status(201).json(cartItem);
     } catch (error) {
       console.error("Error adding to cart:", error);
@@ -1563,7 +1632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       };
 
-      const response = await paystack.transaction.initialize(paymentData);
+      const response = await paystack!.transaction.initialize(paymentData as any);
       console.log('Paystack SDK response:', response);
 
       if (response.status) {
@@ -1612,10 +1681,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify payment using Paystack SDK
-      const verificationData = await paystack.transaction.verify(reference);
+      const verificationData = await paystack!.transaction.verify(reference);
       console.log('Payment verification result:', verificationData);
 
       if (verificationData.status && verificationData.data.status === 'success') {
+        // Write payment audit log (fire-and-forget — never blocks the response)
+        (async () => {
+          try {
+            const { db: database } = await import("./db");
+            const { paymentTransactions } = await import("@shared/schema");
+            await database.insert(paymentTransactions).values({
+              paymentReference: reference,
+              gateway: "paystack",
+              amount: (verificationData.data.amount / 100).toString(),
+              currency: verificationData.data.currency || "KES",
+              status: "success",
+              gatewayResponse: verificationData.data as any,
+              completedAt: new Date(),
+            }).onConflictDoNothing();
+          } catch (auditErr) {
+            console.warn("Failed to write payment audit log:", auditErr);
+          }
+        })();
+
         // Update order payment status - once paid, order is confirmed
         await storage.updateOrder(orderId, {
           paymentStatus: "completed",
@@ -1651,10 +1739,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (customer && customer.email && emailOrderItems.length > 0) {
             const customerOrderData = {
               customerEmail: customer.email,
-              customerName: customer.username || 'Customer',
+              customerName: (customer as any).username || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Customer',
               orderId: orderId,
               orderTotal: existingOrder.totalAmount,
-              deliveryAddress: existingOrder.deliveryAddress || existingOrder.shippingAddress || 'Address not provided',
+              deliveryAddress: existingOrder.deliveryAddress || 'Address not provided',
               deliveryFee: existingOrder.deliveryFee || '0',
               estimatedDelivery: existingOrder.orderType === 'service' ? 'Upon appointment scheduling' : '2-4 hours within Nairobi, 24-48 hours nationwide',
               orderItems: emailOrderItems
@@ -1673,42 +1761,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Don't fail the payment verification if email fails
         }
 
-        // Send SMS notification to vendor about new order
+        // Send SMS & FCM notification to vendor about new order
         try {
-          const { sendSMS } = await import('./uwaziiService');
           const vendor = await storage.getVendorById(existingOrder.vendorId);
 
-          if (vendor && vendor.phone) {
-            // Generate public token for order link
-            const token = await storage.ensurePublicToken(orderId);
+          if (vendor) {
+            if (vendor.phone) {
+              const { uwaziiService: smsService } = await import('./uwaziiService');
+              // Generate public token for order link
+              const token = await storage.ensurePublicToken(orderId);
 
-            // Use the correct domain - REPLIT_DOMAINS contains the proper published domain
-            const baseUrl = process.env.REPLIT_DOMAINS
-              ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-              : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
-            const orderLink = `${baseUrl}/o/${token}`;
+              // Use the correct domain - REPLIT_DOMAINS contains the proper published domain
+              const baseUrl = process.env.REPLIT_DOMAINS
+                ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+                : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
+              const orderLink = `${baseUrl}/o/${token}`;
 
-            const vendorMessage = `New BuyLock Order! ID: ${orderId.slice(-8)} Customer: ${customer?.firstName || 'Customer'} Total: KES ${existingOrder.totalAmount} Track: ${orderLink}`;
+              const vendorMessage = `New BuyLock Order! ID: ${orderId.slice(-8)} Customer: ${existingOrder.userId.slice(-6)} Total: KES ${existingOrder.totalAmount} Track: ${orderLink}`;
 
-            const smsResult = await sendSMS(vendor.phone, vendorMessage);
+              const smsResult = await smsService.sendSMS(vendor.phone, vendorMessage);
 
-            if (smsResult.success) {
-              console.log(`Vendor SMS notification sent to ${vendor.phone} for order ${orderId}`);
+              if (smsResult.success) {
+                console.log(`Vendor SMS notification sent to ${vendor.phone} for order ${orderId}`);
+              } else {
+                console.warn(`Failed to send vendor SMS notification for order ${orderId}:`, (smsResult as any).message);
+              }
             } else {
-              console.warn(`Failed to send vendor SMS notification for order ${orderId}:`, smsResult.message);
+              console.warn(`No vendor phone number found for order ${orderId}`);
             }
-          } else {
-            console.warn(`No vendor phone number found for order ${orderId}`);
+
+            // Send FCM notification if vendor token exists
+            if (vendor.fcmToken) {
+              try {
+                const { sendPushNotification } = await import('./firebaseAdmin');
+                await sendPushNotification(vendor.fcmToken, {
+                  title: "New Order Paid",
+                  body: `You received a payment for order ID: ${orderId.slice(-8)}.`,
+                  data: { orderId: orderId }
+                });
+                console.log(`✅ Vendor FCM push notification sent for order ${orderId}`);
+              } catch (fcmError) {
+                console.error(`❌ Error sending vendor FCM for order ${orderId}:`, fcmError);
+              }
+            }
           }
         } catch (smsError) {
-          console.error('Error sending vendor SMS notification:', smsError);
-          // Don't fail the payment verification if SMS fails
+          console.error('Error sending vendor notifications:', smsError);
+          // Don't fail the payment verification if notification fails
         }
 
         // Create appointment entry for service orders
         if (existingOrder.orderType === 'service') {
           const orderWithItems = await storage.getOrderWithItems(orderId);
-          if (orderWithItems.orderItems.length > 0) {
+          if (orderWithItems && orderWithItems.orderItems.length > 0) {
             const firstItem = orderWithItems.orderItems[0];
             const user = await storage.getUser(existingOrder.userId);
             const service = await storage.getServiceById(firstItem.serviceId!);
@@ -1722,9 +1827,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               customerName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Customer',
               customerEmail: user?.email || 'customer@example.com',
               customerPhone: '0712345678', // Default phone, should be collected during booking
-              appointmentDate: firstItem.appointmentDate!,
+              appointmentDate: firstItem.appointmentDate ? new Date(firstItem.appointmentDate).toISOString() : new Date().toISOString(),
               appointmentTime: firstItem.appointmentTime!,
-              address: existingOrder.shippingAddress,
+              address: existingOrder.deliveryAddress,
               city: 'Nairobi', // Default city, should be collected during booking
               state: 'Nairobi County', // Default state, should be collected during booking
               notes: existingOrder.notes || '',
@@ -1779,7 +1884,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { reference } = req.params;
 
       // Check payment status using Paystack SDK
-      const statusData = await paystack.transaction.verify(reference);
+      const statusData = await paystack!.transaction.verify(reference);
 
       const paymentInfo = {
         reference: reference,
@@ -1797,13 +1902,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/orders', isUserAuthenticated, async (req: any, res) => {
+  app.post('/api/orders', async (req: any, res) => {
     try {
-      const userId = req.user.id;
+      const isGuest = req.body.isGuest === true || req.body.isGuest === "true";
+      let userId = req.user?.id;
+
+      if (!userId) {
+        if (isGuest) {
+          const guestEmail = req.body.guestEmail;
+          const guestPhone = req.body.guestPhone;
+          const guestName = req.body.guestName || "Guest Customer";
+
+          if (!guestEmail || !guestPhone) {
+            return res.status(400).json({ message: "Guest email and phone number are required" });
+          }
+
+          // Check if user exists
+          let user = await storage.getUserByEmail(guestEmail);
+          if (!user) {
+            // Create user
+            const tempPassword = Math.random().toString(36).substring(2, 10);
+            const nameParts = guestName.split(" ");
+            const firstName = nameParts[0] || "Guest";
+            const lastName = nameParts.slice(1).join(" ") || "Customer";
+
+            user = await storage.createUser({
+              email: guestEmail,
+              phone: guestPhone,
+              firstName,
+              lastName,
+              password: tempPassword,
+              isOnline: false,
+            });
+
+            // Send credentials via SMS
+            try {
+              const { uwaziiService } = await import("./uwaziiService");
+              const message = `Welcome to BuyLock! Your guest account has been created. Login Email: ${guestEmail}, Password: ${tempPassword}. Protect your password.`;
+              await uwaziiService.sendSMS(guestPhone, message);
+            } catch (err) {
+              console.error("Failed to send guest credentials SMS:", err);
+            }
+          }
+          userId = user.id;
+        } else {
+          return res.status(401).json({ message: "Not authenticated" });
+        }
+      }
 
       // Get cart items
-      const cartItems = await storage.getCartItems(userId);
-      if (cartItems.length === 0) {
+      let cartItems = [];
+      if (!isGuest) {
+        cartItems = await storage.getCartItems(userId);
+      }
+      const orderItems = req.body.items || [];
+      if (cartItems.length === 0 && orderItems.length === 0) {
         return res.status(400).json({ message: "Cart is empty" });
       }
 
@@ -1813,10 +1966,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Determine primary vendor and order type from cart items
       let primaryVendorId = null;
       let orderType = 'product';
-      const orderItems = req.body.items || [];
 
       if (orderItems.length > 0) {
-        // Get vendor from first item (simplified - could be enhanced for multi-vendor support)
+        // Get vendor from first item
         const firstItem = orderItems[0];
         if (firstItem.serviceId) {
           orderType = 'service';
@@ -1831,10 +1983,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Check if vendor is open if primaryVendorId is set
+      if (primaryVendorId) {
+        const { db: database } = await import("./db");
+        const { storeHours } = await import("@shared/schema");
+        const { eq, and } = await import("drizzle-orm");
+
+        const now = new Date();
+        const dayOfWeek = now.getDay(); // 0=Sun, 6=Sat
+        const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+        const [todayHours] = await database.select().from(storeHours)
+          .where(and(eq(storeHours.vendorId, primaryVendorId), eq(storeHours.dayOfWeek, dayOfWeek)));
+
+        if (todayHours) {
+          if (todayHours.isClosed) {
+            return res.status(400).json({ message: "This vendor is closed today. Orders cannot be placed." });
+          }
+          if (currentTime < todayHours.openTime || currentTime > todayHours.closeTime) {
+            return res.status(400).json({ 
+              message: `This vendor is currently closed. Operating hours today are ${todayHours.openTime} to ${todayHours.closeTime}.` 
+            });
+          }
+        }
+      }
+
+      // ── Proximity Radius check (30km limit) ─────────────────
+      const customerLat = parseFloat(req.body.guestLatitude ?? req.body.customerLat ?? req.body.deliveryLat ?? "");
+      const customerLng = parseFloat(req.body.guestLongitude ?? req.body.customerLng ?? req.body.deliveryLng ?? "");
+
+      if (primaryVendorId && !isNaN(customerLat) && !isNaN(customerLng)) {
+        const vendor = await storage.getVendorById(primaryVendorId);
+        const vendorLat = parseFloat(vendor?.businessLatitude ?? "");
+        const vendorLng = parseFloat(vendor?.businessLongitude ?? "");
+
+        if (!isNaN(vendorLat) && !isNaN(vendorLng)) {
+          const { calculateDistance } = await import("./geoUtils");
+          const distanceKm = calculateDistance(
+            { latitude: customerLat, longitude: customerLng },
+            { latitude: vendorLat, longitude: vendorLng }
+          );
+
+          if (distanceKm > 30) {
+            return res.status(400).json({
+              message: `Your delivery address is too far from this shop (${distanceKm.toFixed(1)}km). The maximum delivery radius is 30km.`,
+              code: "OUTSIDE_RADIUS_LIMIT",
+            });
+          }
+        }
+      }
+
+      // ── Delivery Zone Enforcement Gate ──────────────────────────────────────
+      // Only applied when: (a) delivery type order, (b) customer lat/lng provided,
+      // (c) platform flag 'enable_delivery_zone_check' is true.
+      {
+        const deliveryZoneFlag = await storage.getPlatformSetting("enable_delivery_zone_check");
+        const zoneCheckEnabled = deliveryZoneFlag === "true";
+
+        if (zoneCheckEnabled && primaryVendorId && !isNaN(customerLat) && !isNaN(customerLng)) {
+          const { db: database } = await import("./db");
+          const { deliveryZones } = await import("@shared/schema");
+          const { eq, and } = await import("drizzle-orm");
+          const { calculateDistance } = await import("./geoUtils");
+
+          // Fetch vendor's active delivery zones
+          const zones = await database
+            .select()
+            .from(deliveryZones)
+            .where(and(eq(deliveryZones.vendorId, primaryVendorId), eq(deliveryZones.isActive, true)));
+
+          if (zones.length > 0) {
+            // Get vendor coordinates for reference
+            const vendor = await storage.getVendorById(primaryVendorId);
+            const vendorLat = parseFloat(vendor?.businessLatitude ?? "");
+            const vendorLng = parseFloat(vendor?.businessLongitude ?? "");
+
+            let coveredByAnyZone = false;
+
+            for (const zone of zones) {
+              const radiusKm = parseFloat(zone.maxRadiusKm ?? "0");
+              if (radiusKm <= 0) continue;
+
+              // Zone is relative to vendor location
+              if (!isNaN(vendorLat) && !isNaN(vendorLng)) {
+                const distanceKm = calculateDistance(
+                  { latitude: customerLat, longitude: customerLng },
+                  { latitude: vendorLat, longitude: vendorLng }
+                );
+                if (distanceKm <= radiusKm) {
+                  coveredByAnyZone = true;
+                  break;
+                }
+              }
+            }
+
+            if (!coveredByAnyZone) {
+              return res.status(400).json({
+                message: "Your delivery address is outside this vendor's delivery zone. Please choose a closer vendor or update your address.",
+                code: "OUTSIDE_DELIVERY_ZONE",
+              });
+            }
+          }
+        }
+      }
+
       // Create order with vendor assignment and courier information
       const orderData = {
         userId,
-        vendorId: primaryVendorId,
+        vendorId: primaryVendorId || '',
         totalAmount: totalAmount.toString(),
         status: "pending",
         paymentStatus: "pending",
@@ -1850,19 +2106,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         courierId: req.body.courierId || (orderType === 'product' ? 'fargo_courier' : 'dispatch_service'),
         courierName: req.body.courierName || (orderType === 'product' ? 'Fargo Courier Services' : 'BuyLock Dispatch'),
         estimatedDeliveryTime: req.body.estimatedDeliveryTime || '2-4 hours',
+        paymentReference: req.body.paymentReference || `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+        isGuest: isGuest,
+        guestName: req.body.guestName || null,
+        guestPhone: req.body.guestPhone || null,
+        guestEmail: req.body.guestEmail || null,
+        guestAddress: req.body.guestAddress || null,
+        guestLatitude: req.body.guestLatitude?.toString() || null,
+        guestLongitude: req.body.guestLongitude?.toString() || null,
+        deliveryAddressId: req.body.deliveryAddressId || null,
+        subtotal: (totalAmount - (parseFloat(req.body.deliveryFee) || 0)).toString(),
       };
 
-      const order = await storage.createOrder(orderData);
+      let order;
+      try {
+        order = await storage.createOrder(orderData);
+      } catch (error: any) {
+        if (error.code === '23505' || error.message?.includes('unique constraint') || error.message?.includes('unique')) {
+          return res.status(409).json({ message: "Order with this payment reference already exists" });
+        }
+        throw error;
+      }
 
-      // Add order items from request body
+      // Add order items from request body with snapshots
       for (const item of orderItems) {
+        let productName = item.name || "Unknown Item";
+        let itemName = item.name || "Unknown Item";
+        let collectionName = null;
+
+        if (item.productId) {
+          const product = await storage.getProductById(item.productId);
+          if (product) {
+            productName = product.name;
+            itemName = product.name;
+          }
+        } else if (item.serviceId) {
+          const service = await storage.getServiceById(item.serviceId);
+          if (service) {
+            productName = service.name;
+            itemName = service.name;
+          }
+        }
+
+        const unitPrice = parseFloat(item.price) || 0;
+        const quantity = item.quantity || 1;
+        const totalPrice = unitPrice * quantity;
+
         await storage.addOrderItem({
           orderId: order.id,
           productId: item.productId || null,
           serviceId: item.serviceId || null,
-          quantity: item.quantity || 1,
+          quantity: quantity,
           price: item.price || "0",
-          name: item.name || "Unknown Item",
+          name: itemName,
+          productName,
+          itemName,
+          collectionName,
+          unitPrice: unitPrice.toString(),
+          totalPrice: totalPrice.toString(),
         });
       }
 
@@ -1876,12 +2177,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Clear cart
-      await storage.clearCart(userId);
+      if (!isGuest) {
+        await storage.clearCart(userId);
+      }
 
       // Send SMS notification to vendor about new order
       if (primaryVendorId) {
         try {
-          // Get fresh vendor details for notification (ensures updated phone number)
+          // Get fresh vendor details for notification
           const vendor = await storage.getVendorById(primaryVendorId);
           const customer = await storage.getUser(userId);
 
@@ -1898,7 +2201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               itemCount: orderItems.length
             };
 
-            // Send SMS notification (don't block the response if it fails)
+            // Send SMS notification
             notificationService.notifyVendorNewOrder(vendorNotificationData)
               .then((success) => {
                 if (success) {
@@ -1915,7 +2218,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         } catch (notificationError) {
           console.error('Error setting up vendor notification:', notificationError);
-          // Don't fail the order creation if notification fails
         }
       }
 
@@ -2154,18 +2456,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/admin/categories/:id', async (req, res) => {
     try {
-      const { name, description, imageUrl } = req.body;
+      const { name, description, imageUrl, verticalId } = req.body;
       if (!name) {
         return res.status(400).json({ message: "Category name is required" });
       }
 
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      const updates = {
+      const updates: any = {
         name,
         slug,
         description: description || null,
-        imageUrl: imageUrl || null
+        imageUrl: imageUrl || null,
       };
+      if (verticalId !== undefined) {
+        updates.verticalId = verticalId || null;
+      }
 
       const category = await storage.updateCategory(req.params.id, updates);
       res.json(category);
@@ -2185,7 +2490,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin service categories management routes
+  // PATCH: quickly assign or remove a vertical from a category
+  app.patch('/api/admin/categories/:id/vertical', isAdminAuthenticated, async (req, res) => {
+    try {
+      const { verticalId } = req.body; // null to clear
+      const { db: database } = await import("./db");
+      const { categories } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const [updated] = await database
+        .update(categories)
+        .set({ verticalId: verticalId || null })
+        .where(eq(categories.id, req.params.id))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error assigning vertical to category:", error);
+      res.status(500).json({ message: "Failed to update category vertical" });
+    }
+  });
+
   app.get('/api/admin/service-categories', async (req, res) => {
     try {
       const categories = await storage.getCategories();
@@ -2326,7 +2654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/vendor/appointments/complete', isVendorAuthenticated, async (req, res) => {
+  app.post('/api/vendor/appointments/complete', isVendorAuthenticated, async (req: any, res) => {
     try {
       const { appointmentId, vendorNotes } = req.body;
 
@@ -2341,7 +2669,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // await storage.updateOrderConfirmationToken(result.orderId, confirmationToken);
 
           // Get order details for email
-          const order = await storage.getOrder(result.orderId);
+          if (!result.orderId) return;
+          const order = await storage.getOrderById(result.orderId);
           if (order) {
             const user = await storage.getUser(order.userId);
             const vendor = req.vendor;
@@ -2392,7 +2721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Vendor current data endpoint
-  app.get('/api/vendor/current', isVendorAuthenticated, async (req, res) => {
+  app.get('/api/vendor/current', isVendorAuthenticated, async (req: any, res) => {
     try {
       const vendor = req.vendor;
       res.json(vendor);
@@ -2412,8 +2741,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Vendor not found" });
       }
 
-      // Return vendor profile without password and passwordHash
-      const { password: _, passwordHash: __, ...vendorProfile } = vendor;
+      // Return vendor profile without passwordHash
+      const { passwordHash: __, ...vendorProfile } = vendor;
       res.json(vendorProfile);
     } catch (error) {
       console.error("Error fetching vendor profile:", error);
@@ -2493,7 +2822,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create vendor product
-  app.post('/api/vendor/products', isVendorAuthenticated, async (req, res) => {
+  app.post('/api/vendor/products', isVendorAuthenticated, async (req: any, res) => {
     try {
       const productData = req.body;
       const vendor = req.vendor;
@@ -2524,7 +2853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update vendor product
-  app.put('/api/vendor/products/:id', isVendorAuthenticated, async (req, res) => {
+  app.put('/api/vendor/products/:id', isVendorAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
       const productData = req.body;
@@ -2549,7 +2878,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete vendor product
-  app.delete('/api/vendor/products/:id', isVendorAuthenticated, async (req, res) => {
+  app.delete('/api/vendor/products/:id', isVendorAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
       const vendor = req.vendor;
@@ -2569,7 +2898,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create vendor service
-  app.post('/api/vendor/services', isVendorAuthenticated, async (req, res) => {
+  app.post('/api/vendor/services', isVendorAuthenticated, async (req: any, res) => {
     try {
       const serviceData = req.body;
       const vendor = req.vendor;
@@ -2600,7 +2929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update vendor service
-  app.put('/api/vendor/services/:id', isVendorAuthenticated, async (req, res) => {
+  app.put('/api/vendor/services/:id', isVendorAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
       const serviceData = req.body;
@@ -2625,7 +2954,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete vendor service
-  app.delete('/api/vendor/services/:id', isVendorAuthenticated, async (req, res) => {
+  app.delete('/api/vendor/services/:id', isVendorAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
       const vendor = req.vendor;
@@ -2657,7 +2986,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Set ACL policy for vendor uploaded images
-  app.put('/api/vendor/images', isVendorAuthenticated, async (req, res) => {
+  app.put('/api/vendor/images', isVendorAuthenticated, async (req: any, res) => {
     try {
       const { imageURL } = req.body;
       const vendor = req.vendor;
@@ -2708,6 +3037,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { vendorNotes } = req.body;
 
       const updatedOrder = await storage.acceptOrder(orderId, vendorNotes);
+
+      // Notify customer via FCM that vendor accepted the order
+      try {
+        const customer = await storage.getUser(updatedOrder.userId);
+        if (customer && customer.fcmToken) {
+          const { sendPushNotification } = await import('./firebaseAdmin');
+          const vendor = (req as any).vendor;
+          await sendPushNotification(customer.fcmToken, {
+            title: "Order Accepted",
+            body: `Your order was accepted by ${vendor?.businessName || "the vendor"}.`,
+            data: { orderId: orderId }
+          });
+          console.log(`✅ Customer FCM push notification sent for accepted order ${orderId}`);
+        }
+      } catch (fcmError) {
+        console.error("Failed to send customer FCM for order acceptance:", fcmError);
+      }
+
       res.json(updatedOrder);
     } catch (error) {
       console.error("Error accepting order:", error);
@@ -2715,7 +3062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/vendor/orders/:orderId/update-status', isVendorAuthenticated, async (req, res) => {
+  app.post('/api/vendor/orders/:orderId/update-status', isVendorAuthenticated, async (req: any, res) => {
     try {
       const { orderId } = req.params;
       const { status, notes } = req.body;
@@ -2723,9 +3070,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If order is being marked as ready for pickup, notify courier
       if (status === 'ready_for_pickup') {
         try {
-          const { sendSMS } = await import('./uwaziiService');
-          const order = await storage.getOrder(orderId);
-          const vendor = req.vendor;
+          const { uwaziiService: smsService } = await import('./uwaziiService');
+          const order = await storage.getOrderById(orderId);
+          if (!order) throw new Error('Order not found');
+          const vendor = (req as any).vendor;
           const customer = await storage.getUser(order.userId);
           const orderItems = await storage.getOrderItems(order.id);
           const itemsText = orderItems.map(item => `${item.name} (${item.quantity}x)`).join(', ');
@@ -2744,12 +3092,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const courierMessage = `BuyLock Pickup! Order: ${orderId.slice(-8)} From: ${vendor.businessName} To: ${order.deliveryAddress} Total: KES ${order.totalAmount} Details: ${orderLink}`;
 
-          const smsResult = await sendSMS(courierPhone, courierMessage);
+          const smsResult = await smsService.sendSMS(courierPhone, courierMessage);
 
           if (smsResult.success) {
             console.log(`Courier SMS notification sent to ${courierPhone} for order ${orderId}`);
           } else {
-            console.warn(`Failed to send courier SMS notification for order ${orderId}:`, smsResult.message);
+            console.warn(`Failed to send courier SMS notification for order ${orderId}:`, (smsResult as any).message);
           }
         } catch (smsError) {
           console.error('Error sending courier SMS notification:', smsError);
@@ -2760,10 +3108,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If order is being marked as delivered/completed, send confirmation email
       if (status === 'delivered' || status === 'completed') {
         try {
-          const order = await storage.getOrder(orderId);
+          const order = await storage.getOrderById(orderId);
           if (order) {
             const user = await storage.getUser(order.userId);
-            const vendor = req.vendor;
+            const vendor = (req as any).vendor;
 
             if (user?.email) {
               const confirmationToken = randomBytes(32).toString('hex');
@@ -2781,6 +3129,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedOrder = await storage.updateOrderStatusByVendor(orderId, status, notes);
+
+      // Notify customer via FCM about transit updates
+      try {
+        const customer = await storage.getUser(updatedOrder.userId);
+        if (customer && customer.fcmToken) {
+          const { sendPushNotification } = await import('./firebaseAdmin');
+          let body = `Your order status has been updated to ${status}.`;
+          if (status === 'shipped') {
+            body = "Your order has been shipped!";
+          } else if (status === 'out_for_delivery') {
+            body = "Your order is out for delivery!";
+          } else if (status === 'delivered') {
+            body = "Your order has been delivered!";
+          } else if (status === 'completed') {
+            body = "Your order is completed!";
+          }
+
+          await sendPushNotification(customer.fcmToken, {
+            title: "Order Update",
+            body,
+            data: { orderId: orderId, status }
+          });
+          console.log(`✅ Customer FCM push notification sent for order update ${orderId} to status ${status}`);
+        }
+      } catch (fcmError) {
+        console.error("Failed to send customer FCM for order status update:", fcmError);
+      }
+
       res.json(updatedOrder);
     } catch (error) {
       console.error("Error updating order status:", error);
@@ -2889,6 +3265,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't fail the order update if SMS fails
       }
 
+      // Notify customer via FCM that order is ready for pickup/delivery
+      try {
+        const customer = await storage.getUser(existingOrder.userId);
+        if (customer && customer.fcmToken) {
+          const { sendPushNotification } = await import('./firebaseAdmin');
+          await sendPushNotification(customer.fcmToken, {
+            title: "Order Ready",
+            body: `Your order from ${vendor.businessName} is ready for pickup/delivery.`,
+            data: { orderId: orderId }
+          });
+          console.log(`✅ Customer FCM push notification sent for ready order ${orderId}`);
+        }
+      } catch (fcmError) {
+        console.error("Failed to send customer FCM for order ready state:", fcmError);
+      }
+
       res.json({
         success: true,
         message: "Order marked as ready for pickup. Courier has been notified.",
@@ -2935,8 +3327,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: item.id,
           quantity: item.quantity,
           price: item.price,
-          productName: item.productName,
-          serviceName: item.serviceName,
+          productName: item.name,
+          serviceName: item.name,
           appointmentDate: item.appointmentDate,
           appointmentTime: item.appointmentTime,
           duration: item.duration
@@ -3019,7 +3411,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update order status to customer_confirmed
         await storage.updateOrderStatus(simulatedOrder.id, 'customer_confirmed');
 
-        // TODO: Mark order as eligible for vendor payment disbursement
+        // Notify vendor via FCM about delivery confirmation
+        try {
+          const vendor = await storage.getVendorById(simulatedOrder.vendorId);
+          if (vendor && vendor.fcmToken) {
+            const { sendPushNotification } = await import('./firebaseAdmin');
+            await sendPushNotification(vendor.fcmToken, {
+              title: "Delivery Confirmed",
+              body: `The customer has confirmed delivery for order #${simulatedOrder.id.slice(-8)}. Funds are now available.`,
+              data: { orderId: simulatedOrder.id }
+            });
+            console.log(`✅ Vendor FCM push notification sent for delivery confirmation of order ${simulatedOrder.id}`);
+          }
+        } catch (fcmError) {
+          console.error("Failed to send vendor FCM for order confirmation:", fcmError);
+        }
 
         res.json({
           message: 'Delivery confirmed successfully',
@@ -3029,11 +3435,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update order status to disputed
         await storage.updateOrderStatus(simulatedOrder.id, 'disputed');
 
-        // TODO: Create dispute record with reason
-        // TODO: Notify admin about the dispute
+        // Create dispute record in disputes table
+        try {
+          const { db: database } = await import('./db');
+          const { disputes } = await import('@shared/schema');
+          await database.insert(disputes).values({
+            orderId: simulatedOrder.id,
+            customerId: simulatedOrder.userId,
+            reason: reason || 'No reason provided',
+            status: 'open',
+          });
+          console.log(`Dispute created for order ${simulatedOrder.id}`);
+        } catch (disputeErr) {
+          console.warn('Failed to create dispute record:', disputeErr);
+        }
+
+        // Notify vendor via FCM about disputed order
+        try {
+          const vendor = await storage.getVendorById(simulatedOrder.vendorId);
+          if (vendor && vendor.fcmToken) {
+            const { sendPushNotification } = await import('./firebaseAdmin');
+            await sendPushNotification(vendor.fcmToken, {
+              title: "Order Disputed",
+              body: `Order #${simulatedOrder.id.slice(-8)} has been disputed by the customer. Reason: ${reason || 'No reason provided'}.`,
+              data: { orderId: simulatedOrder.id }
+            });
+            console.log(`✅ Vendor FCM push notification sent for dispute of order ${simulatedOrder.id}`);
+          }
+        } catch (fcmError) {
+          console.error("Failed to send vendor FCM for order dispute:", fcmError);
+        }
 
         res.json({
-          message: 'Issue reported successfully',
+          message: 'Issue reported successfully. Our team will be in touch within 24 hours.',
           status: 'disputed',
           disputeReason: reason
         });
@@ -3098,9 +3532,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .filter(order => earningsByOrder.has(order.id))
         .map(order => {
           const earnings = earningsByOrder.get(order.id);
-          const totalEarnings = earnings.reduce((sum, earning) => sum + parseFloat(earning.netEarnings), 0);
-          const totalPlatformFee = earnings.reduce((sum, earning) => sum + parseFloat(earning.platformFee), 0);
-          const totalGrossAmount = earnings.reduce((sum, earning) => sum + parseFloat(earning.grossAmount), 0);
+          const totalEarnings = earnings.reduce((sum: number, earning: any) => sum + parseFloat(earning.netEarnings), 0);
+          const totalPlatformFee = earnings.reduce((sum: number, earning: any) => sum + parseFloat(earning.platformFee), 0);
+          const totalGrossAmount = earnings.reduce((sum: number, earning: any) => sum + parseFloat(earning.grossAmount), 0);
 
           return {
             ...order,
@@ -3111,7 +3545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             earningsCount: earnings.length
           };
         })
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        .sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime());
 
       res.json(ordersWithEarnings);
     } catch (error) {
@@ -3289,9 +3723,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               contactName: updatedVendor.contactName,
               email: updatedVendor.email,
               bankName: updatedVendor.bankName,
-              bankCode: updatedVendor.bankCode,
-              accountNumber: updatedVendor.accountNumber,
-              accountName: updatedVendor.accountName
+              bankCode: updatedVendor.bankCode!,
+              accountNumber: updatedVendor.accountNumber!,
+              accountName: updatedVendor.accountName!
             });
 
             // Update vendor with subaccount information
@@ -3389,9 +3823,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               contactName: vendor.contactName,
               email: vendor.email,
               bankName: vendor.bankName,
-              bankCode: vendor.bankCode,
-              accountNumber: vendor.accountNumber,
-              accountName: vendor.accountName
+              bankCode: vendor.bankCode!,
+              accountNumber: vendor.accountNumber!,
+              accountName: vendor.accountName!
             });
 
             // Update vendor with subaccount information
@@ -3408,7 +3842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
 
             console.log(`✅ Paystack subaccount created: ${subaccountResult.subaccountCode}`);
-          } catch (subaccountError) {
+          } catch (subaccountError: any) {
             console.error('Failed to create Paystack subaccount:', subaccountError);
             return res.status(400).json({
               message: `Failed to create Paystack subaccount: ${subaccountError.message}`
@@ -3423,9 +3857,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             contactName: vendor.contactName,
             email: vendor.email,
             bankName: vendor.bankName,
-            bankCode: vendor.bankCode,
-            accountNumber: vendor.accountNumber,
-            accountName: vendor.accountName
+            bankCode: vendor.bankCode!,
+            accountNumber: vendor.accountNumber!,
+            accountName: vendor.accountName!
           },
           parseFloat(request.requestedAmount),
           `Payout to ${vendor.businessName}`
@@ -3449,8 +3883,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (request.orderId) {
           try {
             const payoutAmount = parseFloat(request.requestedAmount);
-            // Calculate platform fee (20% by default)
-            const platformFeePercentage = 0.20; // 20%
+            // Calculate platform fee from database settings
+            const platformFeePercent = await storage.getPlatformCommissionPercentage();
+            const platformFeePercentage = platformFeePercent / 100;
             const platformFee = payoutAmount * (platformFeePercentage / (1 - platformFeePercentage)); // Reverse calculate from net amount
             const grossAmount = payoutAmount + platformFee;
 
@@ -3460,7 +3895,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               grossAmount: grossAmount.toString(),
               platformFee: platformFee.toString(),
               netEarnings: payoutAmount.toString(),
-              payoutDate: new Date(),
+              availableDate: new Date(),
               status: 'paid'
             });
 
@@ -3778,10 +4213,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               vendorId: product.vendorId,
               orderId,
               orderItemId: item.id,
-              grossAmount,
-              platformFeePercentage: commission,
-              platformFee,
-              netEarnings,
+              grossAmount: grossAmount.toString(),
+              platformFeePercentage: commission.toString(),
+              platformFee: platformFee.toString(),
+              netEarnings: netEarnings.toString(),
               status: 'available', // Make earnings immediately available
               availableDate: new Date()
             });
@@ -3800,10 +4235,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               vendorId: service.providerId,
               orderId,
               orderItemId: item.id,
-              grossAmount,
-              platformFeePercentage: commission,
-              platformFee,
-              netEarnings,
+              grossAmount: grossAmount.toString(),
+              platformFeePercentage: commission.toString(),
+              platformFee: platformFee.toString(),
+              netEarnings: netEarnings.toString(),
               status: 'available',
               availableDate: new Date()
             });
@@ -3942,15 +4377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Platform Settings Management
-  app.get('/api/admin/platform-settings', isAdminAuthenticated, async (req, res) => {
-    try {
-      const settings = await storage.getPlatformSettings();
-      res.json(settings);
-    } catch (error) {
-      console.error('Error fetching platform settings:', error);
-      res.status(500).json({ message: 'Failed to fetch platform settings' });
-    }
-  });
+  // GET is handled by the canonical route below (uses getAllPlatformSettings)
 
   app.put('/api/admin/platform-settings/:settingKey', isAdminAuthenticated, async (req, res) => {
     try {
@@ -3991,7 +4418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updatePayoutRequest(payoutRequestId, {
             transferStatus: 'success',
             completedAt: new Date(),
-            actualPaidAmount: transfer.amount / 100 // Convert from kobo
+            actualPaidAmount: (transfer.amount / 100).toString() // Convert from kobo
           });
 
           // Update vendor's total paid out
@@ -4063,7 +4490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get vendor names and sort
       const topEarningVendors = [];
-      for (const [vendorId, data] of vendorEarnings.entries()) {
+      for (const [vendorId, data] of Array.from(vendorEarnings.entries())) {
         const vendor = await storage.getVendorById(vendorId);
         if (vendor) {
           topEarningVendors.push({
@@ -4251,10 +4678,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           businessName: vendor.businessName,
           contactName: vendor.contactName,
           email: vendor.email,
-          bankName: vendor.bankName,
-          bankCode: vendor.bankCode,
-          accountNumber: vendor.accountNumber,
-          accountName: vendor.accountName
+          bankName: vendor.bankName!,
+          bankCode: vendor.bankCode!,
+          accountNumber: vendor.accountNumber!,
+          accountName: vendor.accountName!
         });
 
         // Update vendor with subaccount information
@@ -4277,7 +4704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             accountNumber: vendor.accountNumber ? `****${vendor.accountNumber.slice(-4)}` : null
           }
         });
-      } catch (subaccountError) {
+      } catch (subaccountError: any) {
         console.error('Failed to create Paystack subaccount:', subaccountError);
         return res.status(400).json({
           message: `Failed to create Paystack subaccount: ${subaccountError.message}`
@@ -4348,10 +4775,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify payment with Paystack SDK
+      if (!paystack) {
+        return res.status(500).json({ message: "Paystack is not configured" });
+      }
       const verification = await paystack.transaction.verify(reference);
 
       if (verification.status && verification.data.status === 'success') {
         console.log('✅ Payment verified successfully, checking for existing order...');
+
+        // Write payment audit log (fire-and-forget — never blocks the response)
+        (async () => {
+          try {
+            const { db: database } = await import("./db");
+            const { paymentTransactions } = await import("@shared/schema");
+            await database.insert(paymentTransactions).values({
+              paymentReference: reference,
+              gateway: "paystack",
+              amount: (verification.data.amount / 100).toString(),
+              currency: verification.data.currency || "KES",
+              status: "success",
+              gatewayResponse: verification.data as any,
+              completedAt: new Date(),
+            }).onConflictDoNothing();
+          } catch (auditErr) {
+            console.warn("Failed to write payment audit log:", auditErr);
+          }
+        })();
 
         // Check if an order already exists with this payment reference (idempotency or service booking)
         const existingOrder = await storage.getOrderByPaymentReference(reference);
@@ -4368,7 +4817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             // For service bookings, create appointment if it's a service order
             if (existingOrder.orderType === 'service') {
-              const orderWithItems = await storage.getOrderById(existingOrder.id);
+              const orderWithItems = await storage.getOrderWithItems(existingOrder.id);
               if (orderWithItems?.orderItems && orderWithItems.orderItems.length > 0) {
                 const firstItem = orderWithItems.orderItems[0];
                 const user = await storage.getUser(existingOrder.userId);
@@ -4383,9 +4832,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   customerName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Customer',
                   customerEmail: user?.email || 'customer@example.com',
                   customerPhone: '0712345678', // Default phone, should be collected during booking
-                  appointmentDate: firstItem.appointmentDate!,
-                  appointmentTime: firstItem.appointmentTime!,
-                  address: existingOrder.shippingAddress,
+                  appointmentDate: (firstItem as any).appointmentDate!,
+                  appointmentTime: (firstItem as any).appointmentTime!,
+                  address: existingOrder.deliveryAddress,
                   city: 'Nairobi', // Default city, should be collected during booking
                   state: 'Nairobi County', // Default state, should be collected during booking
                   notes: existingOrder.notes || '',
@@ -4421,23 +4870,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Extract delivery address from payment metadata
         const metadata = verification.data.metadata;
         const customFields = metadata?.custom_fields || [];
-        const deliveryAddress = customFields.find(f => f.variable_name === 'delivery_address')?.value || "No address provided";
-        const deliveryCity = customFields.find(f => f.variable_name === 'delivery_city')?.value;
-        const deliverySuburb = customFields.find(f => f.variable_name === 'delivery_suburb')?.value;
-        const deliveryBuilding = customFields.find(f => f.variable_name === 'delivery_building')?.value;
-        const deliveryPostalCode = customFields.find(f => f.variable_name === 'delivery_postal_code')?.value;
+        const deliveryAddress = customFields.find((f: any) => f.variable_name === 'delivery_address')?.value || "No address provided";
+        const deliveryCity = customFields.find((f: any) => f.variable_name === 'delivery_city')?.value;
+        const deliverySuburb = customFields.find((f: any) => f.variable_name === 'delivery_suburb')?.value;
+        const deliveryBuilding = customFields.find((f: any) => f.variable_name === 'delivery_building')?.value;
+        const deliveryPostalCode = customFields.find((f: any) => f.variable_name === 'delivery_postal_code')?.value;
 
         // Group cart items by vendor with debugging
         console.log('Cart items for vendor grouping:', cartItems.map(item => ({
           id: item.id,
           productId: item.productId,
           serviceId: item.serviceId,
-          productVendorId: item.product?.vendorId,
-          serviceProviderId: item.service?.providerId
+          productVendorId: (item as any).product?.vendorId,
+          serviceProviderId: (item as any).service?.providerId
         })));
 
         const vendorGroups = cartItems.reduce((groups: any, item: any) => {
-          let vendorId = item.product?.vendorId || item.service?.providerId;
+          let vendorId = (item as any).product?.vendorId || (item as any).service?.providerId;
 
           // Fallback: if no vendor found, use the seeded vendor ID
           if (!vendorId || vendorId === 'undefined') {
@@ -4475,23 +4924,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Create the order with 'paid' status
           console.log(`📝 Creating order for vendor ${vendorId} with total ${totalAmount}`);
-          const order = await storage.createOrder({
-            userId,
-            vendorId: vendorId.toString(), // Ensure it's a string
-            status: "paid",
-            totalAmount: totalAmount.toString(),
-            deliveryAddress,
-            deliveryCity,
-            deliverySuburb,
-            deliveryBuilding,
-            deliveryPostalCode,
-            paymentReference: reference,
-            confirmedAt: new Date(),
-            orderType: orderType,
-            courierId: orderType === 'product' ? 'fargo_courier' : 'dispatch_service',
-            courierName: orderType === 'product' ? 'Fargo Courier Services' : 'BuyLock Dispatch',
-            estimatedDeliveryTime: '2-4 hours',
-          });
+          const vendorReference = Object.keys(vendorGroups).length > 1 ? `${reference}-${vendorId.toString().substring(0, 5)}` : reference;
+
+          let order;
+          try {
+            order = await storage.createOrder({
+              userId,
+              vendorId: vendorId.toString(), // Ensure it's a string
+              status: "paid",
+              totalAmount: totalAmount.toString(),
+              deliveryAddress,
+              deliveryCity,
+              deliverySuburb,
+              deliveryBuilding,
+              deliveryPostalCode,
+              paymentReference: vendorReference,
+              orderType: orderType,
+              paymentMethod: "card"
+            });
+          } catch (error: any) {
+            if (error.code === '23505' || error.message?.includes('unique constraint') || error.message?.includes('unique')) {
+              return res.status(409).json({ message: "Order for this payment already exists." });
+            }
+            throw error;
+          }
 
           // Create order items
           for (const item of vendorItems) {
@@ -4522,47 +4978,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             // Get vendor details
             const vendor = await storage.getVendorById(order.vendorId);
-            if (!vendor || !vendor.phone) {
-              console.warn(`⚠️ No vendor phone found for order ${order.id}, skipping SMS`);
-              continue;
-            }
+            if (!vendor) continue;
 
-            // Get customer details
             const customer = await storage.getUser(order.userId);
             const customerName = customer?.firstName && customer?.lastName
               ? `${customer.firstName} ${customer.lastName}`
-              : customer?.username || 'Customer';
+              : `${customer?.firstName || customer?.lastName || 'Customer'}`;
 
-            // Get order items for SMS
-            const orderItems = await storage.getOrderItems(order.id);
-            const itemCount = orderItems.reduce((sum, item) => sum + item.quantity, 0);
-            const orderType = orderItems.some(item => item.serviceId) ? 'service' : 'product';
+            if (vendor.phone) {
+              // Get order items for SMS
+              const orderItems = await storage.getOrderItems(order.id);
+              const itemCount = orderItems.reduce((sum, item) => sum + item.quantity, 0);
+              const orderType = orderItems.some(item => item.serviceId) ? 'service' : 'product';
 
-            // Send vendor SMS notification
-            const { notificationService } = await import("./notificationService");
+              // Send vendor SMS notification
+              const { notificationService } = await import("./notificationService");
 
-            const vendorNotificationData = {
-              orderId: order.id,
-              customerName,
-              customerPhone: customer?.phone,
-              totalAmount: order.totalAmount,
-              orderType,
-              deliveryAddress: order.deliveryAddress,
-              vendorName: vendor.businessName,
-              vendorPhone: vendor.phone,
-              itemCount
-            };
+              const vendorNotificationData = {
+                orderId: order.id,
+                customerName,
+                customerPhone: customer?.phone ?? undefined,
+                totalAmount: order.totalAmount,
+                orderType,
+                deliveryAddress: order.deliveryAddress,
+                vendorName: vendor.businessName,
+                vendorPhone: vendor.phone,
+                itemCount
+              };
 
-            const smsResult = await notificationService.notifyVendorNewOrder(vendorNotificationData);
+              const smsResult = await notificationService.notifyVendorNewOrder(vendorNotificationData);
 
-            if (smsResult) {
-              console.log(`✅ Vendor SMS notification sent for order ${order.id}`);
+              if (smsResult) {
+                console.log(`✅ Vendor SMS notification sent for order ${order.id}`);
+              } else {
+                console.error(`❌ Failed to send vendor SMS notification for order ${order.id}`);
+              }
             } else {
-              console.error(`❌ Failed to send vendor SMS notification for order ${order.id}`);
+              console.warn(`⚠️ No vendor phone found for order ${order.id}, skipping SMS`);
+            }
+
+            // Send FCM notification if vendor token exists
+            if (vendor.fcmToken) {
+              try {
+                const { sendPushNotification } = await import('./firebaseAdmin');
+                await sendPushNotification(vendor.fcmToken, {
+                  title: "New Order Paid",
+                  body: `You received a new order for KES ${order.totalAmount} from ${customerName}.`,
+                  data: { orderId: order.id }
+                });
+                console.log(`✅ Vendor FCM push notification sent for order ${order.id}`);
+              } catch (fcmError) {
+                console.error(`❌ Error sending vendor FCM for order ${order.id}:`, fcmError);
+              }
             }
           } catch (smsError) {
-            console.error(`❌ Error sending vendor SMS for order ${order.id}:`, smsError);
-            // Don't fail the payment verification if SMS fails
+            console.error(`❌ Error sending vendor notifications for order ${order.id}:`, smsError);
+            // Don't fail the payment verification if notifications fail
           }
         }
 
@@ -4595,7 +5066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         verified: false,
         message: "Payment verification failed due to server error",
-        error: error.message
+        error: (error as any).message
       });
     }
   });
@@ -4604,7 +5075,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { reference } = req.params;
 
       // Check payment status with Paystack SDK
-      const verification = await paystack.transaction.verify(reference);
+      const verification = await paystack!.transaction.verify(reference);
 
       res.json({
         reference,
@@ -4662,7 +5133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         perKmRate: courier.distanceRate,
         maxWeight: "50", // Default for now, could be added to database later
         estimatedTime: courier.estimatedDeliveryTime,
-        coverage: courier.supportedRegions.join(", "),
+        coverage: (courier.supportedRegions || []).join(", "),
         phone: courier.contactPhone,
         isActive: courier.isActive
       }));
@@ -4890,7 +5361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // 3. If Delivered, update parent Order to "completed" (fulfilled)
         if (internalStatus === 'delivered' && delivery.orderId) {
-          const [updatedOrder] = await storage.updateOrderStatus(delivery.orderId, 'completed');
+          const updatedOrder = await storage.updateOrderStatus(delivery.orderId, 'completed');
           console.log(`✅ Auto-fulfilled Order ${delivery.orderId} from delivery status change`);
         }
 
@@ -4900,8 +5371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: statusUpdate.status,
           description: statusUpdate.description || `Status updated via sync to: ${statusUpdate.status}`,
           location: statusUpdate.location,
-          source: 'api_sync',
-          timestamp: new Date()
+          source: 'api_sync'
         });
 
         return res.json({
@@ -5067,11 +5537,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             courierEmail: provider.contactEmail,
             courierName: provider.name,
             orderId: order.id,
-            customerName: customer.username || 'Customer',
+            customerName: `${customer.firstName || customer.lastName || 'Customer'}`,
             customerPhone: customer.phone || 'Not provided',
             vendorBusinessName: vendor.businessName,
             vendorLocation: vendor.businessAddress || 'Address not provided',
-            vendorPhone: vendor.phoneNumber || 'Phone not provided',
+            vendorPhone: vendor.phone || 'Phone not provided',
             deliveryAddress: order.deliveryAddress || 'Address not provided',
             orderTotal: order.totalAmount,
             pickupInstructions: pickupInstructions || '',
@@ -5133,7 +5603,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalDeliveries = allDeliveries.length;
       const successfulDeliveries = allDeliveries.filter(d => d.status === 'delivered').length;
       const failedDeliveries = allDeliveries.filter(d => d.status === 'failed').length;
-      const pendingDeliveries = allDeliveries.filter(d => ['pending', 'pickup_scheduled', 'picked_up', 'in_transit', 'out_for_delivery'].includes(d.status)).length;
+      const pendingDeliveries = allDeliveries.filter(d => ['pending', 'pickup_scheduled', 'picked_up', 'in_transit', 'out_for_delivery'].includes(d.status || '')).length;
 
       // Calculate average delivery time (for delivered orders)
       const deliveredOrders = allDeliveries.filter(d => d.actualDeliveryTime && d.actualPickupTime);
@@ -5466,7 +5936,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create user
       const userId = crypto.randomUUID();
       const user = await storage.createUser({
-        id: userId,
         email,
         firstName,
         lastName,
@@ -5519,7 +5988,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vendor = await storage.createVendor({
         id: vendorId,
         email,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         businessName,
         contactEmail: email,
         contactName,
@@ -5528,9 +5997,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         businessCategory: "General",
         description: businessDescription,
         nationalIdNumber,
+        businessLatitude: "-1.2921",
+        businessLongitude: "36.8219",
+        locationDescription: "Offline vendor",
         taxPinNumber: registrationType === "registered" ? taxPinNumber : undefined,
         verificationStatus: "verified", // Auto-verify admin-created vendors
-        verifiedAt: new Date().toISOString(),
+        verifiedAt: new Date(),
         verifiedBy: "admin",
       });
 
@@ -5636,7 +6108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.processOrderDispatch(id, providerId, trackingId);
 
       // Get order, vendor, customer, and provider details
-      const order = await storage.getOrder(id);
+      const order = await storage.getOrderById(id);
       const provider = await storage.getDeliveryProviderById(providerId);
 
       if (provider && order && provider.contactEmail) {
@@ -5674,11 +6146,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             courierEmail: provider.contactEmail,
             courierName: provider.name,
             orderId: id,
-            customerName: customer.username || 'Customer',
+            customerName: `${customer.firstName || customer.lastName || 'Customer'}`,
             customerPhone: customer.phone || 'Not provided',
             vendorBusinessName: vendor.businessName,
             vendorLocation: vendor.businessAddress || 'Address not provided',
-            vendorPhone: vendor.phoneNumber || 'Phone not provided',
+            vendorPhone: vendor.phone || 'Phone not provided',
             deliveryAddress: order.deliveryAddress || 'Address not provided',
             orderTotal: order.totalAmount,
             pickupInstructions: pickupInstructions || '',
@@ -5754,19 +6226,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/delivery/providers/:id/config', async (req, res) => {
     try {
       const { id } = req.params;
-      const { notificationMethod, webhookNotificationUrl, contactEmail, contactPhone } = req.body;
+      const { notificationMethod, webhookNotificationUrl, contactEmail, contactPhone, isActive } = req.body;
 
       const updateData: any = {};
       if (notificationMethod) updateData.notificationMethod = notificationMethod;
-      if (webhookNotificationUrl) updateData.webhookNotificationUrl = webhookNotificationUrl;
-      if (contactEmail) updateData.contactEmail = contactEmail;
-      if (contactPhone) updateData.contactPhone = contactPhone;
+      if (webhookNotificationUrl !== undefined) updateData.webhookNotificationUrl = webhookNotificationUrl;
+      if (contactEmail !== undefined) updateData.contactEmail = contactEmail;
+      if (contactPhone !== undefined) updateData.contactPhone = contactPhone;
+      if (typeof isActive === 'boolean') updateData.isActive = isActive;
 
       const updatedProvider = await storage.updateDeliveryProvider(id, updateData);
       res.json(updatedProvider);
     } catch (error) {
       console.error('Error updating provider config:', error);
       res.status(500).json({ message: 'Failed to update provider configuration' });
+    }
+  });
+
+  // Set a single delivery provider as the EXCLUSIVE active courier.
+  // Deactivates all other providers first, then activates the chosen one.
+  app.post('/api/delivery/providers/:id/set-active', async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Get all providers
+      const allProviders = await storage.getDeliveryProviders();
+
+      // Deactivate all others
+      for (const provider of allProviders) {
+        if (provider.id !== id) {
+          await storage.updateDeliveryProvider(provider.id, { isActive: false });
+        }
+      }
+
+      // Activate the target provider
+      const activatedProvider = await storage.updateDeliveryProvider(id, { isActive: true });
+
+      if (!activatedProvider) {
+        return res.status(404).json({ message: 'Courier provider not found' });
+      }
+
+      console.log(`🏍️  Active courier switched to: ${activatedProvider.name} (${id})`);
+      res.json({
+        success: true,
+        message: `${activatedProvider.name} is now the active courier`,
+        provider: activatedProvider,
+      });
+    } catch (error) {
+      console.error('Error setting active courier:', error);
+      res.status(500).json({ message: 'Failed to set active courier' });
     }
   });
 
@@ -5836,7 +6344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create order directly
       const orderData = {
         userId,
-        vendorId: service.providerId, // Assign to service provider
+        vendorId: service.providerId || '',
         status: "pending_payment", // Service specific status - payment first, then acceptance
         totalAmount,
         deliveryAddress: bookingData.serviceLocation, // Use service location as delivery address
@@ -6022,8 +6530,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Payment storage test error:', error);
       res.status(500).json({
         success: false,
-        error: error.message || 'Test failed',
-        details: error.toString()
+        error: (error as any).message || 'Test failed',
+        details: String(error)
       });
     }
   });
@@ -6113,6 +6621,934 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+
+  // ─────────────────────────────────────────────────────────
+  // PHASE 2: NEW SCHEMA ENTITY ENDPOINTS
+  // ─────────────────────────────────────────────────────────
+
+  // ── Customer Addresses ────────────────────────────────────
+  app.get("/api/user/addresses", isUserAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { customerAddresses } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const addresses = await database.select().from(customerAddresses).where(eq(customerAddresses.userId, req.user.id));
+      res.json(addresses);
+    } catch (error) {
+      console.error("Error fetching addresses:", error);
+      res.status(500).json({ message: "Failed to fetch addresses" });
+    }
+  });
+
+  app.post("/api/user/addresses", isUserAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { customerAddresses } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const { label, addressLine, city, suburb, building, postalCode, latitude, longitude, isDefault } = req.body;
+      if (!addressLine) return res.status(400).json({ message: "addressLine is required" });
+
+      // If this is set as default, clear other defaults first
+      if (isDefault) {
+        await database.update(customerAddresses).set({ isDefault: false }).where(eq(customerAddresses.userId, req.user.id));
+      }
+
+      const [newAddress] = await database.insert(customerAddresses).values({
+        userId: req.user.id, label, addressLine, city, suburb, building, postalCode, latitude, longitude, isDefault: !!isDefault
+      }).returning();
+      res.status(201).json(newAddress);
+    } catch (error) {
+      console.error("Error creating address:", error);
+      res.status(500).json({ message: "Failed to create address" });
+    }
+  });
+
+  app.put("/api/user/addresses/:id", isUserAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { customerAddresses } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const { isDefault, ...rest } = req.body;
+
+      if (isDefault) {
+        await database.update(customerAddresses).set({ isDefault: false }).where(eq(customerAddresses.userId, req.user.id));
+      }
+
+      const [updated] = await database.update(customerAddresses)
+        .set({ ...rest, isDefault: !!isDefault })
+        .where(and(eq(customerAddresses.id, req.params.id), eq(customerAddresses.userId, req.user.id)))
+        .returning();
+
+      if (!updated) return res.status(404).json({ message: "Address not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating address:", error);
+      res.status(500).json({ message: "Failed to update address" });
+    }
+  });
+
+  app.delete("/api/user/addresses/:id", isUserAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { customerAddresses } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      await database.delete(customerAddresses)
+        .where(and(eq(customerAddresses.id, req.params.id), eq(customerAddresses.userId, req.user.id)));
+      res.json({ message: "Address deleted" });
+    } catch (error) {
+      console.error("Error deleting address:", error);
+      res.status(500).json({ message: "Failed to delete address" });
+    }
+  });
+
+  // ── Customer Reviews ──────────────────────────────────────
+  app.post("/api/orders/:id/review", isUserAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { reviews, orders: ordersTable } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+
+      // Verify order belongs to this user
+      const [order] = await database.select().from(ordersTable)
+        .where(and(eq(ordersTable.id, req.params.id), eq(ordersTable.userId, req.user.id)));
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      const reviewableStatuses = ["fulfilled", "completed", "delivered", "customer_confirmed"];
+      if (!reviewableStatuses.includes(order.status ?? "")) {
+        return res.status(400).json({ message: "Can only review completed or delivered orders" });
+      }
+
+      // Check no existing review
+      const existing = await database.select().from(reviews)
+        .where(and(eq(reviews.orderId, req.params.id), eq(reviews.customerId, req.user.id)));
+      if (existing.length > 0) return res.status(409).json({ message: "You have already reviewed this order" });
+
+      const { vendorRating, vendorComment, deliveryRating, deliveryComment } = req.body;
+      const [newReview] = await database.insert(reviews).values({
+        orderId: req.params.id,
+        customerId: req.user.id,
+        vendorId: order.vendorId,
+        vendorRating, vendorComment, deliveryRating, deliveryComment,
+        isVisible: true,
+      }).returning();
+      res.status(201).json(newReview);
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      res.status(500).json({ message: "Failed to submit review" });
+    }
+  });
+
+  app.get("/api/vendors/:id/reviews", async (req, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { reviews } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const vendorReviews = await database.select().from(reviews)
+        .where(and(eq(reviews.vendorId, req.params.id), eq(reviews.isVisible, true)));
+      res.json(vendorReviews);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  // ── Store Hours ────────────────────────────────────────────
+  app.get("/api/vendor/store-hours", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { storeHours } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const hours = await database.select().from(storeHours).where(eq(storeHours.vendorId, req.vendor.id));
+      res.json(hours);
+    } catch (error) {
+      console.error("Error fetching store hours:", error);
+      res.status(500).json({ message: "Failed to fetch store hours" });
+    }
+  });
+
+  app.post("/api/vendor/store-hours", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { storeHours } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      // Expect array of day configs: [{ dayOfWeek, openTime, closeTime, isClosed }]
+      const days: Array<{ dayOfWeek: number; openTime: string; closeTime: string; isClosed: boolean }> = req.body;
+      if (!Array.isArray(days)) return res.status(400).json({ message: "Expected array of store hour configs" });
+
+      // Delete existing and re-insert (full replacement)
+      await database.delete(storeHours).where(eq(storeHours.vendorId, req.vendor.id));
+      const inserted = await database.insert(storeHours).values(
+        days.map(d => ({ vendorId: req.vendor.id, dayOfWeek: d.dayOfWeek, openTime: d.openTime, closeTime: d.closeTime, isClosed: d.isClosed ?? false }))
+      ).returning();
+      res.json(inserted);
+    } catch (error) {
+      console.error("Error saving store hours:", error);
+      res.status(500).json({ message: "Failed to save store hours" });
+    }
+  });
+
+  // Public: check if a vendor is currently open
+  app.get("/api/vendors/:id/is-open", async (req, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { storeHours } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const now = new Date();
+      const dayOfWeek = now.getDay(); // 0=Sun, 6=Sat
+      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+      const [todayHours] = await database.select().from(storeHours)
+        .where(and(eq(storeHours.vendorId, req.params.id), eq(storeHours.dayOfWeek, dayOfWeek)));
+
+      if (!todayHours || todayHours.isClosed) return res.json({ isOpen: false });
+      const isOpen = currentTime >= todayHours.openTime && currentTime <= todayHours.closeTime;
+      res.json({ isOpen, openTime: todayHours.openTime, closeTime: todayHours.closeTime });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to check store hours" });
+    }
+  });
+
+  // ── Vendor Collections ─────────────────────────────────────
+  app.get("/api/vendor/collections", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { vendorCollections } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const collections = await database.select().from(vendorCollections).where(eq(vendorCollections.vendorId, req.vendor.id));
+      res.json(collections);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch collections" });
+    }
+  });
+
+  app.post("/api/vendor/collections", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { vendorCollections } = await import("@shared/schema");
+      const { name, description, displayOrder } = req.body;
+      if (!name) return res.status(400).json({ message: "name is required" });
+      const [col] = await database.insert(vendorCollections).values({
+        vendorId: req.vendor.id, name, description, displayOrder: displayOrder ?? 0
+      }).returning();
+      res.status(201).json(col);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create collection" });
+    }
+  });
+
+  app.put("/api/vendor/collections/:id", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { vendorCollections } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [updated] = await database.update(vendorCollections)
+        .set(req.body)
+        .where(and(eq(vendorCollections.id, req.params.id), eq(vendorCollections.vendorId, req.vendor.id)))
+        .returning();
+      if (!updated) return res.status(404).json({ message: "Collection not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update collection" });
+    }
+  });
+
+  app.delete("/api/vendor/collections/:id", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { vendorCollections, productCollections } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      await database.delete(productCollections).where(eq(productCollections.collectionId, req.params.id));
+      await database.delete(vendorCollections)
+        .where(and(eq(vendorCollections.id, req.params.id), eq(vendorCollections.vendorId, req.vendor.id)));
+      res.json({ message: "Collection deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete collection" });
+    }
+  });
+
+  // Add/remove product from collection
+  app.post("/api/vendor/collections/:id/products", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { productCollections } = await import("@shared/schema");
+      const { productId } = req.body;
+      if (!productId) return res.status(400).json({ message: "productId is required" });
+      const [entry] = await database.insert(productCollections).values({ productId, collectionId: req.params.id }).returning();
+      res.status(201).json(entry);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to add product to collection" });
+    }
+  });
+
+  // ── Verticals ──────────────────────────────────────────────
+  app.get("/api/verticals", async (_req, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { verticals } = await import("@shared/schema");
+      const { eq, asc } = await import("drizzle-orm");
+      const allVerticals = await database.select().from(verticals)
+        .where(eq(verticals.isActive, true))
+        .orderBy(asc(verticals.displayOrder));
+      res.json(allVerticals);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch verticals" });
+    }
+  });
+
+  // Admin: create/update verticals
+  app.get("/api/admin/verticals", isAdminAuthenticated, async (_req, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { verticals } = await import("@shared/schema");
+      const { asc } = await import("drizzle-orm");
+      const allVerticals = await database.select().from(verticals)
+        .orderBy(asc(verticals.displayOrder));
+      res.json(allVerticals);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch verticals" });
+    }
+  });
+
+  app.post("/api/admin/verticals", isAdminAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { verticals } = await import("@shared/schema");
+      const { name, slug, iconUrl, displayOrder, isActive } = req.body;
+      if (!name || !slug) return res.status(400).json({ message: "name and slug are required" });
+      const [v] = await database.insert(verticals).values({
+        name,
+        slug,
+        iconUrl,
+        displayOrder: displayOrder ?? 0,
+        isActive: isActive !== false
+      }).returning();
+      res.status(201).json(v);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create vertical" });
+    }
+  });
+
+  app.put("/api/admin/verticals/:id", isAdminAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { verticals } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [v] = await database.update(verticals)
+        .set(req.body)
+        .where(eq(verticals.id, req.params.id))
+        .returning();
+      if (!v) return res.status(404).json({ message: "Vertical not found" });
+      res.json(v);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update vertical" });
+    }
+  });
+
+  app.delete("/api/admin/verticals/:id", isAdminAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { verticals } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      await database.delete(verticals).where(eq(verticals.id, req.params.id));
+      res.json({ message: "Vertical deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete vertical" });
+    }
+  });
+
+  // ── Delivery Zones ─────────────────────────────────────────
+  app.get("/api/vendor/delivery-zones", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { deliveryZones } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const zones = await database.select().from(deliveryZones).where(eq(deliveryZones.vendorId, req.vendor.id));
+      res.json(zones);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch delivery zones" });
+    }
+  });
+
+  app.post("/api/vendor/delivery-zones", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { deliveryZones } = await import("@shared/schema");
+      const { zoneName, maxRadiusKm, minOrderAmount, deliveryFee, estimatedEtaMinutes, geoJson } = req.body;
+      if (!zoneName) return res.status(400).json({ message: "zoneName is required" });
+      const [zone] = await database.insert(deliveryZones).values({
+        vendorId: req.vendor.id, zoneName, maxRadiusKm, minOrderAmount, deliveryFee, estimatedEtaMinutes, geoJson
+      }).returning();
+      res.status(201).json(zone);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create delivery zone" });
+    }
+  });
+
+  app.put("/api/vendor/delivery-zones/:id", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { deliveryZones } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [updated] = await database.update(deliveryZones)
+        .set(req.body)
+        .where(and(eq(deliveryZones.id, req.params.id), eq(deliveryZones.vendorId, req.vendor.id)))
+        .returning();
+      if (!updated) return res.status(404).json({ message: "Zone not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update delivery zone" });
+    }
+  });
+
+  app.delete("/api/vendor/delivery-zones/:id", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { deliveryZones } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      await database.delete(deliveryZones)
+        .where(and(eq(deliveryZones.id, req.params.id), eq(deliveryZones.vendorId, req.vendor.id)));
+      res.json({ message: "Delivery zone deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete delivery zone" });
+    }
+  });
+
+  // ── Product Variants ───────────────────────────────────────
+  app.get("/api/vendor/products/:productId/variants", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { productVariants } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const variants = await database.select().from(productVariants)
+        .where(eq(productVariants.productId, req.params.productId));
+      res.json(variants);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch variants" });
+    }
+  });
+
+  app.post("/api/vendor/products/:productId/variants", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { productVariants } = await import("@shared/schema");
+      const { sku, attributes, priceModifier, stock } = req.body;
+      if (!attributes) return res.status(400).json({ message: "attributes is required" });
+      const [variant] = await database.insert(productVariants).values({
+        productId: req.params.productId, sku, attributes, priceModifier: priceModifier ?? "0", stock: stock ?? 0
+      }).returning();
+      res.status(201).json(variant);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create variant" });
+    }
+  });
+
+  app.put("/api/vendor/products/:productId/variants/:variantId", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { productVariants } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [updated] = await database.update(productVariants)
+        .set(req.body)
+        .where(and(eq(productVariants.id, req.params.variantId), eq(productVariants.productId, req.params.productId)))
+        .returning();
+      if (!updated) return res.status(404).json({ message: "Variant not found" });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update variant" });
+    }
+  });
+
+  app.delete("/api/vendor/products/:productId/variants/:variantId", isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { productVariants } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      await database.delete(productVariants)
+        .where(and(eq(productVariants.id, req.params.variantId), eq(productVariants.productId, req.params.productId)));
+      res.json({ message: "Variant deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete variant" });
+    }
+  });
+
+  // ── Wishlist ───────────────────────────────────────────────
+  app.get("/api/wishlist", isUserAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { wishlists, products, services } = await import("@shared/schema");
+      const { eq, or } = await import("drizzle-orm");
+      const items = await database.select().from(wishlists).where(eq(wishlists.userId, req.user.id));
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching wishlist:", error);
+      res.status(500).json({ message: "Failed to fetch wishlist" });
+    }
+  });
+
+  app.post("/api/wishlist", isUserAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { wishlists } = await import("@shared/schema");
+      const { productId, serviceId } = req.body;
+      if (!productId && !serviceId) return res.status(400).json({ message: "productId or serviceId required" });
+      const [item] = await database.insert(wishlists).values({
+        userId: req.user.id,
+        productId: productId || null,
+        serviceId: serviceId || null,
+      }).onConflictDoNothing().returning();
+      res.json(item || { message: "Already in wishlist" });
+    } catch (error) {
+      console.error("Error adding to wishlist:", error);
+      res.status(500).json({ message: "Failed to add to wishlist" });
+    }
+  });
+
+  app.delete("/api/wishlist/:id", isUserAuthenticated, async (req: any, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { wishlists } = await import("@shared/schema");
+      const { eq, and, or } = await import("drizzle-orm");
+      // id can be a wishlist row id OR a productId/serviceId
+      await database.delete(wishlists).where(
+        and(
+          eq(wishlists.userId, req.user.id),
+          or(eq(wishlists.id, req.params.id), eq(wishlists.productId, req.params.id), eq(wishlists.serviceId, req.params.id))
+        )
+      );
+      res.json({ message: "Removed from wishlist" });
+    } catch (error) {
+      console.error("Error removing from wishlist:", error);
+      res.status(500).json({ message: "Failed to remove from wishlist" });
+    }
+  });
+
+  // ── Admin Dispute Resolution ────────────────────────────────
+  app.get("/api/admin/disputes", isAdminAuthenticated, async (req, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { disputes } = await import("@shared/schema");
+      const { desc } = await import("drizzle-orm");
+      const allDisputes = await database.select().from(disputes).orderBy(desc(disputes.createdAt));
+      res.json(allDisputes);
+    } catch (error) {
+      console.error("Error fetching disputes:", error);
+      res.status(500).json({ message: "Failed to fetch disputes" });
+    }
+  });
+
+  app.post("/api/admin/disputes/:id/resolve", isAdminAuthenticated, async (req, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { disputes } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const { resolutionType, adminResolution } = req.body;
+      if (!resolutionType) return res.status(400).json({ message: "resolutionType is required" });
+      const [updated] = await database.update(disputes)
+        .set({ resolutionType, adminResolution, status: 'resolved', resolvedAt: new Date() })
+        .where(eq(disputes.id, req.params.id))
+        .returning();
+      if (!updated) return res.status(404).json({ message: "Dispute not found" });
+      // Also update order status to reflect resolution
+      try {
+        await storage.updateOrderStatus(updated.orderId, 'resolved');
+      } catch (e) { /* ignore */ }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error resolving dispute:", error);
+      res.status(500).json({ message: "Failed to resolve dispute" });
+    }
+  });
+
+  // ── Admin Weekly Settlement ─────────────────────────────────
+  app.post("/api/admin/settlement/run", isAdminAuthenticated, async (req, res) => {
+    try {
+      // Get all approved vendors with available balance > 0
+      const vendors = await storage.getAllVendors();
+      const eligible = vendors.filter((v: any) => parseFloat(v.availableBalance || '0') > 0);
+
+      if (eligible.length === 0) {
+        return res.json({ message: "No vendors with outstanding balances.", processed: 0 });
+      }
+
+      const results: Array<{ vendorId: string; amount: string; status: string }> = [];
+
+      for (const vendor of eligible) {
+        try {
+          const amount = parseFloat(vendor.availableBalance || '0');
+          // Create payout request for this vendor
+          const payoutReq = await storage.createPayoutRequest({
+            vendorId: vendor.id,
+            orderId: null as any,
+            requestedAmount: amount.toFixed(2),
+            availableBalance: vendor.availableBalance ?? '0',
+            status: 'pending',
+            requestReason: 'Weekly auto-settlement',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+          results.push({ vendorId: vendor.id, amount: amount.toFixed(2), status: 'queued' });
+        } catch (vendorErr) {
+          console.warn(`Failed to create settlement for vendor ${vendor.id}:`, vendorErr);
+          results.push({ vendorId: vendor.id, amount: '0', status: 'error' });
+        }
+      }
+
+      res.json({
+        message: `Settlement run complete. ${results.filter(r => r.status === 'queued').length} payout requests created.`,
+        processed: results.length,
+        results,
+      });
+    } catch (error) {
+      console.error("Error running settlement:", error);
+      res.status(500).json({ message: "Failed to run settlement" });
+    }
+  });
+
+
+  // ─────────────────────────────────────────────────────────
+  // Vendor Branch Locations
+  // ─────────────────────────────────────────────────────────
+
+  // GET /api/vendor/locations — list branches for authenticated vendor
+  app.get('/api/vendor/locations', isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const vendorId = req.vendor.id;
+      const locations = await storage.getVendorLocations(vendorId);
+      res.json(locations);
+    } catch (error) {
+      console.error('Error fetching vendor locations:', error);
+      res.status(500).json({ message: 'Failed to fetch branch locations' });
+    }
+  });
+
+  // POST /api/vendor/locations — create a new branch
+  app.post('/api/vendor/locations', isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const vendorId = req.vendor.id;
+      const { branchName, address, city, latitude, longitude, supportsDelivery, supportsPickup, isActive } = req.body;
+
+      if (!branchName || !address) {
+        return res.status(400).json({ message: 'Branch name and address are required' });
+      }
+
+      const location = await storage.createVendorLocation({
+        vendorId,
+        branchName,
+        address,
+        city: city || null,
+        latitude: latitude != null ? latitude.toString() : null,
+        longitude: longitude != null ? longitude.toString() : null,
+        supportsDelivery: supportsDelivery !== false,
+        supportsPickup: supportsPickup !== false,
+        isActive: isActive !== false,
+      });
+
+      res.status(201).json(location);
+    } catch (error) {
+      console.error('Error creating vendor location:', error);
+      res.status(500).json({ message: 'Failed to create branch location' });
+    }
+  });
+
+  // PUT /api/vendor/locations/:id — update a branch
+  app.put('/api/vendor/locations/:id', isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const vendorId = req.vendor.id;
+      const { id } = req.params;
+
+      // Ensure the branch belongs to this vendor
+      const existing = await storage.getVendorLocations(vendorId);
+      const found = existing.find((l) => l.id === id);
+      if (!found) {
+        return res.status(404).json({ message: 'Branch location not found' });
+      }
+
+      const { branchName, address, city, latitude, longitude, supportsDelivery, supportsPickup, isActive } = req.body;
+
+      const updates: any = {};
+      if (branchName !== undefined) updates.branchName = branchName;
+      if (address !== undefined) updates.address = address;
+      if (city !== undefined) updates.city = city;
+      if (latitude !== undefined) updates.latitude = latitude != null ? latitude.toString() : null;
+      if (longitude !== undefined) updates.longitude = longitude != null ? longitude.toString() : null;
+      if (supportsDelivery !== undefined) updates.supportsDelivery = supportsDelivery;
+      if (supportsPickup !== undefined) updates.supportsPickup = supportsPickup;
+      if (isActive !== undefined) updates.isActive = isActive;
+
+      const location = await storage.updateVendorLocation(id, updates);
+      res.json(location);
+    } catch (error) {
+      console.error('Error updating vendor location:', error);
+      res.status(500).json({ message: 'Failed to update branch location' });
+    }
+  });
+
+  // DELETE /api/vendor/locations/:id — delete a branch
+  app.delete('/api/vendor/locations/:id', isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const vendorId = req.vendor.id;
+      const { id } = req.params;
+
+      // Ensure branch belongs to this vendor
+      const existing = await storage.getVendorLocations(vendorId);
+      const found = existing.find((l) => l.id === id);
+      if (!found) {
+        return res.status(404).json({ message: 'Branch location not found' });
+      }
+
+      await storage.deleteVendorLocation(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting vendor location:', error);
+      res.status(500).json({ message: 'Failed to delete branch location' });
+    }
+  });
+
+  // ── Rider location update ─────────────────────────────────
+  app.post("/api/delivery/location", isUserAuthenticated, async (req: any, res) => {
+    try {
+      const { latitude, longitude, isOnline } = req.body;
+      if (latitude === undefined || longitude === undefined) {
+        return res.status(400).json({ message: "latitude and longitude are required" });
+      }
+      const updatedUser = await storage.updateUserLocation(
+        req.user.id,
+        latitude.toString(),
+        longitude.toString(),
+        isOnline !== false
+      );
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating delivery location:", error);
+      res.status(500).json({ message: "Failed to update delivery location" });
+    }
+  });
+
+  // ── M-Pesa STK Push simulation ────────────────────────────
+  app.post("/api/payments/stkpush", isUserAuthenticated, async (req: any, res) => {
+    try {
+      const { orderId, phoneNumber, amount } = req.body;
+      if (!orderId || !phoneNumber || !amount) {
+        return res.status(400).json({ message: "orderId, phoneNumber, and amount are required" });
+      }
+
+      const checkoutRequestId = `ws_CO_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      const merchantRequestId = `mr_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+      // Create transaction record
+      await storage.createMpesaTransaction({
+        orderId,
+        merchantRequestId,
+        checkoutRequestId,
+        amount: amount.toString(),
+        phoneNumber,
+        status: "pending",
+      });
+
+      res.json({
+        ResponseCode: "0",
+        ResponseDescription: "Success. Request accepted for processing",
+        MerchantRequestID: merchantRequestId,
+        CheckoutRequestID: checkoutRequestId,
+        CustomerMessage: "Success. Please enter your M-Pesa PIN."
+      });
+    } catch (error) {
+      console.error("Error initiating STK push:", error);
+      res.status(500).json({ message: "Failed to initiate payment" });
+    }
+  });
+
+  // ── M-Pesa Callback webhook ──────────────────────────────
+  app.post("/api/payments/mpesa-callback", async (req, res) => {
+    try {
+      const { Body } = req.body;
+      if (!Body || !Body.stkCallback) {
+        return res.status(400).json({ message: "Invalid callback payload" });
+      }
+
+      const { MerchantRequestID, CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = Body.stkCallback;
+
+      const transaction = await storage.getMpesaTransaction(CheckoutRequestID);
+      if (!transaction) {
+        return res.status(404).json({ message: "Transaction not found" });
+      }
+
+      if (ResultCode === 0) {
+        // Success
+        let mpesaReceiptNumber = "";
+        let transactionDate: Date | null = null;
+        if (CallbackMetadata && CallbackMetadata.Item) {
+          const receiptItem = CallbackMetadata.Item.find((item: any) => item.Name === "MpesaReceiptNumber");
+          if (receiptItem) mpesaReceiptNumber = receiptItem.Value;
+
+          const dateItem = CallbackMetadata.Item.find((item: any) => item.Name === "TransactionDate");
+          if (dateItem) {
+            // Parses Safaricom timestamp (YYYYMMDDHHmmss) or defaults to current date
+            transactionDate = new Date();
+          }
+        }
+
+        await storage.updateMpesaTransaction(CheckoutRequestID, {
+          status: "completed",
+          mpesaReceiptNumber,
+          transactionDate: transactionDate || new Date(),
+          resultDesc: ResultDesc,
+          rawCallbackData: Body.stkCallback,
+        });
+
+        // Update order status
+        await storage.updateOrder(transaction.orderId, {
+          paymentStatus: "completed",
+          status: "confirmed",
+          paidAmount: transaction.amount,
+        });
+
+        // Dispatch Courier Logic based on vertical
+        const items = await storage.getOrderItems(transaction.orderId);
+        const hasServices = items.some(item => item.serviceId !== null);
+
+        const order = await storage.getOrderById(transaction.orderId);
+        if (order) {
+          // Resolve shop coordinates (vendor location)
+          const locations = await storage.getVendorLocations(order.vendorId);
+          const mainBranch = locations[0]; // fallback
+          const shopLat = mainBranch?.latitude || "0.0";
+          const shopLng = mainBranch?.longitude || "0.0";
+          const shopAddress = mainBranch?.address || "Shop Address";
+
+          // Customer address
+          const dropoffAddress = order.guestAddress || order.deliveryAddress || "Customer Address";
+          const dropoffLat = order.guestLatitude?.toString() || "0.0";
+          const dropoffLng = order.guestLongitude?.toString() || "0.0";
+
+          if (hasServices) {
+            // Laundry Vertical -> Immediate PICKUP Job
+            await storage.createDeliveryJob({
+              orderId: order.id,
+              pickupAddress: dropoffAddress,
+              dropoffAddress: shopAddress,
+              pickupLatitude: dropoffLat,
+              pickupLongitude: dropoffLng,
+              dropoffLatitude: shopLat,
+              dropoffLongitude: shopLng,
+              status: "AWAITING_ACCEPTANCE",
+              jobType: "PICKUP",
+            });
+          } else {
+            // Shop Product Vertical -> Pending DELIVERY Job
+            await storage.createDeliveryJob({
+              orderId: order.id,
+              pickupAddress: shopAddress,
+              dropoffAddress,
+              pickupLatitude: shopLat,
+              pickupLongitude: shopLng,
+              dropoffLatitude: dropoffLat,
+              dropoffLongitude: dropoffLng,
+              status: "ASSIGNING",
+              jobType: "DELIVERY",
+            });
+          }
+        }
+      } else {
+        // Failed
+        await storage.updateMpesaTransaction(CheckoutRequestID, {
+          status: "failed",
+          resultDesc: ResultDesc,
+          rawCallbackData: Body.stkCallback,
+        });
+        await storage.updateOrder(transaction.orderId, {
+          paymentStatus: "failed",
+          status: "cancelled",
+        });
+      }
+
+      res.json({ ResultCode: 0, ResultDesc: "Callback processed successfully" });
+    } catch (error) {
+      console.error("Error processing M-Pesa callback:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ── M-Pesa payment status query ───────────────────────────
+  app.get("/api/payments/status/order/:orderId", isUserAuthenticated, async (req, res) => {
+    try {
+      const transaction = await storage.getMpesaTransactionByOrderId(req.params.orderId);
+      if (!transaction) {
+        return res.status(404).json({ message: "No payment transaction found for this order" });
+      }
+      res.json({
+        status: transaction.status,
+        mpesaReceiptNumber: transaction.mpesaReceiptNumber,
+        resultDesc: transaction.resultDesc,
+        amount: transaction.amount,
+      });
+    } catch (error) {
+      console.error("Error fetching payment status:", error);
+      res.status(500).json({ message: "Failed to fetch payment status" });
+    }
+  });
+
+  // ── Rider & Order track location resolver ─────────────────
+  app.get("/api/orders/:id/rider-location", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const order = await storage.getOrderById(id);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      // Fetch merchant details
+      const vendor = await storage.getVendorById(order.vendorId);
+      const locations = await storage.getVendorLocations(order.vendorId);
+      const mainBranch = locations[0]; // fallback
+      const shop = {
+        name: vendor?.businessName || "Vendor Shop",
+        latitude: mainBranch?.latitude || vendor?.businessLatitude || "0.0",
+        longitude: mainBranch?.longitude || vendor?.businessLongitude || "0.0",
+      };
+
+      // Destination details
+      const destination = {
+        address: order.guestAddress || order.deliveryAddress || "Customer Address",
+        latitude: order.guestLatitude?.toString() || "0.0",
+        longitude: order.guestLongitude?.toString() || "0.0",
+      };
+
+      // Check for assigned delivery job
+      const job = await storage.getDeliveryJobByOrderId(id);
+      let rider = null;
+
+      if (job && job.deliveryPersonId) {
+        const riderProfile = await storage.getRiderLocation(job.deliveryPersonId);
+        if (riderProfile) {
+          rider = {
+            id: riderProfile.id,
+            firstName: riderProfile.firstName || "Rider",
+            lastName: riderProfile.lastName || "",
+            phone: riderProfile.phone || "",
+            latitude: riderProfile.latitude || "0.0",
+            longitude: riderProfile.longitude || "0.0",
+            isOnline: riderProfile.isOnline || false,
+          };
+        }
+      }
+
+      res.json({
+        rider,
+        shop,
+        destination,
+        jobStatus: job ? job.status : order.status,
+      });
+    } catch (error) {
+      console.error("Error fetching order tracking location:", error);
+      res.status(500).json({ message: "Failed to fetch order tracking details" });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────
+  // END PHASE 2 ENDPOINTS
+  // ─────────────────────────────────────────────────────────
+
 
   // Seed database on startup for development
   if (process.env.NODE_ENV === "development") {

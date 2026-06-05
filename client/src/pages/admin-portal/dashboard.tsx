@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation, Link } from "wouter";
+import { useLocation, Link, useParams } from "wouter";
 import UserManagement from "./components/UserManagement";
 import VendorManagement from "./components/VendorManagement";
 import VendorView from "./components/VendorView";
@@ -14,7 +14,12 @@ import ServiceCategoryManagement from "../admin/ServiceCategoryManagement";
 import EarningsManagementAdmin from "./components/EarningsManagementAdmin";
 import { CommissionSettings } from "../admin/components/CommissionSettings";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
+import AdminAnalytics from "./components/AdminAnalytics";
+import DisputeResolution from "./components/DisputeResolution";
 import CourierConfiguration from "./components/CourierConfiguration";
+import LogisticsSettings from "./components/LogisticsSettings";
+import VerticalsManagement from "./components/VerticalsManagement";
+import AdminSettingsPanel from "./components/AdminSettingsPanel";
 import DeliveryPortalContent from "@/components/DeliveryPortalContent";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +44,8 @@ import {
   FolderOpen,
   Truck,
   CreditCard,
-  Wrench
+  Wrench,
+  Globe
 } from "lucide-react";
 
 interface AdminData {
@@ -51,15 +57,28 @@ interface AdminData {
 }
 
 export default function AdminDashboard() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+  const params = useParams<{ section?: string }>();
+  const activeSection = params.section || "dashboard";
+
+  // Keep a setter that also updates the URL
+  const navigateTo = (section: string) => {
+    setLocation(`/admin-portal/dashboard/${section}`);
+  };
   const [adminData, setAdminData] = useState<AdminData | null>(null);
-  const [activeSection, setActiveSection] = useState("dashboard");
-  const [filterPeriod, setFilterPeriod] = useState("month");
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
   const [showVendorView, setShowVendorView] = useState(false);
 
   // Fetch real admin statistics
-  const { data: realStats } = useQuery({
+  const { data: realStats } = useQuery<{
+    totalUsers: number;
+    totalVendors: number;
+    totalProducts: number;
+    totalServices: number;
+    totalOrders: number;
+    pendingVendors: number;
+    totalRevenue: number;
+  }>({
     queryKey: ['/api/admin/stats'],
     enabled: !!adminData,
   });
@@ -94,12 +113,16 @@ export default function AdminDashboard() {
     { id: "services", label: "Services", icon: Wrench },
     { id: "service-categories", label: "Service Categories", icon: FolderOpen },
     { id: "categories", label: "Categories", icon: FolderOpen },
+    { id: "verticals", label: "Market Verticals", icon: Globe },
     { id: "orders", label: "Orders", icon: TrendingUp },
     { id: "earnings", label: "Earnings Management", icon: DollarSign },
     { id: "commission", label: "Commission Settings", icon: Settings },
     { id: "deliveries", label: "Delivery", icon: Truck },
     { id: "courier-config", label: "Courier Configuration", icon: Settings },
+    { id: "logistics-settings", label: "Logistics Settings", icon: Truck },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
+    { id: "admin-analytics", label: "Advanced Analytics", icon: BarChart3 },
+    { id: "disputes", label: "Dispute Resolution", icon: AlertTriangle },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -141,7 +164,7 @@ export default function AdminDashboard() {
               return (
                 <li key={item.id}>
                   <button
-                    onClick={() => setActiveSection(item.id)}
+                    onClick={() => navigateTo(item.id)}
                     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
                       activeSection === item.id
                         ? "bg-buylock-primary text-white"
@@ -193,7 +216,11 @@ export default function AdminDashboard() {
                 {activeSection === "commission" && "Configure platform and vendor commission percentages"}
                 {activeSection === "deliveries" && "Comprehensive delivery tracking and management"}
                 {activeSection === "courier-config" && "Configure delivery providers and courier settings"}
+                {activeSection === "logistics-settings" && "Delivery fee formula, surge pricing and fulfillment rules"}
+                {activeSection === "verticals" && "Manage top-level market verticals to organise products, services, and discovery feeds"}
                 {activeSection === "analytics" && "Detailed platform analytics and insights"}
+                {activeSection === "admin-analytics" && "Advanced metrics dashboard with real-time KPIs"}
+                {activeSection === "disputes" && "Review and resolve customer disputes and refund requests"}
                 {activeSection === "settings" && "System configuration and admin settings"}
               </p>
             </div>
@@ -409,88 +436,16 @@ export default function AdminDashboard() {
           
           {activeSection === "courier-config" && <CourierConfiguration />}
 
+          {activeSection === "logistics-settings" && <LogisticsSettings />}
+
+          {activeSection === "verticals" && <VerticalsManagement />}
+
           {activeSection === "analytics" && <AnalyticsDashboard />}
 
-          {activeSection === "settings" && (
-            <div className="space-y-6">
-              {/* Settings Header */}
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900">System Settings</h3>
-                <p className="text-gray-600">Configure platform settings and admin preferences</p>
-              </div>
+          {activeSection === "admin-analytics" && <AdminAnalytics />}
+          {activeSection === "disputes" && <DisputeResolution />}
 
-              {/* Platform Settings */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Platform Configuration</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="platformName">Platform Name</Label>
-                      <Input id="platformName" defaultValue="BuyLock Marketplace" className="mt-1" />
-                    </div>
-                    <div>
-                      <Label htmlFor="platformFee">Platform Fee (%)</Label>
-                      <Input id="platformFee" type="number" defaultValue="5" className="mt-1" />
-                    </div>
-                    <div>
-                      <Label htmlFor="minOrder">Minimum Order Value (KSh)</Label>
-                      <Input id="minOrder" type="number" defaultValue="1000" className="mt-1" />
-                    </div>
-                    <div>
-                      <Label htmlFor="maxOrder">Maximum Order Value (KSh)</Label>
-                      <Input id="maxOrder" type="number" defaultValue="5000000" className="mt-1" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Admin Account */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Admin Account Settings</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="adminName">Full Name</Label>
-                      <Input id="adminName" defaultValue={adminData.name} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label htmlFor="adminEmail">Email Address</Label>
-                      <Input id="adminEmail" type="email" defaultValue={adminData.email} className="mt-1" />
-                    </div>
-                  </div>
-                  
-                  <div className="pt-4 border-t">
-                    <h4 className="font-semibold mb-4">Change Password</h4>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="currentPassword">Current Password</Label>
-                        <Input id="currentPassword" type="password" className="mt-1" />
-                      </div>
-                      <div>
-                        <Label htmlFor="newPassword">New Password</Label>
-                        <Input id="newPassword" type="password" className="mt-1" />
-                      </div>
-                      <div>
-                        <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                        <Input id="confirmPassword" type="password" className="mt-1" />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Save Button */}
-              <div className="flex justify-end">
-                <Button className="bg-buylock-primary hover:bg-buylock-primary/90">
-                  Save Settings
-                </Button>
-              </div>
-            </div>
-          )}
+          {activeSection === "settings" && <AdminSettingsPanel />}
         </div>
       </div>
     </div>

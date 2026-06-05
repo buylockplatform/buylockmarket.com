@@ -48,7 +48,7 @@ export default function DeliveryConfirmation() {
   const [submissionType, setSubmissionType] = useState<'confirmed' | 'disputed' | null>(null);
 
   // Fetch order details using the token
-  const { data: orderDetails, isLoading, error } = useQuery({
+  const { data: orderDetails, isLoading, error } = useQuery<OrderDetails>({
     queryKey: ['/api/orders/confirm', token],
     enabled: !!token,
     retry: false,

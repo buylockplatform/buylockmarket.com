@@ -150,7 +150,6 @@ export async function seedDatabase() {
       city: "Nairobi",
       suburb: "Westlands", // Explicitly set valid suburb
       postalCode: "00800",
-      country: "Kenya",
       businessCategory: "General Merchandise",
       description: "Premium products and services retailer with nationwide delivery",
       nationalIdNumber: "12345678",
@@ -158,7 +157,6 @@ export async function seedDatabase() {
       businessLongitude: "36.817223",
       locationDescription: "Located in the heart of Westlands, easily accessible from all major roads.",
       verificationStatus: "verified",
-      isActive: true,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -2041,7 +2039,6 @@ export async function seedDatabase() {
 
         // === HOME SERVICES (7 services) ===
         {
-          id: "7e560be4-8852-4289-870e-3e62e0e3ae79",
           name: "Carpentry & Furniture Repair",
           slug: "carpentry-furniture-repair",
           description: "Skilled carpenter for custom furniture, cabinet installation, door hanging, window repairs, and general woodworking projects.",
@@ -2058,9 +2055,7 @@ export async function seedDatabase() {
           adminApproved: true,
           tags: ["carpentry", "furniture", "woodworking", "hourly"],
           location: "Nairobi & Surrounding Areas",
-          isAvailableToday: true,
-          createdAt: new Date("2025-08-13T09:19:27.572Z"),
-          updatedAt: new Date("2025-08-13T09:19:27.572Z")
+          isAvailableToday: true
         },
         {
           name: "Electrical Installation & Repair",

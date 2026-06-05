@@ -14,7 +14,12 @@ async function testFargoIntegration() {
     }
 
     console.log('🚀 Starting Fargo API Integration Test...');
-    const fargo = new FargoCourierAPI(API_KEY, process.env.FARGO_ENV || 'production');
+    const fargo = new FargoCourierAPI(
+        API_KEY,
+        process.env.FARGO_USERNAME || 'demo-user',
+        process.env.FARGO_PASSWORD || 'demo-pass',
+        process.env.FARGO_ENV || 'production'
+    );
     console.log(`Environment: ${process.env.FARGO_ENV || 'production'} (URL: ${process.env.FARGO_ENV === 'uat' ? 'api-uat' : 'api'}.fargocourier.co.ke)`);
 
     // 1. Test Create Shipment (Dry Run/Mock data)

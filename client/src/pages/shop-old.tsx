@@ -69,31 +69,41 @@ export default function Shop() {
   });
 
   // Get unique brands from products
-  const brands = Array.from(new Set((products as Product[]).map(p => p.brand).filter(Boolean)));
+  const brands = Array.from(new Set((products as Product[]).map(p => (p as any).brandId).filter(Boolean)));
 
   // Filter and sort logic
   const filteredProducts = (products as Product[]).filter(product => {
-    if (selectedBrand && product.brand !== selectedBrand) return false;
-    if (product.price < priceRange[0] || product.price > priceRange[1]) return false;
-    if (selectedRating && (product.rating || 0) < selectedRating) return false;
-    if (inStock && (product.stockCount || 0) <= 0) return false;
+    if (selectedBrand && (product as any).brandId !== selectedBrand) return false;
+    const productPrice = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
+    if (productPrice < priceRange[0] || productPrice > priceRange[1]) return false;
+    if (selectedRating && Number(product.rating || 0) < selectedRating) return false;
+    if (inStock && (product.stock || 0) <= 0) return false;
     return true;
   });
 
   const filteredServices = (services as Service[]).filter(service => {
-    if (service.price < priceRange[0] || service.price > priceRange[1]) return false;
-    if (selectedRating && (service.rating || 0) < selectedRating) return false;
+    const servicePrice = typeof service.price === 'string' ? parseFloat(service.price) : service.price;
+    if (servicePrice < priceRange[0] || servicePrice > priceRange[1]) return false;
+    if (selectedRating && Number(service.rating || 0) < selectedRating) return false;
     return true;
   });
 
   const sortItems = (items: (Product | Service)[]) => {
     switch (sortBy) {
       case "price-low":
-        return [...items].sort((a, b) => a.price - b.price);
+        return [...items].sort((a, b) => {
+          const aPrice = typeof a.price === 'string' ? parseFloat(a.price) : a.price;
+          const bPrice = typeof b.price === 'string' ? parseFloat(b.price) : b.price;
+          return aPrice - bPrice;
+        });
       case "price-high":
-        return [...items].sort((a, b) => b.price - a.price);
+        return [...items].sort((a, b) => {
+          const aPrice = typeof a.price === 'string' ? parseFloat(a.price) : a.price;
+          const bPrice = typeof b.price === 'string' ? parseFloat(b.price) : b.price;
+          return bPrice - aPrice;
+        });
       case "rating":
-        return [...items].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        return [...items].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
       case "newest":
         return [...items].sort((a, b) => {
           const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -481,7 +491,7 @@ export default function Shop() {
                 </div>
               ) : (
                 sortedItems.map((item) => (
-                  "stockCount" in item ? (
+                  "stock" in item ? (
                     <ProductCard key={item.id} product={item as Product} />
                   ) : (
                     <ServiceCard key={item.id} service={item as Service} />

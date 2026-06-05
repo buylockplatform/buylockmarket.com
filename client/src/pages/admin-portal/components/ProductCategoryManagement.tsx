@@ -1178,7 +1178,7 @@ function EditSubcategoryForm({ subcategory, onClose }: { subcategory: Subcategor
     slug: subcategory?.slug || "",
     description: subcategory?.description || "",
     imageUrl: subcategory?.imageUrl || "",
-    isActive: subcategory?.isActive || true
+    isActive: (subcategory?.isActive ?? true) as boolean
   });
 
   const handleSubmit = (e: React.FormEvent) => {

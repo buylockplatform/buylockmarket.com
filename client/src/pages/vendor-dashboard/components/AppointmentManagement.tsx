@@ -120,18 +120,18 @@ export default function AppointmentManagement({ vendorId }: AppointmentManagemen
       // Map pending_acceptance to pending for UI consistency
       status: app.status === 'pending_acceptance' ? 'pending' : app.status as VendorAppointment['status'],
       // Ensure required fields
-      customerId: app.customerId || app.customer_id || '',
-      serviceId: app.serviceId || app.service_id || '',
-      serviceName: app.serviceName || app.service_name || '',
-      customerName: app.customerName || app.customer_name || '',
-      customerEmail: app.customerEmail || app.customer_email || '',
-      customerPhone: app.customerPhone || app.customer_phone || '',
-      appointmentTime: app.appointmentTime || app.appointment_time || '',
+      customerId: app.customerId || (app as any).customer_id || '',
+      serviceId: app.serviceId || (app as any).service_id || '',
+      serviceName: app.serviceName || (app as any).service_name || '',
+      customerName: app.customerName || (app as any).customer_name || '',
+      customerEmail: app.customerEmail || (app as any).customer_email || '',
+      customerPhone: app.customerPhone || (app as any).customer_phone || '',
+      appointmentTime: app.appointmentTime || (app as any).appointment_time || '',
       address: app.address || '',
       city: app.city || '',
       state: app.state || '',
-      notes: app.notes || app.customerNotes || '',
-      vendorNotes: app.vendorNotes || app.vendor_notes || ''
+      notes: app.notes || (app as any).customerNotes || '',
+      vendorNotes: app.vendorNotes || (app as any).vendor_notes || ''
     };
     return transformedAppointment;
   }) as VendorAppointment[];
@@ -226,7 +226,7 @@ export default function AppointmentManagement({ vendorId }: AppointmentManagemen
 
   const getAppointmentStats = () => {
     const total = transformedAppointments.length;
-    const pending = transformedAppointments.filter(a => a.status === 'pending').length;
+    const pending = transformedAppointments.filter(a => a.status === 'pending_acceptance').length;
     const accepted = transformedAppointments.filter(a => a.status === 'accepted').length;
     const completed = transformedAppointments.filter(a => a.status === 'completed').length;
     const totalEarnings = transformedAppointments
@@ -327,7 +327,7 @@ export default function AppointmentManagement({ vendorId }: AppointmentManagemen
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {selectedAppointment.status === 'pending' && (
+              {selectedAppointment.status === 'pending_acceptance' && (
                 <div className="flex space-x-3">
                   <Button 
                     className="bg-green-600 hover:bg-green-700"

@@ -75,19 +75,20 @@ export default function Services() {
 
   // Filter and sort logic
   const filteredServices = (services as Service[]).filter(service => {
-    if (service.price < priceRange[0] || service.price > priceRange[1]) return false;
-    if (selectedRating && (service.rating || 0) < selectedRating) return false;
+    const price = Number(service.price);
+    if (price < priceRange[0] || price > priceRange[1]) return false;
+    if (selectedRating && Number(service.rating || 0) < selectedRating) return false;
     return true;
   });
 
   const sortItems = (items: Service[]) => {
     switch (sortBy) {
       case "price-low":
-        return [...items].sort((a, b) => a.price - b.price);
+        return [...items].sort((a, b) => Number(a.price) - Number(b.price));
       case "price-high":
-        return [...items].sort((a, b) => b.price - a.price);
+        return [...items].sort((a, b) => Number(b.price) - Number(a.price));
       case "rating":
-        return [...items].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        return [...items].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
       case "newest":
         return [...items].sort((a, b) => {
           const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;

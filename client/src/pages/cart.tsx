@@ -10,7 +10,8 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Minus, Plus, Trash2, ShoppingBag, Truck, CreditCard } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Minus, Plus, Trash2, ShoppingBag, Truck, CreditCard, MapPin, ChevronDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,7 +20,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useLocation } from "wouter";
 import { Link } from "wouter";
 import { LocationAutocomplete } from "@/components/LocationAutocomplete";
-import type { CartItem, Product, Service } from "@shared/schema";
+import type { CartItem, Product, Service, CustomerAddress } from "@shared/schema";
 
 interface CartItemWithDetails extends CartItem {
   product?: Product;
@@ -61,6 +62,7 @@ export default function Cart() {
   const [deliveryPostalCode, setDeliveryPostalCode] = useState("");
   const [courierQuote, setCourierQuote] = useState<CourierQuote | null>(null);
   const [showCourierSelection, setShowCourierSelection] = useState(false);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<string>("");
   const [paymentVerificationAttempted, setPaymentVerificationAttempted] = useState(false);
   const { toast } = useToast();
   const { isAuthenticated, user } = useAuth();
@@ -84,6 +86,11 @@ export default function Cart() {
 
   const { data: couriers = [] } = useQuery<Courier[]>({
     queryKey: ["/api/couriers"],
+    enabled: isAuthenticated,
+  });
+
+  const { data: savedAddresses = [] } = useQuery<CustomerAddress[]>({
+    queryKey: ["/api/user/addresses"],
     enabled: isAuthenticated,
   });
 
@@ -525,6 +532,21 @@ export default function Cart() {
     initializePaymentMutation.mutate();
   };
 
+  const handleSavedAddressSelect = (addressId: string) => {
+    setSelectedSavedAddressId(addressId);
+    if (!addressId) return;
+    const addr = savedAddresses.find((a) => a.id === addressId);
+    if (!addr) return;
+    setDeliveryAddress(addr.addressLine);
+    setDeliveryCity(addr.city || "Nairobi");
+    setDeliverySuburb(addr.suburb || "");
+    setDeliveryBuilding(addr.building || "");
+    setDeliveryPostalCode(addr.postalCode || "");
+    if (selectedCourier) {
+      calculateCourierCostMutation.mutate({ courierId: selectedCourier, location: addr.addressLine });
+    }
+  };
+
 
 
   // Check for payment verification on page load (single attempt)
@@ -671,32 +693,32 @@ export default function Cart() {
                           </p>
 
                           {/* Service Appointment Details */}
-                          {!isProduct && (item.appointmentDate || item.appointmentTime || item.serviceLocation) && (
+                          {!isProduct && ((item as any).appointmentDate || (item as any).appointmentTime || (item as any).serviceLocation) && (
                             <div className="bg-blue-50 p-3 rounded-lg mb-3 space-y-1">
                               <h4 className="text-sm font-semibold text-blue-900">Appointment Details:</h4>
-                              {item.appointmentDate && (
+                              {(item as any).appointmentDate && (
                                 <p className="text-sm text-blue-700">
-                                  📅 Date: {new Date(item.appointmentDate).toLocaleDateString()}
+                                  📅 Date: {new Date((item as any).appointmentDate).toLocaleDateString()}
                                 </p>
                               )}
-                              {item.appointmentTime && (
+                              {(item as any).appointmentTime && (
                                 <p className="text-sm text-blue-700">
-                                  🕒 Time: {item.appointmentTime}
+                                  🕒 Time: {(item as any).appointmentTime}
                                 </p>
                               )}
-                              {item.duration && (
+                              {(item as any).duration && (
                                 <p className="text-sm text-blue-700">
-                                  ⏱️ Duration: {item.duration} hour{item.duration !== 1 ? 's' : ''}
+                                  ⏱️ Duration: {(item as any).duration} hour{(item as any).duration !== 1 ? 's' : ''}
                                 </p>
                               )}
-                              {item.serviceLocation && (
+                              {(item as any).serviceLocation && (
                                 <p className="text-sm text-blue-700">
-                                  📍 Location: {item.serviceLocation}
+                                  📍 Location: {(item as any).serviceLocation}
                                 </p>
                               )}
-                              {item.notes && (
+                              {(item as any).notes && (
                                 <p className="text-sm text-blue-700">
-                                  📝 Notes: {item.notes}
+                                  📝 Notes: {(item as any).notes}
                                 </p>
                               )}
                             </div>
@@ -854,6 +876,43 @@ export default function Cart() {
                         </div>
                       </div>
 
+                      {/* Saved Addresses Selector */}
+                      {savedAddresses.length > 0 && (
+                        <div>
+                          <Label className="flex items-center gap-1.5">
+                            <MapPin className="w-4 h-4 text-buylock-primary" />
+                            Use a Saved Address
+                          </Label>
+                          <Select
+                            value={selectedSavedAddressId}
+                            onValueChange={handleSavedAddressSelect}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="— Select saved address —" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {savedAddresses.map((addr) => (
+                                <SelectItem key={addr.id} value={addr.id}>
+                                  <span className="font-medium">
+                                    {addr.label || addr.city || "Address"}
+                                  </span>
+                                  {" — "}
+                                  <span className="text-gray-500 text-xs">
+                                    {addr.addressLine}
+                                  </span>
+                                  {addr.isDefault && (
+                                    <Badge variant="outline" className="ml-2 text-xs py-0">
+                                      Default
+                                    </Badge>
+                                  )}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-gray-500 mt-1">Or type a new address below</p>
+                        </div>
+                      )}
+
                       <div>
                         <LocationAutocomplete
                           label="Delivery Address"
@@ -866,6 +925,7 @@ export default function Cart() {
                             setDeliverySuburb(location.suburb);
                             setDeliveryBuilding(location.building || '');
                             setDeliveryPostalCode(location.postalCode || '');
+                            setSelectedSavedAddressId(""); // clear saved selection when typing manually
 
                             // Trigger courier cost calculation if courier is selected
                             if (selectedCourier) {
@@ -966,7 +1026,30 @@ export default function Cart() {
                 {initializePaymentMutation.isPending ? "Processing..." :
                   verifyPaymentMutation.isPending ? "Verifying Payment..." :
                     calculateCourierCostMutation.isPending ? "Calculating delivery..." :
-                      `Checkout • ${formatPrice(calculateTotal())}`}
+                      `Pay with Card/Paystack • ${formatPrice(calculateTotal())}`}
+              </Button>
+
+              <div className="flex items-center justify-center my-2">
+                <span className="h-px bg-gray-200 flex-1"></span>
+                <span className="px-3 text-xs text-gray-400 font-medium uppercase tracking-wider">Or Pay on Mobile</span>
+                <span className="h-px bg-gray-200 flex-1"></span>
+              </div>
+
+              {/* Checkout with M-Pesa Button */}
+              <Button
+                onClick={() => navigate("/checkout")}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 text-lg flex items-center justify-center gap-2.5 shadow-md border border-transparent rounded-lg transition-all"
+                size="lg"
+              >
+                <img
+                  src="https://upload.wikimedia.org/wikipedia/commons/1/15/M-PESA_LOGO-01.svg"
+                  alt="M-Pesa"
+                  className="h-6 w-auto brightness-0 invert"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                <span>Checkout with M-Pesa</span>
               </Button>
 
               {/* Security Notice */}

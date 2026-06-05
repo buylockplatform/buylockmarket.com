@@ -16,7 +16,12 @@ async function testQuote() {
 
     for (const env of envs) {
         console.log(`\n--- Testing Env: ${env} ---`);
-        const fargo = new FargoCourierAPI(API_KEY, env);
+        const fargo = new FargoCourierAPI(
+            API_KEY,
+            process.env.FARGO_USERNAME || 'demo-user',
+            process.env.FARGO_PASSWORD || 'demo-pass',
+            env
+        );
 
         for (const path of paths) {
             console.log(`\n[${env}] Probing Path: ${path}`);

@@ -11,6 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Edit } from "lucide-react";
 import MultipleImageUploader from "./MultipleImageUploader";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ProductVariantsManager from "./ProductVariantsManager";
 
 interface Category {
   id: string;
@@ -166,187 +168,200 @@ export default function EditProductModal({ vendorId, product }: EditProductModal
           <Edit className="w-4 h-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Product</DialogTitle>
+          <DialogTitle>Edit Product: {product.name}</DialogTitle>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">Product Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                placeholder="Enter product name"
-                required
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="price">Price (KES) *</Label>
-              <Input
-                id="price"
-                type="number"
-                value={formData.price}
-                onChange={(e) => handleInputChange('price', e.target.value)}
-                placeholder="0.00"
-                required
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="originalPrice">Original Price (KES)</Label>
-              <Input
-                id="originalPrice"
-                type="number"
-                value={formData.originalPrice}
-                onChange={(e) => handleInputChange('originalPrice', e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="stock">Stock Quantity</Label>
-              <Input
-                id="stock"
-                type="number"
-                value={formData.stock}
-                onChange={(e) => handleInputChange('stock', e.target.value)}
-                placeholder="0"
-              />
-            </div>
-          </div>
+        <Tabs defaultValue="details" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="details">Product Details</TabsTrigger>
+            <TabsTrigger value="variants">Product Variants</TabsTrigger>
+          </TabsList>
 
-          {/* Category Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="category">Category *</Label>
-              <Select value={formData.categoryId} onValueChange={(value) => {
-                handleInputChange('categoryId', value);
-                handleInputChange('subcategoryId', ''); // Reset subcategory
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <TabsContent value="details">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Product Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    placeholder="Enter product name"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="price">Price (KES) *</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    value={formData.price}
+                    onChange={(e) => handleInputChange('price', e.target.value)}
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+              </div>
 
-            <div>
-              <Label htmlFor="subcategory">Subcategory</Label>
-              <Select 
-                value={formData.subcategoryId} 
-                onValueChange={(value) => handleInputChange('subcategoryId', value)}
-                disabled={!formData.categoryId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subcategory" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subcategories.map((subcategory) => (
-                    <SelectItem key={subcategory.id} value={subcategory.id}>
-                      {subcategory.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="originalPrice">Original Price (KES)</Label>
+                  <Input
+                    id="originalPrice"
+                    type="number"
+                    value={formData.originalPrice}
+                    onChange={(e) => handleInputChange('originalPrice', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="stock">Stock Quantity</Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    value={formData.stock}
+                    onChange={(e) => handleInputChange('stock', e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
 
-          {/* Description */}
-          <div>
-            <Label htmlFor="description">Description *</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Detailed product description..."
-              className="min-h-[100px]"
-              required
-            />
-          </div>
+              {/* Category Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="category">Category *</Label>
+                  <Select value={formData.categoryId} onValueChange={(value) => {
+                    handleInputChange('categoryId', value);
+                    handleInputChange('subcategoryId', ''); // Reset subcategory
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          <div>
-            <Label htmlFor="shortDescription">Short Description</Label>
-            <Textarea
-              id="shortDescription"
-              value={formData.shortDescription}
-              onChange={(e) => handleInputChange('shortDescription', e.target.value)}
-              placeholder="Brief product summary..."
-              className="min-h-[60px]"
-            />
-          </div>
+                <div>
+                  <Label htmlFor="subcategory">Subcategory</Label>
+                  <Select 
+                    value={formData.subcategoryId} 
+                    onValueChange={(value) => handleInputChange('subcategoryId', value)}
+                    disabled={!formData.categoryId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select subcategory" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subcategories.map((subcategory) => (
+                        <SelectItem key={subcategory.id} value={subcategory.id}>
+                          {subcategory.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          {/* Image Upload */}
-          <div>
-            <Label>Product Images</Label>
-            <MultipleImageUploader 
-              images={formData.images}
-              onImagesChange={(images) => handleInputChange('images', images)}
-              maxImages={5}
-            />
-          </div>
+              {/* Description */}
+              <div>
+                <Label htmlFor="description">Description *</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  placeholder="Detailed product description..."
+                  className="min-h-[100px]"
+                  required
+                />
+              </div>
 
-          {/* Tags */}
-          <div>
-            <Label htmlFor="tags">Tags (comma-separated)</Label>
-            <Input
-              id="tags"
-              value={formData.tags}
-              onChange={(e) => handleInputChange('tags', e.target.value)}
-              placeholder="electronics, smartphone, accessories"
-            />
-          </div>
+              <div>
+                <Label htmlFor="shortDescription">Short Description</Label>
+                <Textarea
+                  id="shortDescription"
+                  value={formData.shortDescription}
+                  onChange={(e) => handleInputChange('shortDescription', e.target.value)}
+                  placeholder="Brief product summary..."
+                  className="min-h-[60px]"
+                />
+              </div>
 
-          {/* Switches */}
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="isFeatured"
-                checked={formData.isFeatured}
-                onCheckedChange={(checked) => handleInputChange('isFeatured', checked)}
-              />
-              <Label htmlFor="isFeatured">Featured Product</Label>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) => handleInputChange('isActive', checked)}
-              />
-              <Label htmlFor="isActive">Active</Label>
-            </div>
-          </div>
+              {/* Image Upload */}
+              <div>
+                <Label>Product Images</Label>
+                <MultipleImageUploader 
+                  images={formData.images}
+                  onImagesChange={(images) => handleInputChange('images', images)}
+                  maxImages={5}
+                />
+              </div>
 
-          {/* Submit Button */}
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={updateProductMutation.isPending}
-            >
-              {updateProductMutation.isPending ? "Updating..." : "Update Product"}
-            </Button>
-          </div>
-        </form>
+              {/* Tags */}
+              <div>
+                <Label htmlFor="tags">Tags (comma-separated)</Label>
+                <Input
+                  id="tags"
+                  value={formData.tags}
+                  onChange={(e) => handleInputChange('tags', e.target.value)}
+                  placeholder="electronics, smartphone, accessories"
+                />
+              </div>
+
+              {/* Switches */}
+              <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="isFeatured"
+                    checked={formData.isFeatured}
+                    onCheckedChange={(checked) => handleInputChange('isFeatured', checked)}
+                  />
+                  <Label htmlFor="isFeatured">Featured Product</Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="isActive"
+                    checked={formData.isActive}
+                    onCheckedChange={(checked) => handleInputChange('isActive', checked)}
+                  />
+                  <Label htmlFor="isActive">Active</Label>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={updateProductMutation.isPending}
+                >
+                  {updateProductMutation.isPending ? "Updating..." : "Update Product"}
+                </Button>
+              </div>
+            </form>
+          </TabsContent>
+
+          <TabsContent value="variants">
+            <ProductVariantsManager productId={product.id} />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

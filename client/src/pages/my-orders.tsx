@@ -15,7 +15,9 @@ import {
   ShoppingBag,
   Play,
   Wrench,
-  AlertTriangle
+  AlertTriangle,
+  Star,
+  MessageSquare
 } from "lucide-react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -28,6 +30,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Order, OrderTracking, OrderItem } from "@shared/schema";
+import { Textarea } from "@/components/ui/textarea";
 
 interface OrderWithItems extends Order {
   orderItems: OrderItem[];
@@ -38,6 +41,71 @@ export default function MyOrders() {
   const queryClient = useQueryClient();
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
   const [trackingDialogOpen, setTrackingDialogOpen] = useState(false);
+
+  const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
+  const [vendorRating, setVendorRating] = useState(0);
+  const [deliveryRating, setDeliveryRating] = useState(0);
+  const [vendorComment, setVendorComment] = useState("");
+  const [deliveryComment, setDeliveryComment] = useState("");
+
+  const submitReviewMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const response = await fetch(`/api/orders/${orderId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vendorRating,
+          vendorComment,
+          deliveryRating,
+          deliveryComment,
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || "Failed to submit review");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Review Submitted!",
+        description: "Thank you for your feedback.",
+      });
+      setReviewOrder(null);
+      setVendorRating(0);
+      setDeliveryRating(0);
+      setVendorComment("");
+      setDeliveryComment("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit review",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const StarRating = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          onClick={() => onChange(star)}
+          className="focus:outline-none"
+        >
+          <Star
+            className={`w-7 h-7 transition-colors ${
+              star <= value
+                ? "fill-yellow-400 text-yellow-400"
+                : "text-gray-300 hover:text-yellow-300"
+            }`}
+          />
+        </button>
+      ))}
+    </div>
+  );
 
   // Currency formatting function for Kenyan Shillings
   const formatPrice = (price: string | number) => {
@@ -246,6 +314,18 @@ export default function MyOrders() {
             <Eye className="w-4 h-4" />
             View Details
           </Button>
+
+          {order.status && order.status.toLowerCase() === "delivered" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setReviewOrder(order)}
+              className="flex items-center gap-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
+            >
+              <Star className="w-4 h-4" />
+              Leave Review
+            </Button>
+          )}
 
           {order.status && !["delivered", "cancelled"].includes(order.status.toLowerCase()) && (
             <>
@@ -537,6 +617,59 @@ export default function MyOrders() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Review Dialog */}
+      <Dialog open={!!reviewOrder} onOpenChange={(open) => { if (!open) { setReviewOrder(null); setVendorRating(0); setDeliveryRating(0); setVendorComment(""); setDeliveryComment(""); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-buylock-orange" />
+              Leave a Review
+            </DialogTitle>
+          </DialogHeader>
+          {reviewOrder && (
+            <div className="space-y-5">
+              <p className="text-sm text-gray-600">
+                Order #{reviewOrder.id.slice(-8).toUpperCase()} — share your experience
+              </p>
+
+              <div className="space-y-2">
+                <h4 className="font-semibold text-gray-800">Vendor / Product Quality</h4>
+                <StarRating value={vendorRating} onChange={setVendorRating} />
+                <Textarea
+                  placeholder="How was the product or service quality?"
+                  value={vendorComment}
+                  onChange={(e) => setVendorComment(e.target.value)}
+                  rows={2}
+                  className="resize-none"
+                />
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <h4 className="font-semibold text-gray-800">Delivery Experience</h4>
+                <StarRating value={deliveryRating} onChange={setDeliveryRating} />
+                <Textarea
+                  placeholder="How was the delivery speed and handling?"
+                  value={deliveryComment}
+                  onChange={(e) => setDeliveryComment(e.target.value)}
+                  rows={2}
+                  className="resize-none"
+                />
+              </div>
+
+              <Button
+                className="w-full bg-buylock-orange text-white hover:bg-buylock-orange/90"
+                disabled={vendorRating === 0 || submitReviewMutation.isPending}
+                onClick={() => submitReviewMutation.mutate(reviewOrder.id)}
+              >
+                {submitReviewMutation.isPending ? "Submitting..." : "Submit Review"}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

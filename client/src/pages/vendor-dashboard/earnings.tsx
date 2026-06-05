@@ -121,12 +121,18 @@ export default function VendorEarnings() {
     createPayoutMutation.mutate({ amount, reason: payoutReason });
   };
 
-  const formatCurrency = (amount: string | number) => {
-    return `KES ${parseFloat(amount.toString()).toFixed(2)}`;
+  const formatCurrency = (amount: string | number | null | undefined): string => {
+    if (amount === null || amount === undefined || amount === '') return 'KES 0.00';
+    const num = parseFloat(amount.toString());
+    if (isNaN(num)) return 'KES 0.00';
+    return `KES ${num.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-KE', {
+  const formatDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return '—';
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-KE', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -463,10 +469,10 @@ export default function VendorEarnings() {
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-green-600">
-                          +{formatCurrency(earning.vendorEarnings)}
+                          +{formatCurrency(earning.vendorEarnings ?? earning.amount ?? 0)}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          From {formatCurrency(earning.totalAmount)}
+                          From {formatCurrency(earning.totalAmount ?? 0)}
                         </p>
                       </div>
                     </div>

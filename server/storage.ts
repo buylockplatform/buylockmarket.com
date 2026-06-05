@@ -25,6 +25,7 @@ import {
   emailNotifications,
   type User,
   type UpsertUser,
+  type InsertUser,
   type Vendor,
   type InsertVendor,
   type Admin,
@@ -71,6 +72,17 @@ import {
   type InsertPlatformSetting,
   type EmailNotification,
   type InsertEmailNotification,
+  type MerchantLocation,
+  type InsertMerchantLocation,
+  customerAddresses,
+  mpesaTransactions,
+  deliveryJobs,
+  type CustomerAddress,
+  type InsertCustomerAddress,
+  type MpesaTransaction,
+  type InsertMpesaTransaction,
+  type DeliveryJob,
+  type InsertDeliveryJob,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, like, ilike, and, or, desc, asc, sql, inArray } from "drizzle-orm";
@@ -122,6 +134,7 @@ export interface IStorage {
   // Payout Request operations
   createPayoutRequest(request: InsertPayoutRequest): Promise<PayoutRequest>;
   getPayoutRequest(id: string): Promise<PayoutRequest | undefined>;
+  getPayoutRequestByTransferCode(transferCode: string): Promise<PayoutRequest | undefined>;
   getVendorPayoutRequests(vendorId: string): Promise<PayoutRequest[]>;
   getAllPayoutRequests(status?: string): Promise<PayoutRequest[]>;
   updatePayoutRequest(id: string, updates: Partial<PayoutRequest>): Promise<PayoutRequest>;
@@ -135,7 +148,7 @@ export interface IStorage {
   getCategoryBySlug(slug: string): Promise<Category | undefined>;
   createCategory(category: InsertCategory): Promise<Category>;
   updateCategory(id: string, updates: Partial<InsertCategory>): Promise<Category>;
-  deleteCategory(id: string): Promise<void>;
+  deleteCategory(id: string): Promise<boolean>;
 
   // Subcategory operations
   getSubcategories(): Promise<Subcategory[]>;
@@ -155,6 +168,7 @@ export interface IStorage {
     offset?: number;
   }): Promise<Product[]>;
   getProductById(id: string): Promise<Product | undefined>;
+  getProduct(id: string): Promise<Product | undefined>;
   getProductBySlug(slug: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, updates: Partial<InsertProduct>): Promise<Product>;
@@ -171,6 +185,7 @@ export interface IStorage {
     offset?: number;
   }): Promise<Service[]>;
   getServiceById(id: string): Promise<Service | undefined>;
+  getService(id: string): Promise<Service | undefined>;
   getServiceBySlug(slug: string): Promise<Service | undefined>;
   createService(service: InsertService): Promise<Service>;
   updateService(id: string, updates: Partial<InsertService>): Promise<Service>;
@@ -309,6 +324,32 @@ export interface IStorage {
   updateProductApproval(id: string, approved: boolean): Promise<Product | undefined>;
   getAllServices(): Promise<Service[]>;
   updateServiceApproval(id: string, approved: boolean): Promise<Service | undefined>;
+
+  // Vendor branch locations
+  getVendorLocations(vendorId: string): Promise<MerchantLocation[]>;
+  createVendorLocation(data: InsertMerchantLocation): Promise<MerchantLocation>;
+  updateVendorLocation(id: string, data: Partial<InsertMerchantLocation>): Promise<MerchantLocation>;
+  deleteVendorLocation(id: string): Promise<void>;
+
+  // Saved Customer Address operations
+  getAddresses(userId: string): Promise<CustomerAddress[]>;
+  createAddress(address: InsertCustomerAddress): Promise<CustomerAddress>;
+  deleteAddress(id: string): Promise<void>;
+
+  // M-Pesa Transaction operations
+  getMpesaTransaction(checkoutRequestId: string): Promise<MpesaTransaction | undefined>;
+  getMpesaTransactionByOrderId(orderId: string): Promise<MpesaTransaction | undefined>;
+  createMpesaTransaction(data: InsertMpesaTransaction): Promise<MpesaTransaction>;
+  updateMpesaTransaction(checkoutRequestId: string, updates: Partial<MpesaTransaction>): Promise<MpesaTransaction>;
+
+  // Delivery Job operations
+  getDeliveryJobByOrderId(orderId: string): Promise<DeliveryJob | undefined>;
+  createDeliveryJob(data: InsertDeliveryJob): Promise<DeliveryJob>;
+  updateDeliveryJob(id: string, updates: Partial<DeliveryJob>): Promise<DeliveryJob>;
+
+  // User location operations
+  updateUserLocation(userId: string, latitude: string, longitude: string, isOnline: boolean): Promise<User>;
+  getRiderLocation(riderId: string): Promise<User | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -480,7 +521,7 @@ export class DatabaseStorage implements IStorage {
       const totalServicesResult = await db
         .select({ count: sql<number>`count(*)` })
         .from(services)
-        .where(eq(services.vendorId, vendorId));
+        .where(eq(services.providerId, vendorId));
       const totalServices = totalServicesResult[0]?.count || 0;
 
       // Get total orders count
@@ -566,6 +607,19 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(categories).where(eq(categories.isActive, true)).orderBy(asc(categories.name));
   }
 
+  // Aliases to satisfy IStorage interface
+  async getAllCategories(): Promise<Category[]> {
+    return this.getCategories();
+  }
+
+  async getAllSubcategories(): Promise<Subcategory[]> {
+    return this.getSubcategories();
+  }
+
+  async getSubcategoriesByCategory(categoryId: string): Promise<Subcategory[]> {
+    return this.getSubcategoriesByCategoryId(categoryId);
+  }
+
   async getCategoryBySlug(slug: string): Promise<Category | undefined> {
     const [category] = await db.select().from(categories).where(eq(categories.slug, slug));
     return category;
@@ -585,8 +639,9 @@ export class DatabaseStorage implements IStorage {
     return category;
   }
 
-  async deleteCategory(id: string): Promise<void> {
-    await db.delete(categories).where(eq(categories.id, id));
+  async deleteCategory(id: string): Promise<boolean> {
+    const result = await db.delete(categories).where(eq(categories.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Subcategory operations
@@ -642,10 +697,8 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(eq(products.isFeatured, true));
     }
 
-    let query = db.select({
-      ...products,
-      vendor: vendors
-    }).from(products)
+    let query = db.select()
+      .from(products)
       .leftJoin(vendors, eq(products.vendorId, vendors.id))
       .where(and(...whereConditions))
       .orderBy(desc(products.createdAt));
@@ -658,24 +711,34 @@ export class DatabaseStorage implements IStorage {
       query = query.offset(params.offset) as any;
     }
 
-    return await query;
+    const result = await query;
+    return result.map(r => ({
+      ...r.products,
+      vendor: r.vendors || undefined
+    })) as any as Product[];
   }
 
   async getProductById(id: string): Promise<Product | undefined> {
-    const result = await db.select({
-      ...products,
-      vendor: {
-        id: vendors.id,
-        businessName: vendors.businessName,
-        email: vendors.email
-      }
-    })
+    const result = await db.select()
       .from(products)
       .leftJoin(vendors, eq(products.vendorId, vendors.id))
       .where(eq(products.id, id));
 
-    const [product] = result;
-    return product || undefined;
+    const productWithVendor = result[0];
+    if (!productWithVendor) return undefined;
+
+    return {
+      ...productWithVendor.products,
+      vendor: productWithVendor.vendors ? {
+        id: productWithVendor.vendors.id,
+        businessName: productWithVendor.vendors.businessName,
+        email: productWithVendor.vendors.email
+      } : undefined
+    } as any as Product;
+  }
+
+  async getProduct(id: string): Promise<Product | undefined> {
+    return this.getProductById(id);
   }
 
   async getProductBySlug(slug: string): Promise<Product | undefined> {
@@ -742,10 +805,8 @@ export class DatabaseStorage implements IStorage {
       whereConditions.push(eq(services.isAvailableToday, true));
     }
 
-    let query = db.select({
-      ...services,
-      vendor: vendors
-    }).from(services)
+    let query = db.select()
+      .from(services)
       .leftJoin(vendors, eq(services.providerId, vendors.id))
       .where(and(...whereConditions))
       .orderBy(desc(services.createdAt));
@@ -758,24 +819,34 @@ export class DatabaseStorage implements IStorage {
       query = query.offset(params.offset) as any;
     }
 
-    return await query;
+    const result = await query;
+    return result.map(r => ({
+      ...r.services,
+      vendor: r.vendors || undefined
+    })) as any as Service[];
   }
 
   async getServiceById(id: string): Promise<Service | undefined> {
-    const result = await db.select({
-      ...services,
-      vendor: {
-        id: vendors.id,
-        businessName: vendors.businessName,
-        email: vendors.email
-      }
-    })
+    const result = await db.select()
       .from(services)
       .leftJoin(vendors, eq(services.providerId, vendors.id))
       .where(eq(services.id, id));
 
-    const [service] = result;
-    return service || undefined;
+    const serviceWithVendor = result[0];
+    if (!serviceWithVendor) return undefined;
+
+    return {
+      ...serviceWithVendor.services,
+      vendor: serviceWithVendor.vendors ? {
+        id: serviceWithVendor.vendors.id,
+        businessName: serviceWithVendor.vendors.businessName,
+        email: serviceWithVendor.vendors.email
+      } : undefined
+    } as any as Service;
+  }
+
+  async getService(id: string): Promise<Service | undefined> {
+    return this.getServiceById(id);
   }
 
   async getServiceBySlug(slug: string): Promise<Service | undefined> {
@@ -814,6 +885,8 @@ export class DatabaseStorage implements IStorage {
       serviceId: cartItems.serviceId,
       quantity: cartItems.quantity,
       price: cartItems.price,
+      productNameSnapshot: cartItems.productNameSnapshot,
+      vendorNameSnapshot: cartItems.vendorNameSnapshot,
       createdAt: cartItems.createdAt,
       user: {
         id: users.id,
@@ -826,12 +899,14 @@ export class DatabaseStorage implements IStorage {
         name: products.name,
         imageUrl: products.imageUrl,
         price: products.price,
+        vendorId: products.vendorId,
       },
       service: {
         id: services.id,
         name: services.name,
         imageUrl: services.imageUrl,
         price: services.price,
+        providerId: services.providerId,
       }
     }).from(cartItems)
       .leftJoin(users, eq(cartItems.userId, users.id))
@@ -863,7 +938,7 @@ export class DatabaseStorage implements IStorage {
       // Update quantity
       const [updatedItem] = await db
         .update(cartItems)
-        .set({ quantity: existingItem[0].quantity + (cartItem.quantity || 1) })
+        .set({ quantity: (existingItem[0].quantity ?? 0) + (cartItem.quantity || 1) })
         .where(eq(cartItems.id, existingItem[0].id))
         .returning();
       return updatedItem;
@@ -894,7 +969,40 @@ export class DatabaseStorage implements IStorage {
   // Order operations
   async getAllOrders(): Promise<Order[]> {
     const allOrders = await db.select({
-      ...orders,
+      id: orders.id,
+      userId: orders.userId,
+      vendorId: orders.vendorId,
+      status: orders.status,
+      totalAmount: orders.totalAmount,
+      deliveryAddress: orders.deliveryAddress,
+      deliveryCity: orders.deliveryCity,
+      deliverySuburb: orders.deliverySuburb,
+      deliveryBuilding: orders.deliveryBuilding,
+      deliveryPostalCode: orders.deliveryPostalCode,
+      deliveryFee: orders.deliveryFee,
+      courierId: orders.courierId,
+      courierName: orders.courierName,
+      estimatedDeliveryTime: orders.estimatedDeliveryTime,
+      paymentStatus: orders.paymentStatus,
+      paymentMethod: orders.paymentMethod,
+      notes: orders.notes,
+      vendorNotes: orders.vendorNotes,
+      trackingNumber: orders.trackingNumber,
+      internalTrackingId: orders.internalTrackingId,
+      estimatedDelivery: orders.estimatedDelivery,
+      vendorAcceptedAt: orders.vendorAcceptedAt,
+      deliveryPickupAt: orders.deliveryPickupAt,
+      orderType: orders.orderType,
+      confirmationToken: orders.confirmationToken,
+      confirmationStatus: orders.confirmationStatus,
+      customerConfirmedAt: orders.customerConfirmedAt,
+      disputeReason: orders.disputeReason,
+      paymentReference: orders.paymentReference,
+      publicToken: orders.publicToken,
+      publicTokenCreatedAt: orders.publicTokenCreatedAt,
+      publicTokenExpiresAt: orders.publicTokenExpiresAt,
+      createdAt: orders.createdAt,
+      updatedAt: orders.updatedAt,
       vendorName: vendors.businessName,
       vendorEmail: vendors.email,
       userEmail: users.email,
@@ -912,7 +1020,7 @@ export class DatabaseStorage implements IStorage {
       shippingAddress: order.deliveryAddress || '',
       orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
       orderItems: []
-    }));
+    })) as any as Order[];
   }
 
   async getOrders(params?: {
@@ -932,7 +1040,40 @@ export class DatabaseStorage implements IStorage {
     }
 
     let query = db.select({
-      ...orders,
+      id: orders.id,
+      userId: orders.userId,
+      vendorId: orders.vendorId,
+      status: orders.status,
+      totalAmount: orders.totalAmount,
+      deliveryAddress: orders.deliveryAddress,
+      deliveryCity: orders.deliveryCity,
+      deliverySuburb: orders.deliverySuburb,
+      deliveryBuilding: orders.deliveryBuilding,
+      deliveryPostalCode: orders.deliveryPostalCode,
+      deliveryFee: orders.deliveryFee,
+      courierId: orders.courierId,
+      courierName: orders.courierName,
+      estimatedDeliveryTime: orders.estimatedDeliveryTime,
+      paymentStatus: orders.paymentStatus,
+      paymentMethod: orders.paymentMethod,
+      notes: orders.notes,
+      vendorNotes: orders.vendorNotes,
+      trackingNumber: orders.trackingNumber,
+      internalTrackingId: orders.internalTrackingId,
+      estimatedDelivery: orders.estimatedDelivery,
+      vendorAcceptedAt: orders.vendorAcceptedAt,
+      deliveryPickupAt: orders.deliveryPickupAt,
+      orderType: orders.orderType,
+      confirmationToken: orders.confirmationToken,
+      confirmationStatus: orders.confirmationStatus,
+      customerConfirmedAt: orders.customerConfirmedAt,
+      disputeReason: orders.disputeReason,
+      paymentReference: orders.paymentReference,
+      publicToken: orders.publicToken,
+      publicTokenCreatedAt: orders.publicTokenCreatedAt,
+      publicTokenExpiresAt: orders.publicTokenExpiresAt,
+      createdAt: orders.createdAt,
+      updatedAt: orders.updatedAt,
       vendorName: vendors.businessName,
       vendorEmail: vendors.email,
       userEmail: users.email,
@@ -961,7 +1102,7 @@ export class DatabaseStorage implements IStorage {
       shippingAddress: order.deliveryAddress || '',
       orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
       orderItems: []
-    }));
+    })) as any as Order[];
   }
 
   async getOrderById(id: string): Promise<Order | undefined> {
@@ -1003,17 +1144,8 @@ export class DatabaseStorage implements IStorage {
 
     return {
       ...order,
-      deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
-      totalAmount: parseFloat(order.totalAmount.toString()),
-      shippingAddress: order.deliveryAddress || '',
-      orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
-      orderItems: items.map(item => ({
-        ...item,
-        price: parseFloat(item.price.toString()),
-        // Add missing required fields with defaults
-        locationCoordinates: null,
-        detailedInstructions: null
-      }))
+      deliveryFee: order.deliveryFee?.toString() || '0',
+      totalAmount: order.totalAmount.toString(),
     };
   }
 
@@ -1032,9 +1164,6 @@ export class DatabaseStorage implements IStorage {
         ...order,
         totalAmount: parseFloat(order.total_amount?.toString() || '0'),
         deliveryFee: parseFloat(order.delivery_fee?.toString() || '0'),
-        shippingAddress: order.delivery_address || '',
-        orderDate: order.created_at || new Date().toISOString(),
-        orderItems: []
       };
     } catch (error) {
       console.error('Raw SQL payment reference query error:', error);
@@ -1045,11 +1174,8 @@ export class DatabaseStorage implements IStorage {
 
         return {
           ...order,
-          totalAmount: parseFloat(order.totalAmount.toString()),
-          deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
-          shippingAddress: order.deliveryAddress || '',
-          orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
-          orderItems: []
+          totalAmount: order.totalAmount.toString(),
+          deliveryFee: order.deliveryFee?.toString() || '0',
         };
       } catch (drizzleError) {
         console.error('Drizzle payment reference query error:', drizzleError);
@@ -1070,11 +1196,8 @@ export class DatabaseStorage implements IStorage {
 
       return {
         ...order,
-        totalAmount: parseFloat(order.totalAmount.toString()),
-        deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
-        shippingAddress: order.deliveryAddress || '',
-        orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
-        orderItems: []
+        totalAmount: order.totalAmount.toString(),
+        deliveryFee: order.deliveryFee?.toString() || '0',
       };
     } catch (error) {
       console.error('Error fetching order by public token:', error);
@@ -1126,11 +1249,8 @@ export class DatabaseStorage implements IStorage {
 
     return {
       ...updatedOrder,
-      shippingAddress: updatedOrder.deliveryAddress || '',
-      orderDate: updatedOrder.createdAt?.toISOString() || new Date().toISOString(),
       paymentMethod: updatedOrder.paymentMethod || 'Unknown',
-      totalAmount: parseFloat(updatedOrder.totalAmount.toString()),
-      orderItems: []
+      totalAmount: updatedOrder.totalAmount.toString(),
     };
   }
 
@@ -1143,11 +1263,8 @@ export class DatabaseStorage implements IStorage {
 
     return {
       ...newOrder,
-      totalAmount: parseFloat(newOrder.totalAmount.toString()),
-      deliveryFee: parseFloat(newOrder.deliveryFee?.toString() || '0'),
-      shippingAddress: newOrder.deliveryAddress || '',
-      orderDate: newOrder.createdAt?.toISOString() || new Date().toISOString(),
-      orderItems: []
+      totalAmount: newOrder.totalAmount.toString(),
+      deliveryFee: newOrder.deliveryFee?.toString() || '0',
     };
   }
 
@@ -1170,13 +1287,46 @@ export class DatabaseStorage implements IStorage {
 
     return {
       ...newItem,
-      price: parseFloat(newItem.price.toString())
+      price: newItem.price.toString()
     };
   }
 
   async getOrdersByUser(userId: string): Promise<Order[]> {
     const userOrders = await db.select({
-      ...orders,
+      id: orders.id,
+      userId: orders.userId,
+      vendorId: orders.vendorId,
+      status: orders.status,
+      totalAmount: orders.totalAmount,
+      deliveryAddress: orders.deliveryAddress,
+      deliveryCity: orders.deliveryCity,
+      deliverySuburb: orders.deliverySuburb,
+      deliveryBuilding: orders.deliveryBuilding,
+      deliveryPostalCode: orders.deliveryPostalCode,
+      deliveryFee: orders.deliveryFee,
+      courierId: orders.courierId,
+      courierName: orders.courierName,
+      estimatedDeliveryTime: orders.estimatedDeliveryTime,
+      paymentStatus: orders.paymentStatus,
+      paymentMethod: orders.paymentMethod,
+      notes: orders.notes,
+      vendorNotes: orders.vendorNotes,
+      trackingNumber: orders.trackingNumber,
+      internalTrackingId: orders.internalTrackingId,
+      estimatedDelivery: orders.estimatedDelivery,
+      vendorAcceptedAt: orders.vendorAcceptedAt,
+      deliveryPickupAt: orders.deliveryPickupAt,
+      orderType: orders.orderType,
+      confirmationToken: orders.confirmationToken,
+      confirmationStatus: orders.confirmationStatus,
+      customerConfirmedAt: orders.customerConfirmedAt,
+      disputeReason: orders.disputeReason,
+      paymentReference: orders.paymentReference,
+      publicToken: orders.publicToken,
+      publicTokenCreatedAt: orders.publicTokenCreatedAt,
+      publicTokenExpiresAt: orders.publicTokenExpiresAt,
+      createdAt: orders.createdAt,
+      updatedAt: orders.updatedAt,
       vendorName: vendors.businessName,
       vendorEmail: vendors.email
     })
@@ -1190,14 +1340,47 @@ export class DatabaseStorage implements IStorage {
       totalAmount: parseFloat(order.totalAmount.toString()),
       deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
       shippingAddress: order.deliveryAddress || '',
-      orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
+      orderDate: order.createdAt ? new Date(order.createdAt).toISOString() : new Date().toISOString(),
       orderItems: []
-    }));
+    })) as any as Order[];
   }
 
   async getOrdersByVendor(vendorId: string, type?: string): Promise<Order[]> {
     const vendorOrders = await db.select({
-      ...orders,
+      id: orders.id,
+      userId: orders.userId,
+      vendorId: orders.vendorId,
+      status: orders.status,
+      totalAmount: orders.totalAmount,
+      deliveryAddress: orders.deliveryAddress,
+      deliveryCity: orders.deliveryCity,
+      deliverySuburb: orders.deliverySuburb,
+      deliveryBuilding: orders.deliveryBuilding,
+      deliveryPostalCode: orders.deliveryPostalCode,
+      deliveryFee: orders.deliveryFee,
+      courierId: orders.courierId,
+      courierName: orders.courierName,
+      estimatedDeliveryTime: orders.estimatedDeliveryTime,
+      paymentStatus: orders.paymentStatus,
+      paymentMethod: orders.paymentMethod,
+      notes: orders.notes,
+      vendorNotes: orders.vendorNotes,
+      trackingNumber: orders.trackingNumber,
+      internalTrackingId: orders.internalTrackingId,
+      estimatedDelivery: orders.estimatedDelivery,
+      vendorAcceptedAt: orders.vendorAcceptedAt,
+      deliveryPickupAt: orders.deliveryPickupAt,
+      orderType: orders.orderType,
+      confirmationToken: orders.confirmationToken,
+      confirmationStatus: orders.confirmationStatus,
+      customerConfirmedAt: orders.customerConfirmedAt,
+      disputeReason: orders.disputeReason,
+      paymentReference: orders.paymentReference,
+      publicToken: orders.publicToken,
+      publicTokenCreatedAt: orders.publicTokenCreatedAt,
+      publicTokenExpiresAt: orders.publicTokenExpiresAt,
+      createdAt: orders.createdAt,
+      updatedAt: orders.updatedAt,
       userEmail: users.email,
       userName: sql<string>`TRIM(CONCAT(${users.firstName}, ' ', ${users.lastName}))`
     })
@@ -1211,9 +1394,9 @@ export class DatabaseStorage implements IStorage {
       totalAmount: parseFloat(order.totalAmount.toString()),
       deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
       shippingAddress: order.deliveryAddress || '',
-      orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
+      orderDate: order.createdAt ? new Date(order.createdAt).toISOString() : new Date().toISOString(),
       orderItems: []
-    }));
+    })) as any as Order[];
   }
 
   // Get vendor orders that have been delivered (fulfilled orders ready for payout)
@@ -1235,7 +1418,7 @@ export class DatabaseStorage implements IStorage {
       shippingAddress: order.deliveryAddress || '',
       orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
       orderItems: []
-    }));
+    })) as any as Order[];
   }
 
   // Removed duplicate getOrderById method - using the enhanced one above
@@ -1284,6 +1467,9 @@ export class DatabaseStorage implements IStorage {
       notes: orderItems.notes,
       locationCoordinates: orderItems.locationCoordinates,
       detailedInstructions: orderItems.detailedInstructions,
+      vendorConfirmedQuantity: orderItems.vendorConfirmedQuantity,
+      vendorConfirmedAt: orderItems.vendorConfirmedAt,
+      vendorNotes: orderItems.vendorNotes,
       product: {
         id: products.id,
         name: products.name,
@@ -1303,7 +1489,7 @@ export class DatabaseStorage implements IStorage {
     return items.map(item => ({
       ...item,
       price: parseFloat(item.price.toString())
-    }));
+    })) as any as OrderItem[];
   }
 
   // Order tracking operations
@@ -1383,7 +1569,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllUsers(params?: { search?: string; limit?: number; offset?: number }): Promise<User[]> {
-    let query = db.select().from(users);
+    let query: any = db.select().from(users);
 
     if (params?.search) {
       const searchTerm = `%${params.search}%`;
@@ -1406,7 +1592,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllVendors(params?: { search?: string; verified?: boolean; limit?: number; offset?: number }): Promise<Vendor[]> {
-    let query = db.select().from(vendors);
+    let query: any = db.select().from(vendors);
 
     const conditions = [];
 
@@ -1451,7 +1637,7 @@ export class DatabaseStorage implements IStorage {
     limit?: number;
     offset?: number;
   }): Promise<Vendor[]> {
-    let query = db.select().from(vendors);
+    let query: any = db.select().from(vendors);
 
     // Apply filters
     if (filters.status) {
@@ -1669,7 +1855,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSubcategory(id: string): Promise<boolean> {
     const result = await db.delete(subcategories).where(eq(subcategories.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getAllBrands(): Promise<Brand[]> {
@@ -1692,7 +1878,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBrand(id: string): Promise<boolean> {
     const result = await db.delete(brands).where(eq(brands.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async getAllProductAttributes(): Promise<ProductAttribute[]> {
@@ -1731,7 +1917,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProductAttribute(id: string): Promise<boolean> {
     const result = await db.delete(productAttributes).where(eq(productAttributes.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Vendor order management methods
@@ -1826,7 +2012,7 @@ export class DatabaseStorage implements IStorage {
         })
       );
 
-      return ordersWithItems;
+      return ordersWithItems as any as Order[];
     } catch (error) {
       console.error('Error in getVendorOrders:', error);
       throw error;
@@ -1921,7 +2107,7 @@ export class DatabaseStorage implements IStorage {
     });
 
     // Create delivery record
-    const order = await this.getOrder(orderId);
+    const order = await this.getOrderById(orderId);
     if (!order) throw new Error('Order not found');
 
     const provider = await this.getDeliveryProviderById(providerId);
@@ -2062,7 +2248,7 @@ export class DatabaseStorage implements IStorage {
     limit?: number;
     offset?: number;
   }): Promise<Delivery[]> {
-    let query = db.select().from(deliveries);
+    let query: any = db.select().from(deliveries);
 
     const conditions = [];
     if (params?.status) conditions.push(eq(deliveries.status, params.status));
@@ -2128,7 +2314,7 @@ export class DatabaseStorage implements IStorage {
     dateFrom?: Date;
     dateTo?: Date;
   }): Promise<DeliveryAnalytics[]> {
-    let query = db.select().from(deliveryAnalytics);
+    let query: any = db.select().from(deliveryAnalytics);
 
     const conditions = [];
     if (params?.providerId) conditions.push(eq(deliveryAnalytics.providerId, params.providerId));
@@ -2188,7 +2374,7 @@ export class DatabaseStorage implements IStorage {
       paymentMethod: order.paymentMethod || 'Unknown',
       totalAmount: parseFloat(order.totalAmount.toString()),
       orderItems: []
-    }));
+    })) as any as Order[];
   }
 
   async getAdminStats(): Promise<{
@@ -2243,21 +2429,21 @@ export class DatabaseStorage implements IStorage {
     );
 
     // Get total payouts
-    const payoutRequests = await db.select()
-      .from(vendorPayoutRequests)
+    const payoutRequestsList = await db.select()
+      .from(payoutRequests)
       .where(and(
-        eq(vendorPayoutRequests.vendorId, vendorId),
-        eq(vendorPayoutRequests.status, 'completed')
+        eq(payoutRequests.vendorId, vendorId),
+        eq(payoutRequests.status, 'completed')
       ));
 
-    const totalPayouts = payoutRequests.reduce((sum, payout) =>
-      sum + parseFloat(payout.amount), 0
+    const totalPayouts = payoutRequestsList.reduce((sum, payout) =>
+      sum + parseFloat(payout.requestedAmount), 0
     );
 
     const availableBalance = Math.max(0, totalEarnings - totalPayouts);
 
-    const lastPayout = payoutRequests
-      .sort((a, b) => new Date(b.processedDate || 0).getTime() - new Date(a.processedDate || 0).getTime())[0];
+    const lastPayout = payoutRequestsList
+      .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())[0];
 
     return {
       totalEarnings,
@@ -2266,8 +2452,8 @@ export class DatabaseStorage implements IStorage {
       confirmedOrders: confirmedOrders.length,
       pendingOrders: pendingOrders.length,
       disputedOrders: disputedOrders.length,
-      lastPayoutDate: lastPayout?.processedDate,
-      lastPayoutAmount: lastPayout ? parseFloat(lastPayout.amount) : null
+      lastPayoutDate: lastPayout?.completedAt,
+      lastPayoutAmount: lastPayout ? parseFloat(lastPayout.requestedAmount) : null
     };
   }
 
@@ -2300,7 +2486,7 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    return orderEarnings.sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+    return orderEarnings.sort((a, b) => new Date(b.orderDate || 0).getTime() - new Date(a.orderDate || 0).getTime());
   }
 
   // Paystack Subaccount operations
@@ -2369,7 +2555,7 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(vendors)
       .set({
-        totalPaidOut: totalAmount
+        totalPaidOut: totalAmount.toString()
       })
       .where(eq(vendors.id, vendorId));
   }
@@ -2397,6 +2583,7 @@ export class DatabaseStorage implements IStorage {
     let query = db.select({
       id: payoutRequests.id,
       vendorId: payoutRequests.vendorId,
+      orderId: payoutRequests.orderId,
       requestedAmount: payoutRequests.requestedAmount,
       availableBalance: payoutRequests.availableBalance,
       status: payoutRequests.status,
@@ -2444,6 +2631,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(payoutRequests.id, id))
       .returning();
     return updatedRequest;
+  }
+
+  async getPayoutRequestByTransferCode(transferCode: string): Promise<PayoutRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(payoutRequests)
+      .where(eq(payoutRequests.paystackTransferCode, transferCode));
+    return request;
   }
 
   // Platform Settings operations
@@ -2562,6 +2757,176 @@ export class DatabaseStorage implements IStorage {
       console.error("Error updating service approval:", error);
       return undefined;
     }
+  }
+
+  // ── Vendor Branch Locations ──────────────────────────────────────────────────
+
+  async getVendorLocations(vendorId: string): Promise<MerchantLocation[]> {
+    const { merchantLocations } = await import("@shared/schema");
+    let locations = await db
+      .select()
+      .from(merchantLocations)
+      .where(eq(merchantLocations.vendorId, vendorId))
+      .orderBy(merchantLocations.createdAt);
+
+    if (locations.length === 0) {
+      const vendor = await this.getVendorById(vendorId);
+      if (vendor && vendor.businessLatitude && vendor.businessLongitude) {
+        try {
+          const mainBranch = await this.createVendorLocation({
+            vendorId,
+            branchName: "Main",
+            address: vendor.locationDescription || vendor.address || "Main Shop Location",
+            city: vendor.city || null,
+            latitude: vendor.businessLatitude,
+            longitude: vendor.businessLongitude,
+            supportsDelivery: true,
+            supportsPickup: true,
+            isActive: true,
+          });
+          locations = [mainBranch];
+        } catch (err) {
+          console.error("Failed to auto-create Main branch location for vendor:", err);
+        }
+      }
+    }
+
+    return locations;
+  }
+
+  async createVendorLocation(data: InsertMerchantLocation): Promise<MerchantLocation> {
+    const { merchantLocations } = await import("@shared/schema");
+    const [location] = await db
+      .insert(merchantLocations)
+      .values(data)
+      .returning();
+    return location;
+  }
+
+  async updateVendorLocation(id: string, data: Partial<InsertMerchantLocation>): Promise<MerchantLocation> {
+    const { merchantLocations } = await import("@shared/schema");
+    const [location] = await db
+      .update(merchantLocations)
+      .set(data)
+      .where(eq(merchantLocations.id, id))
+      .returning();
+    return location;
+  }
+
+  async deleteVendorLocation(id: string): Promise<void> {
+    const { merchantLocations } = await import("@shared/schema");
+    await db.delete(merchantLocations).where(eq(merchantLocations.id, id));
+  }
+
+  // Saved Customer Address operations
+  async getAddresses(userId: string): Promise<CustomerAddress[]> {
+    return await db
+      .select()
+      .from(customerAddresses)
+      .where(eq(customerAddresses.userId, userId))
+      .orderBy(desc(customerAddresses.createdAt));
+  }
+
+  async createAddress(address: InsertCustomerAddress): Promise<CustomerAddress> {
+    const [newAddress] = await db
+      .insert(customerAddresses)
+      .values(address)
+      .returning();
+    return newAddress;
+  }
+
+  async deleteAddress(id: string): Promise<void> {
+    await db.delete(customerAddresses).where(eq(customerAddresses.id, id));
+  }
+
+  // M-Pesa Transaction operations
+  async getMpesaTransaction(checkoutRequestId: string): Promise<MpesaTransaction | undefined> {
+    const [transaction] = await db
+      .select()
+      .from(mpesaTransactions)
+      .where(eq(mpesaTransactions.checkoutRequestId, checkoutRequestId));
+    return transaction;
+  }
+
+  async getMpesaTransactionByOrderId(orderId: string): Promise<MpesaTransaction | undefined> {
+    const [transaction] = await db
+      .select()
+      .from(mpesaTransactions)
+      .where(eq(mpesaTransactions.orderId, orderId))
+      .orderBy(desc(mpesaTransactions.createdAt))
+      .limit(1);
+    return transaction;
+  }
+
+  async createMpesaTransaction(data: InsertMpesaTransaction): Promise<MpesaTransaction> {
+    const [transaction] = await db
+      .insert(mpesaTransactions)
+      .values(data)
+      .returning();
+    return transaction;
+  }
+
+  async updateMpesaTransaction(checkoutRequestId: string, updates: Partial<MpesaTransaction>): Promise<MpesaTransaction> {
+    const [transaction] = await db
+      .update(mpesaTransactions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(mpesaTransactions.checkoutRequestId, checkoutRequestId))
+      .returning();
+    if (!transaction) throw new Error("Transaction not found");
+    return transaction;
+  }
+
+  // Delivery Job operations
+  async getDeliveryJobByOrderId(orderId: string): Promise<DeliveryJob | undefined> {
+    const [job] = await db
+      .select()
+      .from(deliveryJobs)
+      .where(eq(deliveryJobs.orderId, orderId))
+      .orderBy(desc(deliveryJobs.createdAt))
+      .limit(1);
+    return job;
+  }
+
+  async createDeliveryJob(data: InsertDeliveryJob): Promise<DeliveryJob> {
+    const [job] = await db
+      .insert(deliveryJobs)
+      .values(data)
+      .returning();
+    return job;
+  }
+
+  async updateDeliveryJob(id: string, updates: Partial<DeliveryJob>): Promise<DeliveryJob> {
+    const [job] = await db
+      .update(deliveryJobs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(deliveryJobs.id, id))
+      .returning();
+    if (!job) throw new Error("Delivery job not found");
+    return job;
+  }
+
+  // User location operations
+  async updateUserLocation(userId: string, latitude: string, longitude: string, isOnline: boolean): Promise<User> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        latitude,
+        longitude,
+        isOnline,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!updatedUser) throw new Error("User not found");
+    return updatedUser;
+  }
+
+  async getRiderLocation(riderId: string): Promise<User | undefined> {
+    const [rider] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, riderId));
+    return rider;
   }
 }
 

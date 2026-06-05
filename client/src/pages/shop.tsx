@@ -15,8 +15,16 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Search, Filter, Star, X, MapPin } from "lucide-react";
+import { Search, Filter, Star, X, MapPin, Globe } from "lucide-react";
 import type { Product, Service, Category } from "@shared/schema";
+
+interface Vertical {
+  id: string;
+  name: string;
+  slug: string;
+  icon?: string;
+  description?: string;
+}
 
 interface CustomerLocation {
   latitude: number;
@@ -42,6 +50,7 @@ export default function Shop() {
   const [showFilters, setShowFilters] = useState(false);
   const [customerLocation, setCustomerLocation] = useState<CustomerLocation | null>(null);
   const [nearestToMeEnabled, setNearestToMeEnabled] = useState(false);
+  const [selectedVerticalId, setSelectedVerticalId] = useState<string | null>(null);
 
   // Load customer location from localStorage
   useEffect(() => {
@@ -66,6 +75,18 @@ export default function Shop() {
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
   });
+
+  const { data: verticals = [] } = useQuery<Vertical[]>({
+    queryKey: ["/api/verticals"],
+  });
+
+  // Categories belonging to the selected vertical (via vendorVerticals is a backend concern;
+  // here we do a best-effort client-side match by vertical slug vs category name prefix)
+  // The real mapping lives in the backend; we pass vertical_id as a query filter instead.
+  const activeVerticalCategories = selectedVerticalId
+    ? (categories as Category[]).filter((c) => (c as any).verticalId === selectedVerticalId)
+    : [];
+  const activeVerticalCategoryIds = activeVerticalCategories.map((c) => c.id);
 
   // Handle URL parameters for category, search, and type
   useEffect(() => {
@@ -138,13 +159,17 @@ export default function Shop() {
     if (productPrice < priceRange[0] || productPrice > priceRange[1]) return false;
     if (selectedRating && parseFloat(product.rating || "0") < selectedRating) return false;
     if (inStock && (product.stock || 0) <= 0) return false;
+    // Vertical filter: if a vertical is active and has categories, restrict to those categories
+    if (selectedVerticalId && activeVerticalCategoryIds.length > 0) {
+      if (!activeVerticalCategoryIds.includes(product.categoryId || "")) return false;
+    }
     return true;
   });
 
   // Debug the raw products data
   useEffect(() => {
     if (products.length > 0 && nearestToMeEnabled) {
-      console.log("Raw products from API:", products.slice(0, 2).map(p => ({ name: p.name, distance: p.distance })));
+      console.log("Raw products from API:", products.slice(0, 2).map(p => ({ name: p.name, distance: (p as any).distance })));
     }
   }, [products, nearestToMeEnabled]);
 
@@ -152,6 +177,10 @@ export default function Shop() {
     const servicePrice = typeof service.price === 'string' ? parseFloat(service.price) : service.price;
     if (servicePrice < priceRange[0] || servicePrice > priceRange[1]) return false;
     if (selectedRating && parseFloat(service.rating || "0") < selectedRating) return false;
+    // Vertical filter
+    if (selectedVerticalId && activeVerticalCategoryIds.length > 0) {
+      if (!activeVerticalCategoryIds.includes(service.categoryId || "")) return false;
+    }
     return true;
   });
 
@@ -195,7 +224,7 @@ export default function Shop() {
   // Debug sorted items
   useEffect(() => {
     if (sortedItems.length > 0 && nearestToMeEnabled) {
-      console.log("Sorted items before rendering:", sortedItems.slice(0, 2).map(p => ({ name: p.name, distance: p.distance })));
+      console.log("Sorted items before rendering:", sortedItems.slice(0, 2).map(p => ({ name: p.name, distance: (p as any).distance })));
     }
   }, [sortedItems, nearestToMeEnabled]);
 
@@ -223,6 +252,7 @@ export default function Shop() {
     setInStock(false);
     setAvailableToday(false);
     setNearestToMeEnabled(false);
+    setSelectedVerticalId(null);
   };
 
   const renderStarRating = (rating: number) => {
@@ -534,6 +564,45 @@ export default function Shop() {
               </div>
             </div>
 
+            {/* ── Market Vertical Filter Tabs ── */}
+            {(verticals as Vertical[]).length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                  <button
+                    onClick={() => setSelectedVerticalId(null)}
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border transition-all ${
+                      selectedVerticalId === null
+                        ? "bg-buylock-primary text-white border-buylock-primary shadow-sm"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-buylock-primary/50 hover:text-buylock-primary"
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    All Markets
+                  </button>
+                  {(verticals as Vertical[]).map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => setSelectedVerticalId(v.id === selectedVerticalId ? null : v.id)}
+                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border transition-all ${
+                        selectedVerticalId === v.id
+                          ? "bg-buylock-primary text-white border-buylock-primary shadow-sm"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-buylock-primary/50 hover:text-buylock-primary"
+                      }`}
+                    >
+                      {v.icon && <span className="text-base leading-none">{v.icon}</span>}
+                      {v.name}
+                    </button>
+                  ))}
+                </div>
+                {selectedVerticalId && (
+                  <p className="text-xs text-gray-400 mt-2 ml-1">
+                    Showing results in <strong className="text-gray-600">{(verticals as Vertical[]).find(v => v.id === selectedVerticalId)?.name}</strong>
+                    {activeVerticalCategoryIds.length === 0 && " — all items shown (no categories linked to this vertical yet)"}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Controls Bar with Results Counter and Sort */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <div className="flex items-center space-x-4">
@@ -597,7 +666,7 @@ export default function Shop() {
                 sortedItems.map((item) => {
                   // Debug log item before passing to component
                   if (nearestToMeEnabled) {
-                    console.log(`Rendering item: ${item.name}, distance: ${item.distance}`);
+                    console.log(`Rendering item: ${item.name}, distance: ${(item as any).distance}`);
                   }
                   return "priceType" in item ? (
                     <ServiceCard key={item.id} service={item as Service} showDistanceBadge={nearestToMeEnabled} />

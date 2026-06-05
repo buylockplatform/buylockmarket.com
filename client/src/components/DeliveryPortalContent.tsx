@@ -222,7 +222,7 @@ export default function DeliveryPortalContent() {
     const Icon = config.icon;
 
     return (
-      <Badge variant={config.variant} className={config.className}>
+      <Badge variant={config.variant} className={(config as any).className}>
         <Icon className="w-3 h-3 mr-1" />
         {status.replace('_', ' ').toUpperCase()}
       </Badge>

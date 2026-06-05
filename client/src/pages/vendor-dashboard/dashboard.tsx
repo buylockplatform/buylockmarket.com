@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { getVendorQueryFn, apiRequest, queryClient, vendorApiRequest } from "@/lib/queryClient";
-import { useLocation } from "wouter";
+import { useLocation, useParams } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import AppointmentManagement from "./components/AppointmentManagement";
 import VendorOrderManagement from "./components/VendorOrderManagement";
@@ -10,6 +10,9 @@ import AddProductModal from "./components/AddProductModal";
 import AddServiceModal from "./components/AddServiceModal";
 import EditProductModal from "./components/EditProductModal";
 import EditServiceModal from "./components/EditServiceModal";
+import StoreHoursManager from "./components/StoreHoursManager";
+import CollectionsManager from "./components/CollectionsManager";
+import BranchLocationsManager from "./components/BranchLocationsManager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,8 +58,14 @@ interface VendorData {
 
 export default function VendorDashboard() {
   const [, setLocation] = useLocation();
+  const params = useParams<{ section?: string }>();
+  const activeSection = params.section || "dashboard";
+
+  const navigateTo = (section: string) => {
+    setLocation(`/vendor-dashboard/${section}`);
+  };
+
   const [vendorData, setVendorData] = useState<VendorData | null>(null);
-  const [activeSection, setActiveSection] = useState("dashboard");
   const [filterPeriod, setFilterPeriod] = useState("month");
   const { toast } = useToast();
 
@@ -415,7 +424,7 @@ export default function VendorDashboard() {
               return (
                 <li key={item.id}>
                   <button
-                    onClick={() => setActiveSection(item.id)}
+                    onClick={() => navigateTo(item.id)}
                     className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
                       activeSection === item.id
                         ? "bg-buylock-primary text-white"
@@ -617,105 +626,118 @@ export default function VendorDashboard() {
 
           {activeSection === "products" && (
             <div className="space-y-6">
-              {/* Products Header */}
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">Product Management</h3>
-                  <p className="text-gray-600">Manage your product catalog and orders</p>
-                </div>
-                <AddProductModal vendorId={vendorData.id} />
-              </div>
+              <Tabs defaultValue="catalog" className="space-y-6">
+                <TabsList>
+                  <TabsTrigger value="catalog">Product Catalog</TabsTrigger>
+                  <TabsTrigger value="collections">Collections</TabsTrigger>
+                </TabsList>
 
-              {/* Products List */}
-              <Card>
-                <CardContent className="p-6">
-                  <div className="space-y-4">
-                    {vendorProducts?.length > 0 ? vendorProducts.map((product) => (
-                      <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex items-center space-x-4">
-                          <img 
-                            src={product.imageUrl || "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=100"} 
-                            alt={product.name}
-                            className="w-16 h-16 object-cover rounded-lg"
-                          />
-                          <div>
-                            <h3 className="font-semibold text-gray-900">{product.name}</h3>
-                            <p className="text-gray-600">{product.categoryName || "General"}</p>
-                            <p className="text-lg font-bold text-buylock-primary">{formatPrice(product.price)}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="text-right">
-                            <p className="text-sm text-gray-600">Stock: {product.stockQuantity || 0}</p>
-                            <Badge variant="outline">{product.isActive ? "Active" : "Inactive"}</Badge>
-                          </div>
-                          <div className="flex space-x-2">
-                            <Button variant="outline" size="sm" onClick={() => window.open(`/products/${product.slug}`, '_blank')}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <EditProductModal vendorId={vendorData.id} product={product} />
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleDeleteProduct(product.id, product.name)}
-                              disabled={deleteProductMutation.isPending}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                        <p>No products added yet</p>
-                        <p className="text-sm">Click "Add Product" to get started</p>
-                      </div>
-                    )}
+                <TabsContent value="catalog" className="space-y-6">
+                  {/* Products Header */}
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900">Product Management</h3>
+                      <p className="text-gray-600">Manage your product catalog and orders</p>
+                    </div>
+                    <AddProductModal vendorId={vendorData.id} />
                   </div>
-                </CardContent>
-              </Card>
 
-              {/* Product Orders */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Product Orders</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {vendorOrders?.filter(order => order.orderType === 'product').length > 0 ? 
-                      vendorOrders.filter(order => order.orderType === 'product').slice(0, 5).map((order) => (
-                        <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="flex items-center space-x-4">
-                            <div className="p-2 rounded-full bg-blue-100">
-                              <Package className="w-5 h-5 text-blue-600" />
+                  {/* Products List */}
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="space-y-4">
+                        {vendorProducts?.length > 0 ? vendorProducts.map((product) => (
+                          <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg">
+                            <div className="flex items-center space-x-4">
+                              <img 
+                                src={product.imageUrl || "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=100"} 
+                                alt={product.name}
+                                className="w-16 h-16 object-cover rounded-lg"
+                              />
+                              <div>
+                                <h3 className="font-semibold text-gray-900">{product.name}</h3>
+                                <p className="text-gray-600">{product.categoryName || "General"}</p>
+                                <p className="text-lg font-bold text-buylock-primary">{formatPrice(product.price)}</p>
+                              </div>
                             </div>
-                            <div>
-                              <h3 className="font-semibold text-gray-900">{order.customerName || 'Product Order'}</h3>
-                              <p className="text-gray-600">Order ID: {order.id.slice(0, 8)}</p>
-                              <p className="text-sm text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</p>
+                            <div className="flex items-center space-x-4">
+                              <div className="text-right">
+                                <p className="text-sm text-gray-600">Stock: {product.stockQuantity || 0}</p>
+                                <Badge variant="outline">{product.isActive ? "Active" : "Inactive"}</Badge>
+                              </div>
+                              <div className="flex space-x-2">
+                                <Button variant="outline" size="sm" onClick={() => window.open(`/products/${product.slug}`, '_blank')}>
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <EditProductModal vendorId={vendorData.id} product={product} />
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleDeleteProduct(product.id, product.name)}
+                                  disabled={deleteProductMutation.isPending}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-4">
-                            <div className="text-right">
-                              <p className="font-bold text-buylock-primary">{formatPrice(order.totalAmount)}</p>
-                              <Badge variant={order.status === 'pending' ? 'secondary' : 'default'}>
-                                {order.status.replace('_', ' ')}
-                              </Badge>
-                            </div>
+                        )) : (
+                          <div className="text-center py-8 text-gray-500">
+                            <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                            <p>No products added yet</p>
+                            <p className="text-sm">Click "Add Product" to get started</p>
                           </div>
-                        </div>
-                      )) : (
-                        <div className="text-center py-8 text-gray-500">
-                          <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                          <p>No product orders yet</p>
-                          <p className="text-sm">Product orders will appear here when customers purchase your products</p>
-                        </div>
-                      )
-                    }
-                  </div>
-                </CardContent>
-              </Card>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Product Orders */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Recent Product Orders</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {vendorOrders?.filter(order => order.orderType === 'product').length > 0 ? 
+                          vendorOrders.filter(order => order.orderType === 'product').slice(0, 5).map((order) => (
+                            <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
+                              <div className="flex items-center space-x-4">
+                                <div className="p-2 rounded-full bg-blue-100">
+                                  <Package className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                  <h3 className="font-semibold text-gray-900">{order.customerName || 'Product Order'}</h3>
+                                  <p className="text-gray-600">Order ID: {order.id.slice(0, 8)}</p>
+                                  <p className="text-sm text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-4">
+                                <div className="text-right">
+                                  <p className="font-bold text-buylock-primary">{formatPrice(order.totalAmount)}</p>
+                                  <Badge variant={order.status === 'pending' ? 'secondary' : 'default'}>
+                                    {order.status.replace('_', ' ')}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          )) : (
+                            <div className="text-center py-8 text-gray-500">
+                              <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                              <p>No product orders yet</p>
+                              <p className="text-sm">Product orders will appear here when customers purchase your products</p>
+                            </div>
+                          )
+                        }
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="collections">
+                  <CollectionsManager />
+                </TabsContent>
+              </Tabs>
             </div>
           )}
 
@@ -875,9 +897,11 @@ export default function VendorDashboard() {
 
               {/* Profile Tabs */}
               <Tabs defaultValue="business" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="business">Business Details</TabsTrigger>
                   <TabsTrigger value="bank">Bank Details</TabsTrigger>
+                  <TabsTrigger value="hours">Store Hours</TabsTrigger>
+                  <TabsTrigger value="branches">Branches</TabsTrigger>
                 </TabsList>
 
                 {/* Business Details Tab */}
@@ -1094,7 +1118,13 @@ export default function VendorDashboard() {
                   </form>
                 </TabsContent>
 
+                <TabsContent value="hours">
+                  <StoreHoursManager />
+                </TabsContent>
 
+                <TabsContent value="branches">
+                  <BranchLocationsManager />
+                </TabsContent>
               </Tabs>
             </div>
           )}

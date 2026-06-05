@@ -276,7 +276,7 @@ export default function ServiceDetail() {
                   images={[
                     service.imageUrl,
                     ...(service.imageUrls || [])
-                  ].filter(Boolean)}
+                  ].filter((img): img is string => img !== null && img !== undefined)}
                   productName={service.name}
                   className="h-full"
                 />
@@ -361,7 +361,7 @@ export default function ServiceDetail() {
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <ServicePriceDisplay 
                     price={service.price}
-                    priceType={service.priceType || 'hourly'}
+                    priceType={(service.priceType as 'fixed' | 'hourly' | 'per_project') || 'hourly'}
                     size="xl"
                   />
                 </div>

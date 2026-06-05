@@ -51,7 +51,7 @@ export default function VendorRequests() {
   const queryClient = useQueryClient();
 
   // Fetch vendor applications from real API
-  const { data: vendorApplications = [], isLoading } = useQuery({
+  const { data: vendorApplications = [], isLoading } = useQuery<VendorApplication[]>({
     queryKey: ['/api/admin/vendor-applications'],
   });
 

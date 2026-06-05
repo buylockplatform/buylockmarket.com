@@ -36,7 +36,7 @@ export default function ServiceCategoryManagement() {
   // Fetch service categories
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ['/api/admin/service-categories'],
-    queryFn: () => apiRequest('/api/admin/service-categories').then(res => res.json())
+    queryFn: () => apiRequest('/api/admin/service-categories', 'GET').then(res => res.json())
   });
 
   // Create category mutation

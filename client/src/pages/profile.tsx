@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { User, Mail, Phone, MapPin, Edit3, Save, X, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Phone, MapPin, Edit3, Save, X, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 interface UserProfile {
   id: string;
@@ -33,6 +34,17 @@ export default function Profile() {
     confirmPassword: ''
   });
   
+  const [isAddAddressOpen, setIsAddAddressOpen] = useState(false);
+  const [newAddressData, setNewAddressData] = useState({
+    label: '',
+    addressLine: '',
+    building: '',
+    suburb: '',
+    city: '',
+    postalCode: '',
+    isDefault: false
+  });
+
   const { data: user, isLoading } = useQuery<UserProfile>({
     queryKey: ["/api/user/me"],
   });
@@ -93,6 +105,96 @@ export default function Profile() {
       });
     },
   });
+
+  const { data: addresses = [] } = useQuery<any[]>({
+    queryKey: ["/api/user/addresses"],
+  });
+
+  const addAddressMutation = useMutation({
+    mutationFn: async (newAddress: any) => {
+      return await apiRequest('/api/user/addresses', 'POST', newAddress);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/addresses"] });
+      toast({
+        title: "Address Added",
+        description: "Your delivery address has been saved successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add address.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteAddressMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/user/addresses/${id}`, 'DELETE');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/addresses"] });
+      toast({
+        title: "Address Deleted",
+        description: "Saved address has been removed successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete address.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const setDefaultAddressMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/user/addresses/${id}`, 'PUT', { isDefault: true });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/addresses"] });
+      toast({
+        title: "Default Updated",
+        description: "Default address updated successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update default address.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAddAddress = () => {
+    if (!newAddressData.addressLine || !newAddressData.city) {
+      toast({
+        title: "Validation Error",
+        description: "Street address and City are required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    addAddressMutation.mutate(newAddressData, {
+      onSuccess: () => {
+        setIsAddAddressOpen(false);
+        setNewAddressData({
+          label: '',
+          addressLine: '',
+          building: '',
+          suburb: '',
+          city: '',
+          postalCode: '',
+          isDefault: false
+        });
+      }
+    });
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
@@ -411,6 +513,171 @@ export default function Profile() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Saved Addresses Section */}
+          <Card className="border-0 shadow-lg mt-8">
+            <CardHeader className="bg-buylock-charcoal text-white">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center space-x-2">
+                  <MapPin className="w-5 h-5" />
+                  <span>Saved Delivery Addresses</span>
+                </CardTitle>
+                <Dialog open={isAddAddressOpen} onOpenChange={setIsAddAddressOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
+                      <Plus className="w-4 h-4 mr-1" /> Add Address
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Add Saved Address</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div>
+                        <Label htmlFor="addressLabel">Label (e.g. Home, Work) *</Label>
+                        <Input
+                          id="addressLabel"
+                          placeholder="Home"
+                          value={newAddressData.label}
+                          onChange={(e) => setNewAddressData(prev => ({ ...prev, label: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="addressLine">Street Address / Location *</Label>
+                        <Input
+                          id="addressLine"
+                          placeholder="123 Ngong Road"
+                          value={newAddressData.addressLine}
+                          onChange={(e) => setNewAddressData(prev => ({ ...prev, addressLine: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="addressBuilding">Building (Optional)</Label>
+                          <Input
+                            id="addressBuilding"
+                            placeholder="Green Plaza, Apt 4B"
+                            value={newAddressData.building}
+                            onChange={(e) => setNewAddressData(prev => ({ ...prev, building: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="addressSuburb">Suburb (Optional)</Label>
+                          <Input
+                            id="addressSuburb"
+                            placeholder="Kilimani"
+                            value={newAddressData.suburb}
+                            onChange={(e) => setNewAddressData(prev => ({ ...prev, suburb: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="addressCity">City *</Label>
+                          <Input
+                            id="addressCity"
+                            placeholder="Nairobi"
+                            value={newAddressData.city}
+                            onChange={(e) => setNewAddressData(prev => ({ ...prev, city: e.target.value }))}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="addressPostalCode">Postal Code (Optional)</Label>
+                          <Input
+                            id="addressPostalCode"
+                            placeholder="00100"
+                            value={newAddressData.postalCode}
+                            onChange={(e) => setNewAddressData(prev => ({ ...prev, postalCode: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 pt-2">
+                        <input
+                          id="addressDefault"
+                          type="checkbox"
+                          checked={newAddressData.isDefault}
+                          onChange={(e) => setNewAddressData(prev => ({ ...prev, isDefault: e.target.checked }))}
+                          className="rounded border-gray-300 text-buylock-primary focus:ring-buylock-primary h-4 w-4"
+                          style={{ accentColor: '#FF4605' }}
+                        />
+                        <Label htmlFor="addressDefault" className="cursor-pointer">Set as default delivery address</Label>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsAddAddressOpen(false)}>Cancel</Button>
+                      <Button onClick={handleAddAddress} disabled={addAddressMutation.isPending} className="bg-buylock-primary hover:bg-buylock-primary/90">
+                        {addAddressMutation.isPending ? "Saving..." : "Save Address"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {addresses.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <MapPin className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                  <p>You haven't saved any delivery addresses yet.</p>
+                  <p className="text-sm">Save your frequent locations to speed up checkout.</p>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {addresses.map((addr) => (
+                    <div 
+                      key={addr.id} 
+                      className={`p-4 rounded-lg border transition-all relative ${
+                        addr.isDefault 
+                          ? "border-buylock-primary/50 bg-buylock-primary/5" 
+                          : "border-gray-200 bg-white hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-semibold text-buylock-charcoal capitalize">
+                            {addr.label || "Address"}
+                          </span>
+                          {addr.isDefault && (
+                            <span className="text-[10px] bg-buylock-primary text-white px-2 py-0.5 rounded-full font-medium">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => deleteAddressMutation.mutate(addr.id)}
+                          className="text-gray-400 hover:text-red-500 h-8 w-8 p-0"
+                          disabled={deleteAddressMutation.isPending}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="mt-2 text-sm text-gray-600 space-y-1 pr-6">
+                        <p>{addr.addressLine}</p>
+                        {addr.building && <p>{addr.building}</p>}
+                        <p>
+                          {[addr.suburb, addr.city].filter(Boolean).join(", ")}
+                          {addr.postalCode && ` - ${addr.postalCode}`}
+                        </p>
+                      </div>
+                      {!addr.isDefault && (
+                        <button
+                          onClick={() => setDefaultAddressMutation.mutate(addr.id)}
+                          className="mt-3 text-xs text-buylock-primary font-medium hover:underline block text-left"
+                          disabled={setDefaultAddressMutation.isPending}
+                        >
+                          Set as Default
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </main>
 

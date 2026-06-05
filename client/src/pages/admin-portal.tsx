@@ -8,7 +8,13 @@ import { PriceDisplay } from "@/components/PriceDisplay";
 
 // Platform Overview Component
 function PlatformOverview() {
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<{
+    totalUsers: number;
+    totalVendors: number;
+    totalProducts: number;
+    totalServices: number;
+    totalRevenue: number;
+  }>({
     queryKey: ['/api/admin/stats'],
     retry: false,
   });
@@ -53,7 +59,7 @@ function PlatformOverview() {
         </div>
         <div className="text-center">
           <div className="text-3xl font-bold text-buylock-primary mb-2">
-            <PriceDisplay amount={stats?.totalRevenue || 0} />
+            <PriceDisplay price={stats?.totalRevenue || 0} />
           </div>
           <div className="text-gray-600">Total Revenue</div>
         </div>
