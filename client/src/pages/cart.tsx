@@ -1045,30 +1045,7 @@ export default function Cart() {
                 {initializePaymentMutation.isPending ? "Processing..." :
                   verifyPaymentMutation.isPending ? "Verifying Payment..." :
                     calculateCourierCostMutation.isPending ? "Calculating delivery..." :
-                      `Pay with Card/Paystack • ${formatPrice(calculateTotal())}`}
-              </Button>
-
-              <div className="flex items-center justify-center my-2">
-                <span className="h-px bg-gray-200 flex-1"></span>
-                <span className="px-3 text-xs text-gray-400 font-medium uppercase tracking-wider">Or Pay on Mobile</span>
-                <span className="h-px bg-gray-200 flex-1"></span>
-              </div>
-
-              {/* Checkout with M-Pesa Button */}
-              <Button
-                onClick={() => navigate("/checkout")}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 text-lg flex items-center justify-center gap-2.5 shadow-md border border-transparent rounded-lg transition-all"
-                size="lg"
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/1/15/M-PESA_LOGO-01.svg"
-                  alt="M-Pesa"
-                  className="h-6 w-auto brightness-0 invert"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-                <span>Checkout with M-Pesa</span>
+                      "Checkout"}
               </Button>
 
               {/* Security Notice */}
