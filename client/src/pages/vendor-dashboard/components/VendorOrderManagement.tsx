@@ -126,28 +126,12 @@ export default function VendorOrderManagement({ vendorId }: VendorOrderManagemen
   const updateOrderStatus = async (orderId: string, newStatus: string, notes?: string) => {
     try {
       await vendorApiRequest(`/api/vendor/orders/${orderId}/update-status`, 'POST', { status: newStatus, notes });
-      // If marking as ready_for_pickup, automatically trigger delivery creation
-      if (newStatus === 'ready_for_pickup') {
-        try {
-          await vendorApiRequest('/api/deliveries/create', 'POST', { orderId });
-          toast({
-            title: "Success",
-            description: "Order marked as ready for pickup and delivery scheduled with courier",
-          });
-        } catch (deliveryError) {
-          console.error('Error creating delivery:', deliveryError);
-          toast({
-            title: "Partial Success",
-            description: "Order updated but courier scheduling failed. Please contact admin.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({
-          title: "Success",
-          description: "Order status updated successfully",
-        });
-      }
+      toast({
+        title: "Success",
+        description: newStatus === 'ready_for_pickup'
+          ? "Order marked as ready. Buylock Delivery has been notified automatically."
+          : "Order status updated successfully",
+      });
       
       // Invalidate and refetch orders cache
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/${vendorId}/orders`] });

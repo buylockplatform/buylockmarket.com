@@ -58,12 +58,11 @@ export default function TrackOrder() {
 
     // Map order status fields to milestone index
     if (status === "pending" || status === "placed") return 0;
-    if (status === "confirmed" || status === "accepted") return 1;
-    if (status === "processing" || status === "packed") return 2;
-    if (status === "ready" || status === "ready_for_pickup") return 3;
-    if (status === "shipping" || status === "out_for_delivery" || status === "shipped") {
-      return isService ? 4 : 3;
-    }
+    if (status === "confirmed" || status === "accepted" || status === "vendor_accepted") return 1;
+    if (status === "processing" || status === "packed" || status === "ready_for_pickup") return 2;
+    if (status === "dispatched" || status === "passed_to_delivery" || status === "shipped") return 2;
+    if (status === "in_delivery" || status === "shipping") return isService ? 4 : 3;
+    if (status === "out_for_delivery") return isService ? 4 : 3;
     if (status === "delivered" || status === "completed" || status === "fulfilled") {
       return isService ? 5 : 4;
     }

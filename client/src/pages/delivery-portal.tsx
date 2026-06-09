@@ -249,10 +249,9 @@ export default function DeliveryPortal() {
                         </div>
                       )}
                       {(() => {
-                        // Use assigned courier or default to Fargo courier
-                        const courierId = order.courierId || 'fargo_courier';
+                        const courierId = order.courierId || 'buylock_delivery';
                         const courier = providers?.find(p => p.id === courierId);
-                        const courierName = order.courierName || courier?.name || 'Fargo Courier Services';
+                        const courierName = order.courierName || courier?.name || 'Buylock Delivery';
 
                         return (
                           <div className="space-y-1">
@@ -282,7 +281,7 @@ export default function DeliveryPortal() {
                     >
                       <Truck className="w-4 h-4 mr-2" />
                       {createDeliveryMutation.isPending ? 'Requesting...' :
-                        `Request ${order.courierName || providers?.find(p => p.id === (order.courierId || 'fargo_courier'))?.name || 'Fargo Courier Services'} Pickup`}
+                        `Request ${order.courierName || providers?.find(p => p.id === (order.courierId || 'buylock_delivery'))?.name || 'Buylock Delivery'} Pickup`}
                     </Button>
                   </div>
                 ))}
@@ -479,7 +478,7 @@ export default function DeliveryPortal() {
                     if (showInstructionsDialog) {
                       const order = pickupOrders?.find(o => o.id === showInstructionsDialog);
                       if (order) {
-                        const courierId = order.courierId || 'fargo_courier';
+                        const courierId = order.courierId || 'buylock_delivery';
 
                         createDeliveryMutation.mutate({
                           orderId: order.id,

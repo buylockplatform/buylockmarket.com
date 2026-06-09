@@ -54,6 +54,8 @@ export class NotificationService {
           return await this.sendSMSNotification(provider, data);
         case 'webhook':
           return await this.sendWebhookNotification(provider, data);
+        case 'api':
+          return await this.notifyDispatchService(data);
         default:
           console.error(`Unknown notification method: ${provider.notificationMethod}`);
           return false;

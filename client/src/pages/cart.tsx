@@ -472,7 +472,7 @@ export default function Cart() {
 
       if (error.code === 'INVALID_LOCATION') {
         title = "Invalid Location";
-        errorMessage = "Fargo Courier could not validate this location. Please check the city and suburb.";
+        errorMessage = "Could not validate this delivery location. Please check the city and suburb.";
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -487,7 +487,7 @@ export default function Cart() {
 
   const handleCourierSelect = (courierId: string) => {
     setSelectedCourier(courierId);
-    if (deliveryAddress.trim() || (courierId === 'fargo_courier' && deliverySuburb)) {
+    if (deliveryAddress.trim() || deliverySuburb) {
       calculateCourierCostMutation.mutate({ courierId, location: deliveryAddress });
     } else {
       toast({

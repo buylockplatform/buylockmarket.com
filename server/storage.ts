@@ -2175,11 +2175,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateDeliveryStatus(deliveryId: string, status: string, description?: string, trackingId?: string, source: 'manual' | 'webhook' = 'manual'): Promise<void> {
+    const currentDelivery = await this.getDeliveryById(deliveryId);
+    if (!currentDelivery) {
+      throw new Error(`Delivery not found: ${deliveryId}`);
+    }
+    if (currentDelivery.status === status) {
+      return;
+    }
+
     const updateData: any = { status, updatedAt: new Date() };
 
-    // Log the status update request
     console.log(`📋 UpdateDeliveryStatus called:`, {
       deliveryId,
+      previousStatus: currentDelivery.status,
       newStatus: status,
       source,
       timestamp: new Date().toISOString()
@@ -2197,44 +2205,63 @@ export class DatabaseStorage implements IStorage {
 
     await this.updateDelivery(deliveryId, updateData);
 
-    // Verify the status was actually updated
     const verifyDelivery = await this.getDeliveryById(deliveryId);
     console.log(`✅ Status update result: ${verifyDelivery?.status || 'ERROR'}`);
 
-    // Add delivery update
+    const statusDescriptions: Record<string, { orderStatus: string; trackingStatus: string; description: string; location: string; isDelivered?: boolean }> = {
+      pickup_scheduled: {
+        orderStatus: 'dispatched',
+        trackingStatus: 'Passed to Delivery',
+        description: 'Pickup has been scheduled with the courier.',
+        location: 'Vendor Location',
+      },
+      picked_up: {
+        orderStatus: 'passed_to_delivery',
+        trackingStatus: 'Passed to Delivery',
+        description: 'Package picked up from the shop.',
+        location: 'Vendor Location',
+      },
+      in_transit: {
+        orderStatus: 'in_delivery',
+        trackingStatus: 'In Delivery',
+        description: 'Order is on the way to you.',
+        location: 'En Route',
+      },
+      out_for_delivery: {
+        orderStatus: 'out_for_delivery',
+        trackingStatus: 'Out for Delivery',
+        description: 'Courier has arrived at the delivery area.',
+        location: 'Near Customer',
+      },
+      delivered: {
+        orderStatus: 'delivered',
+        trackingStatus: 'Delivered',
+        description: 'Order has been successfully delivered.',
+        location: 'Customer Address',
+        isDelivered: true,
+      },
+    };
+
+    const statusMeta = statusDescriptions[status];
+    const updateDescription = description || statusMeta?.description || `Status updated to ${status}`;
+
     await this.addDeliveryUpdate({
       deliveryId: deliveryId,
       status: status,
-      description: description || `Status updated to ${status}`,
+      description: updateDescription,
       source: source,
     });
 
-    // Update order status if delivery is complete
-    if (status === 'delivered') {
-      const delivery = await this.getDeliveryById(deliveryId);
-      if (delivery) {
-        await this.updateOrder(delivery.orderId, { status: 'delivered' });
-        await this.addOrderTracking({
-          orderId: delivery.orderId,
-          deliveryId: deliveryId,
-          status: 'Delivered',
-          description: 'Order has been successfully delivered',
-          location: 'Customer Address',
-          isDelivered: true,
-        });
-      }
-    } else if (status === 'in_transit') {
-      const delivery = await this.getDeliveryById(deliveryId);
-      if (delivery) {
-        await this.updateOrder(delivery.orderId, { status: 'in_delivery' });
-        await this.addOrderTracking({
-          orderId: delivery.orderId,
-          deliveryId: deliveryId,
-          status: 'In Delivery',
-          description: 'Order is out for delivery',
-          location: 'En Route',
-        });
-      }
+    if (statusMeta) {
+      await this.updateOrder(currentDelivery.orderId, { status: statusMeta.orderStatus });
+      await this.addOrderTracking({
+        orderId: currentDelivery.orderId,
+        deliveryId: deliveryId,
+        status: statusMeta.trackingStatus,
+        description: updateDescription,
+        location: statusMeta.location,
+        isDelivered: statusMeta.isDelivered,
+      });
     }
   }
 

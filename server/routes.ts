@@ -22,6 +22,14 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { PaystackService } from "./paystackService";
 import { generateTokens, verifyToken, extractBearerToken, wantsTokenAuth, refreshAccessToken, type JWTPayload } from "./jwtUtils";
 import { deliveryService } from "./deliveryService";
+import {
+  autoDispatchReadyOrders,
+  createDeliveryForOrder,
+  DEFAULT_COURIER_ID,
+  DEFAULT_COURIER_NAME,
+  notifyCourierForOrder,
+  resolveCourierForOrder,
+} from "./deliveryWorkflow";
 import { pushRouter } from "./pushRoutes";
 
 // Hybrid user authentication middleware (supports both sessions and JWT tokens)
@@ -2118,8 +2126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentMethod: req.body.paymentMethod || "card",
         notes: req.body.notes || "",
         orderType: orderType,
-        courierId: req.body.courierId || (orderType === 'product' ? 'fargo_courier' : 'dispatch_service'),
-        courierName: req.body.courierName || (orderType === 'product' ? 'Fargo Courier Services' : 'BuyLock Dispatch'),
+        courierId: req.body.courierId || (orderType === 'product' ? DEFAULT_COURIER_ID : 'dispatch_service'),
+        courierName: req.body.courierName || (orderType === 'product' ? DEFAULT_COURIER_NAME : 'BuyLock Dispatch'),
         estimatedDeliveryTime: req.body.estimatedDeliveryTime || '2-4 hours',
         paymentReference: req.body.paymentReference || `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
         isGuest: isGuest,
@@ -3082,43 +3090,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { orderId } = req.params;
       const { status, notes } = req.body;
 
-      // If order is being marked as ready for pickup, notify courier
-      if (status === 'ready_for_pickup') {
-        try {
-          const { uwaziiService: smsService } = await import('./uwaziiService');
-          const order = await storage.getOrderById(orderId);
-          if (!order) throw new Error('Order not found');
-          const vendor = (req as any).vendor;
-          const customer = await storage.getUser(order.userId);
-          const orderItems = await storage.getOrderItems(order.id);
-          const itemsText = orderItems.map(item => `${item.name} (${item.quantity}x)`).join(', ');
-
-          // Courier phone number as provided by user
-          const courierPhone = '+254740406442';
-
-          // Generate public token for order link
-          const token = await storage.ensurePublicToken(orderId);
-
-          // Use the correct domain - REPLIT_DOMAINS contains the proper published domain
-          const baseUrl = process.env.REPLIT_DOMAINS
-            ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-            : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
-          const orderLink = `${baseUrl}/o/${token}`;
-
-          const courierMessage = `BuyLock Pickup! Order: ${orderId.slice(-8)} From: ${vendor.businessName} To: ${order.deliveryAddress} Total: KES ${order.totalAmount} Details: ${orderLink}`;
-
-          const smsResult = await smsService.sendSMS(courierPhone, courierMessage);
-
-          if (smsResult.success) {
-            console.log(`Courier SMS notification sent to ${courierPhone} for order ${orderId}`);
-          } else {
-            console.warn(`Failed to send courier SMS notification for order ${orderId}:`, (smsResult as any).message);
-          }
-        } catch (smsError) {
-          console.error('Error sending courier SMS notification:', smsError);
-          // Don't fail the status update if SMS fails
-        }
-      }
+      // ready_for_pickup: courier notification + delivery creation handled after status update
 
       // If order is being marked as delivered/completed, send confirmation email
       if (status === 'delivered' || status === 'completed') {
@@ -3170,6 +3142,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } catch (fcmError) {
         console.error("Failed to send customer FCM for order status update:", fcmError);
+      }
+
+      if (status === 'ready_for_pickup') {
+        try {
+          const orderItems = await storage.getOrderItems(orderId);
+          const hasProducts = orderItems.some(item => item.productId);
+          if (hasProducts) {
+            await createDeliveryForOrder(orderId);
+          }
+        } catch (dispatchError) {
+          console.error(`Auto-dispatch failed for order ${orderId}:`, dispatchError);
+        }
       }
 
       res.json(updatedOrder);
@@ -3233,12 +3217,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update order status to ready for pickup with courier assignment
       console.log(`📦 Marking order ${orderId} as ready for pickup by vendor ${vendor.businessName}`);
+      const activeCourier = orderType === 'product'
+        ? await resolveCourierForOrder(existingOrder)
+        : { providerId: 'dispatch_service', providerName: 'BuyLock Dispatch' };
+
       const updatedOrder = await storage.updateOrder(orderId, {
         status: "ready_for_pickup",
         orderType: existingOrder.orderType || orderType,
-        courierId: existingOrder.courierId || (orderType === 'product' ? 'fargo_courier' : 'dispatch_service'),
-        courierName: existingOrder.courierName || (orderType === 'product' ? 'Fargo Courier Services' : 'BuyLock Dispatch'),
-        estimatedDeliveryTime: existingOrder.estimatedDeliveryTime || '2-4 hours',
+        courierId: existingOrder.courierId || activeCourier.providerId,
+        courierName: existingOrder.courierName || activeCourier.providerName,
+        estimatedDeliveryTime: existingOrder.estimatedDeliveryTime || '1-3 hours',
+      });
+
+      await storage.addOrderTracking({
+        orderId,
+        status: 'Ready for Pickup',
+        description: 'Order is packed and ready for delivery pickup.',
+        location: 'Vendor Location',
       });
 
       // Create delivery request for courier notification
@@ -3247,37 +3242,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "pending"
       });
 
-      // Send SMS notification to courier using uwaziiService
-      const courierPhone = "+254740406442"; // E.164 format
-      const orderIdShort = orderId.slice(-8).toUpperCase();
-      const message = `PICKUP READY! Order #${orderIdShort}. Vendor: ${vendor.businessName}. Phone: ${vendor.phone}. - BuyLock`;
-
-      console.log(`📱 Sending courier SMS notification for order ${orderId}`);
-
-      try {
-        // Generate public token for order link
-        const token = await storage.ensurePublicToken(orderId);
-
-        // Use the correct domain - REPLIT_DOMAINS contains the proper published domain
-        const baseUrl = process.env.REPLIT_DOMAINS
-          ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
-          : `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.app`;
-        const orderLink = `${baseUrl}/o/${token}`;
-
-        // Update message to include order link and keep it concise
-        const shortMessage = `BuyLock Ready! Order: ${orderId.slice(-8)} Pickup ready. Details: ${orderLink}`;
-
-        const { uwaziiService } = await import("./uwaziiService");
-        const result = await uwaziiService.sendSMS(courierPhone, shortMessage);
-
-        if (result.success) {
-          console.log(`✅ Courier SMS notification sent successfully for order ${orderId}, MessageId: ${result.messageId}`);
-        } else {
-          console.error(`❌ Failed to send courier SMS for order ${orderId}:`, result.error);
+      if (orderType === 'product') {
+        try {
+          await createDeliveryForOrder(orderId, activeCourier.providerId);
+          console.log(`✅ Auto-dispatched order ${orderId.slice(-8)} to ${activeCourier.providerName}`);
+        } catch (dispatchError) {
+          console.error(`❌ Auto-dispatch failed for order ${orderId}:`, dispatchError);
         }
-      } catch (smsError) {
-        console.error(`❌ SMS service error for order ${orderId}:`, smsError);
-        // Don't fail the order update if SMS fails
+      } else {
+        const provider = await storage.getDeliveryProviderById('dispatch_service');
+        if (provider) {
+          try {
+            await notifyCourierForOrder(updatedOrder, provider);
+          } catch (notifyError) {
+            console.error(`❌ Courier notification failed for service order ${orderId}:`, notifyError);
+          }
+        }
       }
 
       // Notify customer via FCM that order is ready for pickup/delivery
@@ -5145,7 +5125,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const allProviders = await storage.getDeliveryProviders();
       console.log('All providers from DB:', allProviders.length);
-      const dbCouriers = allProviders.filter(provider => provider.type === 'courier');
+      const dbCouriers = allProviders.filter(
+        provider => provider.type === 'courier' || provider.type === 'internal'
+      );
       console.log('Filtered courier providers:', dbCouriers.map(c => c.name));
 
       if (dbCouriers.length === 0) {
@@ -5170,18 +5152,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(couriers);
     } catch (error) {
       console.error("Error fetching couriers from database:", error);
-      // Use fallback data with only Fargo Courier
       const fallbackCouriers = [
         {
-          id: "fargo_courier",
-          name: "Fargo Courier Services",
-          logo: "🚛",
-          baseRate: "200",
-          perKmRate: "18",
+          id: DEFAULT_COURIER_ID,
+          name: DEFAULT_COURIER_NAME,
+          logo: "🏍️",
+          baseRate: "150",
+          perKmRate: "15",
           maxWeight: "50",
-          estimatedTime: "2-4 hours within Nairobi, 24-48 hours nationwide",
-          coverage: "Nairobi, Mombasa, Kisumu, Nakuru, Eldoret, Thika, Machakos",
-          phone: "+254722555888",
+          estimatedTime: "1-3 hours",
+          coverage: "Nairobi, Kiambu, Machakos, Kajiado",
+          phone: process.env.BUYLOCK_DISPATCH_PHONE || "+254700000000",
           isActive: true
         }
       ];
@@ -5329,6 +5310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get orders ready for pickup
   app.get('/api/deliveries/pickup-orders', async (req, res) => {
     try {
+      await autoDispatchReadyOrders();
       const orders = await storage.getOrdersReadyForPickup();
       res.json(orders);
     } catch (error) {
@@ -5347,8 +5329,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Delivery not found' });
       }
 
-      // If no external tracking ID or provider is internal, return current status
-      if (!delivery.externalTrackingId || delivery.providerId === 'dispatch_service') {
+      // Internal couriers do not use external status polling
+      if (
+        !delivery.externalTrackingId ||
+        delivery.providerId === 'dispatch_service' ||
+        delivery.providerId === DEFAULT_COURIER_ID
+      ) {
         return res.json({
           status: delivery.status,
           updated: false,
@@ -5444,7 +5430,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { orderId, providerId, pickupInstructions } = req.body;
 
-      // Get the order details
       const order = await storage.getOrderById(orderId);
       if (!order) {
         return res.status(404).json({ message: 'Order not found' });
@@ -5454,142 +5439,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Order must be ready for pickup to create delivery' });
       }
 
-      // Check if delivery already exists
-      const existingDelivery = await storage.getDeliveryByOrderId(orderId);
-      if (existingDelivery) {
-        return res.json(existingDelivery);
-      }
-
-      // Use the courier selected during checkout, or provided courier, or fallback to Fargo courier
-      const courierProviderId = providerId || order.courierId || 'fargo_courier';
-      const provider = await storage.getDeliveryProviderById(courierProviderId);
-      if (!provider) {
-        return res.status(400).json({ message: 'Courier provider not found' });
-      }
-
-      // 1. Call Courier API via DeliveryService (handles external API registration)
-      const courierResponse = await deliveryService.createDelivery(order, provider);
-
-      if (!courierResponse.success) {
-        console.error(`Courier registration failed for order ${order.id}:`, courierResponse.error);
-        return res.status(500).json({
-          message: `Failed to register delivery with ${provider.name}`,
-          error: courierResponse.error
-        });
-      }
-
-      // 2. Fetch vendor and customer details for enriched location data
-      const vendor = await storage.getVendorById(order.vendorId);
-      const customer = await storage.getUser(order.userId);
-
-      // 3. Create local delivery record with tracking information
-      const delivery = await storage.createDelivery({
-        orderId: order.id,
-        providerId: provider.id,
-        externalTrackingId: courierResponse.trackingId,
-        courierTrackingId: courierResponse.trackingId,
-        status: 'pickup_scheduled',
-
-        // Save structured location data to our DB
-        pickupAddress: vendor?.businessAddress || 'Vendor Address',
-        pickupCity: vendor?.city || 'Nairobi',
-        pickupSuburb: (vendor as any)?.suburb,
-        pickupBuilding: (vendor as any)?.building,
-        pickupPostalCode: (vendor as any)?.postalCode,
-
-        deliveryAddress: order.deliveryAddress || customer?.address || '',
-        deliveryCity: (order as any).deliveryCity || customer?.city || 'Nairobi',
-        deliverySuburb: (order as any).deliverySuburb || (customer as any)?.suburb || 'CBD',
-        deliveryBuilding: (order as any).deliveryBuilding || (customer as any)?.building,
-        deliveryPostalCode: (order as any).deliveryPostalCode || (customer as any)?.postalCode,
-
-        estimatedPickupTime: courierResponse.estimatedPickupTime || new Date(Date.now() + 2 * 60 * 60 * 1000),
-        estimatedDeliveryTime: courierResponse.estimatedDeliveryTime || new Date(Date.now() + 24 * 60 * 60 * 1000),
-
-        deliveryFee: order.deliveryFee || '0',
-        packageDescription: `Order ${order.trackingNumber} - ${order.orderType}`,
-        customerPhone: customer?.phone || '0700000000',
-        vendorPhone: vendor?.phone || '0700000001',
-        courierName: provider.name,
-      });
-
-      // Create initial delivery update
-      await storage.addDeliveryUpdate({
-        deliveryId: delivery.id,
-        status: 'pickup_scheduled',
-        description: `Pickup requested from ${provider.name}. Courier will arrive within 2 hours for collection.`,
-        source: 'api',
-      });
-
-      // Update order status to reflect delivery creation
-      await storage.updateOrder(orderId, {
-        status: 'dispatched',
-        deliveryPickupAt: new Date(),
-        courierName: provider.name
-      });
-
-      // Send notification to courier using the new email service
-      if (provider.contactEmail) {
-        const { sendCourierNotification } = await import('./emailService');
-
-        // Get vendor details
-        const vendor = await storage.getVendorById(order.vendorId);
-
-        // Get customer details
-        const customer = await storage.getUser(order.userId);
-
-        // Get order items
-        const orderItems = await storage.getOrderItems(order.id);
-
-        if (vendor && customer && orderItems.length > 0) {
-          // Prepare order items for email
-          const emailOrderItems = await Promise.all(orderItems.map(async (item) => {
-            let itemName = 'Unknown Item';
-            if (item.productId) {
-              const product = await storage.getProductById(item.productId);
-              itemName = product?.name || 'Unknown Product';
-            } else if (item.serviceId) {
-              const service = await storage.getServiceById(item.serviceId);
-              itemName = service?.name || 'Unknown Service';
-            }
-
-            return {
-              name: itemName,
-              quantity: item.quantity,
-              price: item.price
-            };
-          }));
-
-          const courierNotificationData = {
-            courierEmail: provider.contactEmail,
-            courierName: provider.name,
-            orderId: order.id,
-            customerName: `${customer.firstName || customer.lastName || 'Customer'}`,
-            customerPhone: customer.phone || 'Not provided',
-            vendorBusinessName: vendor.businessName,
-            vendorLocation: vendor.businessAddress || 'Address not provided',
-            vendorPhone: vendor.phone || 'Phone not provided',
-            deliveryAddress: order.deliveryAddress || 'Address not provided',
-            orderTotal: order.totalAmount,
-            pickupInstructions: pickupInstructions || '',
-            orderItems: emailOrderItems
-          };
-
-          // Send courier notification email
-          const emailSent = await sendCourierNotification(courierNotificationData);
-
-          if (emailSent) {
-            console.log(`Courier notification email sent to ${provider.contactEmail} for order ${order.id}`);
-          } else {
-            console.warn(`Failed to send courier notification email for order ${order.id}`);
-          }
-        }
+      const delivery = await createDeliveryForOrder(orderId, providerId, pickupInstructions);
+      if (!delivery) {
+        return res.status(400).json({ message: 'Could not create delivery for this order' });
       }
 
       res.json(delivery);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating delivery:', error);
-      res.status(500).json({ message: 'Failed to create delivery' });
+      res.status(500).json({ message: error?.message || 'Failed to create delivery' });
     }
   });
 
@@ -6225,13 +6083,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.updateDeliveryStatus(id, status, description, trackingId);
 
-      // Verify the update was successful
       const updatedDelivery = await storage.getDeliveryById(id);
       if (updatedDelivery) {
         console.log(`✅ Status update completed. Final status: ${updatedDelivery.status}`);
+
+        const order = await storage.getOrderById(updatedDelivery.orderId);
+        if (order) {
+          const customer = await storage.getUser(order.userId);
+          if (customer?.fcmToken) {
+            const { sendPushNotification } = await import('./firebaseAdmin');
+            const pushMessages: Record<string, { title: string; body: string }> = {
+              pickup_scheduled: { title: 'Delivery Scheduled', body: 'A courier has been assigned to pick up your order.' },
+              picked_up: { title: 'Order Picked Up', body: 'Your order has been picked up from the shop.' },
+              in_transit: { title: 'On the Way', body: 'Your order is on the way to you.' },
+              out_for_delivery: { title: 'Courier Arrived', body: 'Your courier has arrived at your delivery area.' },
+              delivered: { title: 'Delivered', body: 'Your order has been delivered!' },
+            };
+            const push = pushMessages[status];
+            if (push) {
+              await sendPushNotification(customer.fcmToken, {
+                title: push.title,
+                body: push.body,
+                data: { orderId: order.id, deliveryStatus: status },
+              });
+            }
+          }
+        }
       }
 
-      res.json({ success: true, message: 'Delivery status updated' });
+      res.json({ success: true, message: 'Delivery status updated', status: updatedDelivery?.status });
     } catch (error) {
       console.error('Error updating delivery status:', error);
       res.status(500).json({ message: 'Failed to update delivery status' });
