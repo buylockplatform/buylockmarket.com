@@ -3201,9 +3201,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied. This order does not belong to your vendor account." });
       }
 
-      // Idempotency check: Don't process if already ready for pickup
+      // Idempotency: if already ready, ensure delivery record exists for product orders
       if (existingOrder.status === 'ready_for_pickup') {
-        console.log(`⚠️ Order ${orderId} is already marked as ready for pickup`);
+        const orderItems = await storage.getOrderItems(orderId);
+        const hasProducts = orderItems.some(item => item.productId);
+        const existingDelivery = await storage.getDeliveryByOrderId(orderId);
+        if (hasProducts && !existingDelivery) {
+          try {
+            const activeCourier = await resolveCourierForOrder(existingOrder);
+            await createDeliveryForOrder(orderId, activeCourier.providerId);
+          } catch (dispatchError) {
+            console.error(`❌ Retry dispatch failed for order ${orderId}:`, dispatchError);
+          }
+        }
         return res.json({
           success: true,
           message: "Order is already marked as ready for pickup.",
@@ -3245,10 +3255,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (orderType === 'product') {
         try {
-          await createDeliveryForOrder(orderId, activeCourier.providerId);
-          console.log(`✅ Auto-dispatched order ${orderId.slice(-8)} to ${activeCourier.providerName}`);
+          const delivery = await createDeliveryForOrder(orderId, activeCourier.providerId);
+          if (!delivery) {
+            console.warn(`⚠️ Delivery not created for order ${orderId} — status may not be ready_for_pickup`);
+          } else {
+            console.log(`✅ Delivery created for order ${orderId.slice(-8)} → ${activeCourier.providerName}`);
+          }
         } catch (dispatchError) {
           console.error(`❌ Auto-dispatch failed for order ${orderId}:`, dispatchError);
+          return res.status(500).json({
+            success: false,
+            message: "Order marked ready but delivery could not be created. Please contact support.",
+            error: dispatchError instanceof Error ? dispatchError.message : String(dispatchError),
+          });
         }
       } else {
         const provider = await storage.getDeliveryProviderById('dispatch_service');
@@ -4881,6 +4900,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const deliveryAddressId = customFields.find((f: any) => f.variable_name === 'delivery_address_id')?.value || null;
         const deliveryLatitude = customFields.find((f: any) => f.variable_name === 'delivery_latitude')?.value || null;
         const deliveryLongitude = customFields.find((f: any) => f.variable_name === 'delivery_longitude')?.value || null;
+        const deliveryFeeRaw = customFields.find((f: any) => f.variable_name === 'delivery_fee')?.value || '0';
+        const parsedDeliveryFee = parseFloat(String(deliveryFeeRaw)) || 0;
 
         // Group cart items by vendor with debugging
         console.log('Cart items for vendor grouping:', cartItems.map(item => ({
@@ -4914,6 +4935,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const createdOrders = [];
 
         // Create one order per vendor
+        let vendorIndex = 0;
         for (const [vendorId, items] of Object.entries(vendorGroups)) {
           const vendorItems = items as any[];
           const totalAmount = vendorItems.reduce((sum, item) => {
@@ -4949,6 +4971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               paymentMethod: "card",
               courierId: orderType === 'product' ? DEFAULT_COURIER_ID : 'dispatch_service',
               courierName: orderType === 'product' ? DEFAULT_COURIER_NAME : 'BuyLock Dispatch',
+              deliveryFee: orderType === 'product' && vendorIndex === 0 ? String(parsedDeliveryFee) : '0',
               deliveryAddressId: deliveryAddressId || null,
               guestLatitude: deliveryLatitude || null,
               guestLongitude: deliveryLongitude || null
@@ -4978,6 +5001,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               detailedInstructions: item.detailedInstructions
             });
           }
+
+          await storage.generateTrackingNumber(order.id);
+          vendorIndex++;
 
           createdOrders.push(order);
         }

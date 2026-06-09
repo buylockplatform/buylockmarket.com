@@ -35,6 +35,35 @@ export async function resolveCourierForOrder(
   };
 }
 
+export async function getOrderDisplayRef(order: Order): Promise<string> {
+  if (order.trackingNumber) return order.trackingNumber;
+  return storage.generateTrackingNumber(order.id);
+}
+
+export function resolveDeliveryFee(order: Order, provider?: DeliveryProvider): string {
+  const fee = parseFloat(order.deliveryFee || "0");
+  if (fee > 0) return fee.toString();
+  const baseRate = parseFloat(provider?.baseRate || "150");
+  return baseRate.toString();
+}
+
+export function formatPackageDescription(orderRef: string, orderType?: string | null): string {
+  return `Order #${orderRef} (${orderType || "product"})`;
+}
+
+export function sanitizeTrackingId(value: unknown): string | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "string") {
+    if (value === "[object Object]") return undefined;
+    return value;
+  }
+  if (typeof value === "object" && value !== null && "id" in value) {
+    return String((value as { id: string }).id);
+  }
+  const str = String(value);
+  return str === "[object Object]" ? undefined : str;
+}
+
 export async function normalizeAndMigrateDelivery(delivery: Delivery): Promise<Delivery> {
   const updates: Partial<Delivery> = {};
   let status = delivery.status || "pending";
@@ -56,6 +85,31 @@ export async function normalizeAndMigrateDelivery(delivery: Delivery): Promise<D
     courierName = resolveCourierDisplayName(providerId, courierName);
   }
 
+  const cleanTracking = sanitizeTrackingId(delivery.externalTrackingId);
+  if (!cleanTracking || cleanTracking !== delivery.externalTrackingId) {
+    const job = await storage.getDeliveryJobByOrderId(delivery.orderId);
+    const fixedTracking = job?.id || delivery.id.slice(-8).toUpperCase();
+    updates.externalTrackingId = fixedTracking;
+    updates.courierTrackingId = fixedTracking;
+  }
+
+  const fee = parseFloat(String(delivery.deliveryFee || "0"));
+  if (fee <= 0) {
+    const order = await storage.getOrderById(delivery.orderId);
+    const provider = await storage.getDeliveryProviderById(providerId || DEFAULT_COURIER_ID);
+    if (order) {
+      updates.deliveryFee = resolveDeliveryFee(order, provider);
+    }
+  }
+
+  if (delivery.packageDescription?.includes("Order null")) {
+    const order = await storage.getOrderById(delivery.orderId);
+    if (order) {
+      const ref = order.trackingNumber || order.paymentReference?.slice(-8) || order.id.slice(-8).toUpperCase();
+      updates.packageDescription = formatPackageDescription(ref, order.orderType);
+    }
+  }
+
   if (Object.keys(updates).length > 0) {
     await storage.updateDelivery(delivery.id, updates);
     const order = await storage.getOrderById(delivery.orderId);
@@ -69,9 +123,13 @@ export async function normalizeAndMigrateDelivery(delivery: Delivery): Promise<D
 
   return {
     ...delivery,
+    ...updates,
     status,
     providerId,
     courierName,
+    externalTrackingId: updates.externalTrackingId ?? cleanTracking ?? delivery.externalTrackingId,
+    deliveryFee: updates.deliveryFee ?? delivery.deliveryFee,
+    packageDescription: updates.packageDescription ?? delivery.packageDescription,
   };
 }
 
@@ -165,12 +223,15 @@ export async function createDeliveryForOrder(
 
   const vendor = await storage.getVendorById(order.vendorId);
   const customer = await storage.getUser(order.userId);
+  const orderRef = await getOrderDisplayRef(order);
+  const deliveryFee = resolveDeliveryFee(order, provider);
+  const trackingId = sanitizeTrackingId(courierResponse.trackingId) || order.id;
 
   const delivery = await storage.createDelivery({
     orderId: order.id,
     providerId: provider.id,
-    externalTrackingId: courierResponse.trackingId,
-    courierTrackingId: courierResponse.trackingId,
+    externalTrackingId: trackingId,
+    courierTrackingId: trackingId,
     status: "pickup_scheduled",
     pickupAddress: vendor?.businessAddress || "Vendor Address",
     pickupCity: vendor?.city || "Nairobi",
@@ -186,8 +247,8 @@ export async function createDeliveryForOrder(
       courierResponse.estimatedPickupTime || new Date(Date.now() + 2 * 60 * 60 * 1000),
     estimatedDeliveryTime:
       courierResponse.estimatedDeliveryTime || new Date(Date.now() + 24 * 60 * 60 * 1000),
-    deliveryFee: order.deliveryFee || "0",
-    packageDescription: `Order ${order.trackingNumber} - ${order.orderType}`,
+    deliveryFee,
+    packageDescription: formatPackageDescription(orderRef, order.orderType),
     customerPhone: customer?.phone || "0700000000",
     vendorPhone: vendor?.phone || "0700000001",
     courierName: provider.name,
@@ -196,22 +257,21 @@ export async function createDeliveryForOrder(
   await storage.addDeliveryUpdate({
     deliveryId: delivery.id,
     status: "pickup_scheduled",
-    description: `Pickup scheduled with ${provider.name}.`,
+    description: `${provider.name} notified for pickup.`,
     source: "api",
   });
 
   await storage.updateOrder(orderId, {
-    status: "dispatched",
-    deliveryPickupAt: new Date(),
     courierId: provider.id,
     courierName: provider.name,
+    ...(parseFloat(order.deliveryFee || "0") <= 0 ? { deliveryFee } : {}),
   });
 
   await storage.addOrderTracking({
     orderId,
     deliveryId: delivery.id,
-    status: "Passed to Delivery",
-    description: `Pickup scheduled with ${provider.name}.`,
+    status: "Pickup Scheduled",
+    description: `${provider.name} has been assigned. Awaiting pickup from vendor.`,
     location: "Vendor Location",
   });
 

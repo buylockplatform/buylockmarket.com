@@ -2213,14 +2213,14 @@ export class DatabaseStorage implements IStorage {
 
     const statusDescriptions: Record<string, { orderStatus: string; trackingStatus: string; description: string; location: string; isDelivered?: boolean }> = {
       pickup_scheduled: {
-        orderStatus: 'dispatched',
-        trackingStatus: 'Passed to Delivery',
-        description: 'Pickup has been scheduled with the courier.',
+        orderStatus: 'ready_for_pickup',
+        trackingStatus: 'Pickup Scheduled',
+        description: 'Buylock Delivery has been notified and will collect from the vendor.',
         location: 'Vendor Location',
       },
       picked_up: {
         orderStatus: 'passed_to_delivery',
-        trackingStatus: 'Passed to Delivery',
+        trackingStatus: 'Picked Up',
         description: 'Package picked up from the shop.',
         location: 'Vendor Location',
       },
@@ -2256,7 +2256,11 @@ export class DatabaseStorage implements IStorage {
     });
 
     if (statusMeta) {
-      await this.updateOrder(currentDelivery.orderId, { status: statusMeta.orderStatus });
+      const orderUpdate: Record<string, unknown> = { status: statusMeta.orderStatus };
+      if (status === 'picked_up') {
+        orderUpdate.deliveryPickupAt = new Date();
+      }
+      await this.updateOrder(currentDelivery.orderId, orderUpdate);
       await this.addOrderTracking({
         orderId: currentDelivery.orderId,
         deliveryId: deliveryId,

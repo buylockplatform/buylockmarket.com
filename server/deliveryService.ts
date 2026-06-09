@@ -364,7 +364,7 @@ export class BuylockDeliveryAPI implements CourierAPIProvider {
       // Create a delivery_jobs record in ASSIGNING status.
       // The job will move to AWAITING_ACCEPTANCE once payment is confirmed
       // and FCM broadcasts to nearby online riders.
-      const jobId = await storage.createDeliveryJob?.({
+      const job = await storage.createDeliveryJob({
         orderId: request.orderId,
         pickupAddress: request.pickupAddress,
         dropoffAddress: request.deliveryAddress,
@@ -375,13 +375,14 @@ export class BuylockDeliveryAPI implements CourierAPIProvider {
         deliveryPersonId: null,
         status: 'ASSIGNING',
         jobType: 'DELIVERY',
-      }) ?? request.orderId; // Fallback to orderId as internal tracking ref
+      });
 
-      console.log(`🏍️  Buylock Delivery job created: ${jobId}`);
+      const trackingId = job.id;
+      console.log(`🏍️  Buylock Delivery job created: ${trackingId}`);
 
       return {
         success: true,
-        trackingId: String(jobId),
+        trackingId,
         estimatedPickupTime: new Date(Date.now() + 30 * 60 * 1000),     // ~30 min pickup
         estimatedDeliveryTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // ~3 hr delivery
       };

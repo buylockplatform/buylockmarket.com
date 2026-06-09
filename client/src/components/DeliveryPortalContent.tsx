@@ -170,6 +170,21 @@ export default function DeliveryPortalContent() {
   const servicePickupOrders =
     pickupOrders?.filter((o) => o.courierId === "dispatch_service" || o.orderType === "service") || [];
 
+  const deliveryOrderIds = new Set(deliveries?.map((d) => d.orderId) || []);
+
+  const pendingProductPickups =
+    pickupOrders?.filter(
+      (o) =>
+        o.orderType !== "service" &&
+        o.courierId !== "dispatch_service" &&
+        !deliveryOrderIds.has(o.id)
+    ) || [];
+
+  const formatTrackingDisplay = (value?: string) => {
+    if (!value || value === "[object Object]") return null;
+    return value;
+  };
+
   const activeDeliveries =
     deliveries?.filter((d) => d.status !== "delivered" && d.status !== "cancelled") || [];
 
@@ -200,9 +215,9 @@ export default function DeliveryPortalContent() {
               {getStatusBadge(displayStatus)}
             </div>
             <p className="text-sm text-gray-500">{delivery.packageDescription}</p>
-            {delivery.externalTrackingId && (
+            {formatTrackingDisplay(delivery.externalTrackingId) && (
               <p className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded inline-block">
-                Tracking: {delivery.externalTrackingId}
+                Job ID: {formatTrackingDisplay(delivery.externalTrackingId)}
               </p>
             )}
           </div>
@@ -344,6 +359,33 @@ export default function DeliveryPortalContent() {
           </CardContent>
         </Card>
       </div>
+
+      {pendingProductPickups.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Awaiting Courier Pickup ({pendingProductPickups.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pendingProductPickups.map((order) => (
+              <div key={order.id} className="p-4 border rounded-lg bg-amber-50 text-sm">
+                <p className="font-semibold">
+                  Order #{order.trackingNumber || order.id.slice(-8).toUpperCase()}
+                </p>
+                <p className="text-gray-600 mt-1">{order.deliveryAddress}</p>
+                <p className="text-gray-600">
+                  Customer: {order.user?.firstName} {order.user?.lastName}
+                </p>
+                <p className="text-amber-800 mt-2 font-medium">
+                  Packed and ready — {DEFAULT_COURIER_NAME} will collect from vendor.
+                </p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {servicePickupOrders.length > 0 && (
         <Card>
