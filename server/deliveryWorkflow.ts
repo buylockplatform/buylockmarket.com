@@ -1,5 +1,11 @@
 import type { Delivery, DeliveryProvider, Order } from "@shared/schema";
-import { DEFAULT_COURIER_ID, DEFAULT_COURIER_NAME } from "@shared/deliveryStatuses";
+import {
+  DEFAULT_COURIER_ID,
+  DEFAULT_COURIER_NAME,
+  isLegacyCourierId,
+  normalizeDeliveryStatus,
+  resolveCourierDisplayName,
+} from "@shared/deliveryStatuses";
 import { deliveryService } from "./deliveryService";
 import { notificationService, type NotificationData } from "./notificationService";
 import { storage } from "./storage";
@@ -16,26 +22,56 @@ export async function getActiveDeliveryProvider(): Promise<DeliveryProvider | un
 
 export async function resolveCourierForOrder(
   order: Order,
-  providerId?: string
+  _providerId?: string
 ): Promise<{ providerId: string; providerName: string }> {
-  if (providerId) {
-    const provider = await storage.getDeliveryProviderById(providerId);
-    if (provider) {
-      return { providerId: provider.id, providerName: provider.name };
-    }
-  }
-
-  if (order.courierId && order.courierId !== "dispatch_service") {
-    const provider = await storage.getDeliveryProviderById(order.courierId);
-    if (provider) {
-      return { providerId: provider.id, providerName: provider.name };
-    }
+  if (order.orderType === "service" || order.courierId === "dispatch_service") {
+    return { providerId: "dispatch_service", providerName: "BuyLock Dispatch" };
   }
 
   const active = await getActiveDeliveryProvider();
   return {
     providerId: active?.id ?? DEFAULT_COURIER_ID,
     providerName: active?.name ?? DEFAULT_COURIER_NAME,
+  };
+}
+
+export async function normalizeAndMigrateDelivery(delivery: Delivery): Promise<Delivery> {
+  const updates: Partial<Delivery> = {};
+  let status = delivery.status || "pending";
+  let providerId = delivery.providerId;
+  let courierName = delivery.courierName;
+
+  const normalizedStatus = normalizeDeliveryStatus(status);
+  if (normalizedStatus !== status) {
+    updates.status = normalizedStatus;
+    status = normalizedStatus;
+  }
+
+  if (isLegacyCourierId(providerId) || courierName?.toLowerCase().includes("fargo")) {
+    updates.providerId = DEFAULT_COURIER_ID;
+    updates.courierName = DEFAULT_COURIER_NAME;
+    providerId = DEFAULT_COURIER_ID;
+    courierName = DEFAULT_COURIER_NAME;
+  } else {
+    courierName = resolveCourierDisplayName(providerId, courierName);
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await storage.updateDelivery(delivery.id, updates);
+    const order = await storage.getOrderById(delivery.orderId);
+    if (order && isLegacyCourierId(order.courierId)) {
+      await storage.updateOrder(delivery.orderId, {
+        courierId: DEFAULT_COURIER_ID,
+        courierName: DEFAULT_COURIER_NAME,
+      });
+    }
+  }
+
+  return {
+    ...delivery,
+    status,
+    providerId,
+    courierName,
   };
 }
 

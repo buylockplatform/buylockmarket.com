@@ -27,6 +27,7 @@ import {
   createDeliveryForOrder,
   DEFAULT_COURIER_ID,
   DEFAULT_COURIER_NAME,
+  normalizeAndMigrateDelivery,
   notifyCourierForOrder,
   resolveCourierForOrder,
 } from "./deliveryWorkflow";
@@ -2126,8 +2127,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentMethod: req.body.paymentMethod || "card",
         notes: req.body.notes || "",
         orderType: orderType,
-        courierId: req.body.courierId || (orderType === 'product' ? DEFAULT_COURIER_ID : 'dispatch_service'),
-        courierName: req.body.courierName || (orderType === 'product' ? DEFAULT_COURIER_NAME : 'BuyLock Dispatch'),
+        courierId: orderType === 'product' ? DEFAULT_COURIER_ID : (req.body.courierId || 'dispatch_service'),
+        courierName: orderType === 'product' ? DEFAULT_COURIER_NAME : (req.body.courierName || 'BuyLock Dispatch'),
         estimatedDeliveryTime: req.body.estimatedDeliveryTime || '2-4 hours',
         paymentReference: req.body.paymentReference || `ORD-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
         isGuest: isGuest,
@@ -3224,8 +3225,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedOrder = await storage.updateOrder(orderId, {
         status: "ready_for_pickup",
         orderType: existingOrder.orderType || orderType,
-        courierId: existingOrder.courierId || activeCourier.providerId,
-        courierName: existingOrder.courierName || activeCourier.providerName,
+        courierId: orderType === 'product' ? activeCourier.providerId : (existingOrder.courierId || 'dispatch_service'),
+        courierName: orderType === 'product' ? activeCourier.providerName : (existingOrder.courierName || 'BuyLock Dispatch'),
         estimatedDeliveryTime: existingOrder.estimatedDeliveryTime || '1-3 hours',
       });
 
@@ -4946,6 +4947,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               paymentReference: vendorReference,
               orderType: orderType,
               paymentMethod: "card",
+              courierId: orderType === 'product' ? DEFAULT_COURIER_ID : 'dispatch_service',
+              courierName: orderType === 'product' ? DEFAULT_COURIER_NAME : 'BuyLock Dispatch',
               deliveryAddressId: deliveryAddressId || null,
               guestLatitude: deliveryLatitude || null,
               guestLongitude: deliveryLongitude || null
@@ -5125,10 +5128,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const allProviders = await storage.getDeliveryProviders();
       console.log('All providers from DB:', allProviders.length);
-      const dbCouriers = allProviders.filter(
-        provider => provider.type === 'courier' || provider.type === 'internal'
+      // Checkout only exposes the active internal fleet (Buylock Delivery)
+      let dbCouriers = allProviders.filter(
+        provider => provider.type === 'internal' && provider.isActive
       );
-      console.log('Filtered courier providers:', dbCouriers.map(c => c.name));
+      if (dbCouriers.length === 0) {
+        const fallback = await storage.getDeliveryProviderById(DEFAULT_COURIER_ID);
+        if (fallback) {
+          dbCouriers = [fallback];
+        }
+      }
+      console.log('Checkout couriers:', dbCouriers.map(c => c.name));
 
       if (dbCouriers.length === 0) {
         throw new Error('No couriers found in database');
@@ -5173,48 +5183,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Calculate delivery cost based on location and courier
   app.post('/api/couriers/calculate', async (req, res) => {
     try {
-      const { courierId, location, city, suburb, building, postalCode, weight = 1 } = req.body;
-
-      if (courierId === 'fargo_courier') {
-        const quote = await deliveryService.getQuote('fargo_courier', {
-          orderId: 'QUOTE-' + Date.now(),
-          pickupAddress: "Main Warehouse", // Default for calculation
-          pickupCity: "Nairobi",
-          pickupSuburb: "CBD",
-          pickupBuilding: "BuyLock HQ",
-          pickupPostalCode: "00100",
-          deliveryAddress: location || "Nairobi",
-          deliveryCity: city || "Nairobi",
-          deliverySuburb: suburb || "CBD",
-          deliveryBuilding: building,
-          deliveryPostalCode: postalCode,
-          customerPhone: "0700000000",
-          vendorPhone: "0700000001",
-          packageDescription: "Delivery estimate",
-          estimatedWeight: weight,
-          declaredValue: 1000,
-        });
-
-        if (!quote.success) {
-          return res.status(400).json({
-            message: quote.error || "Location validation failed",
-            code: quote.errorCode,
-            field: quote.errorCode === 'INVALID_LOCATION' ? 'location' : undefined
-          });
-        }
-
-        return res.json({
-          courierId: 'fargo_courier',
-          courierName: "Fargo Courier Services",
-          baseRate: 200,
-          distanceRate: (quote.amount || 200) - 200,
-          weightMultiplier: 1,
-          estimatedDistance: 0, // Not provided by Fargo API directly in quote
-          totalCost: quote.amount || 200,
-          estimatedTime: "2-4 hours within Nairobi, 24-48 hours nationwide",
-          location: city ? `${suburb}, ${city}` : location
-        });
-      }
+      const { courierId: requestedCourierId, location, city, suburb, building, postalCode, weight = 1 } = req.body;
+      const courierId = requestedCourierId === 'fargo_courier' || !requestedCourierId
+        ? DEFAULT_COURIER_ID
+        : requestedCourierId;
 
       const dbProvider = await storage.getDeliveryProviderById(courierId);
       if (!dbProvider) {
@@ -5246,8 +5218,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalCost = (baseRate + (perKmRate * estimatedDistance)) * weightMultiplier;
 
       res.json({
-        courierId,
-        courierName: dbProvider.name,
+        courierId: DEFAULT_COURIER_ID,
+        courierName: DEFAULT_COURIER_NAME,
         baseRate: baseRate,
         distanceRate: perKmRate * estimatedDistance,
         weightMultiplier,
@@ -5300,7 +5272,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         offset: parseInt(offset as string),
       });
 
-      res.json(deliveries);
+      const normalized = await Promise.all(deliveries.map(normalizeAndMigrateDelivery));
+      res.json(normalized);
     } catch (error) {
       console.error('Error fetching deliveries:', error);
       res.status(500).json({ message: 'Failed to fetch deliveries' });
@@ -5333,7 +5306,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (
         !delivery.externalTrackingId ||
         delivery.providerId === 'dispatch_service' ||
-        delivery.providerId === DEFAULT_COURIER_ID
+        delivery.providerId === DEFAULT_COURIER_ID ||
+        delivery.providerId === 'fargo_courier'
       ) {
         return res.json({
           status: delivery.status,

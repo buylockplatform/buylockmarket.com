@@ -2175,6 +2175,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateDeliveryStatus(deliveryId: string, status: string, description?: string, trackingId?: string, source: 'manual' | 'webhook' = 'manual'): Promise<void> {
+    const { normalizeDeliveryStatus } = await import("@shared/deliveryStatuses");
+    status = normalizeDeliveryStatus(status);
+
     const currentDelivery = await this.getDeliveryById(deliveryId);
     if (!currentDelivery) {
       throw new Error(`Delivery not found: ${deliveryId}`);

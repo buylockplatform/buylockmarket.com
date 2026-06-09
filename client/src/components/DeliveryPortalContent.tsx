@@ -32,9 +32,12 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
+  DEFAULT_COURIER_ID,
   DEFAULT_COURIER_NAME,
   DELIVERY_STATUS_UPDATE_OPTIONS,
   getDeliveryStatusLabel,
+  normalizeDeliveryStatus,
+  resolveCourierDisplayName,
 } from "@shared/deliveryStatuses";
 
 interface Delivery {
@@ -181,8 +184,10 @@ export default function DeliveryPortalContent() {
     ).length || 0;
 
   const renderDeliveryCard = (delivery: Delivery) => {
-    const courierLabel = delivery.courierName || DEFAULT_COURIER_NAME;
-    const isInternalCourier = delivery.providerId === "buylock_delivery";
+    const displayStatus = normalizeDeliveryStatus(delivery.status);
+    const courierLabel = resolveCourierDisplayName(delivery.providerId, delivery.courierName);
+    const isInternalCourier =
+      delivery.providerId === DEFAULT_COURIER_ID || courierLabel === DEFAULT_COURIER_NAME;
 
     return (
       <div key={delivery.id} className="p-4 border rounded-lg hover:bg-gray-50 space-y-3">
@@ -192,7 +197,7 @@ export default function DeliveryPortalContent() {
               <h4 className="font-semibold">
                 Order #{delivery.orderId.slice(-8).toUpperCase()}
               </h4>
-              {getStatusBadge(delivery.status)}
+              {getStatusBadge(displayStatus)}
             </div>
             <p className="text-sm text-gray-500">{delivery.packageDescription}</p>
             {delivery.externalTrackingId && (
@@ -248,7 +253,7 @@ export default function DeliveryPortalContent() {
             )}
           </div>
 
-          {delivery.status !== "delivered" && delivery.status !== "cancelled" && (
+          {displayStatus !== "delivered" && displayStatus !== "cancelled" && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -266,7 +271,7 @@ export default function DeliveryPortalContent() {
                 {DELIVERY_STATUS_UPDATE_OPTIONS.map((option) => (
                   <DropdownMenuItem
                     key={option.value}
-                    disabled={delivery.status === option.value}
+                    disabled={displayStatus === option.value}
                     onClick={() =>
                       updateDeliveryMutation.mutate({
                         deliveryId: delivery.id,
@@ -275,7 +280,7 @@ export default function DeliveryPortalContent() {
                     }
                   >
                     {option.label}
-                    {delivery.status === option.value && " ✓"}
+                    {displayStatus === option.value && " ✓"}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>

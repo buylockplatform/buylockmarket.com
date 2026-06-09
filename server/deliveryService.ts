@@ -6,6 +6,7 @@ import {
   InsertDeliveryUpdate,
   Order
 } from "@shared/schema";
+import { LEGACY_DELIVERY_STATUS_MAP } from "@shared/deliveryStatuses";
 
 // Standardized courier API interface
 export interface CourierAPIProvider {
@@ -573,7 +574,9 @@ export class DeliveryService {
       },
     };
 
-    return statusMap[providerId]?.[courierStatus] || courierStatus;
+    return statusMap[providerId]?.[courierStatus]
+      || LEGACY_DELIVERY_STATUS_MAP[courierStatus]
+      || courierStatus;
   }
 }
 

@@ -21,6 +21,7 @@ import { useLocation } from "wouter";
 import { Link } from "wouter";
 import { LocationAutocomplete } from "@/components/LocationAutocomplete";
 import type { CartItem, Product, Service, CustomerAddress } from "@shared/schema";
+import { DEFAULT_COURIER_ID, DEFAULT_COURIER_NAME } from "@shared/deliveryStatuses";
 
 interface CartItemWithDetails extends CartItem {
   product?: Product;
@@ -208,8 +209,8 @@ export default function Cart() {
         deliveryLng: deliveryLng,
         notes,
         items: orderItems,
-        courierId: selectedCourier,
-        courierName: courierQuote?.courierName,
+        courierId: DEFAULT_COURIER_ID,
+        courierName: DEFAULT_COURIER_NAME,
         estimatedDeliveryTime: courierQuote?.estimatedTime,
         deliveryFee: courierQuote?.totalCost.toString(),
       });
@@ -459,10 +460,10 @@ export default function Cart() {
       return response;
     },
     onSuccess: (result: CourierQuote) => {
-      setCourierQuote(result);
+      setCourierQuote({ ...result, courierId: DEFAULT_COURIER_ID, courierName: DEFAULT_COURIER_NAME });
       toast({
         title: "Delivery cost calculated",
-        description: `${result.courierName}: ${formatPrice(result.totalCost)} (${result.estimatedTime})`,
+        description: `${DEFAULT_COURIER_NAME}: ${formatPrice(result.totalCost)} (${result.estimatedTime})`,
       });
     },
     onError: (error: any) => {
@@ -486,9 +487,9 @@ export default function Cart() {
   });
 
   const handleCourierSelect = (courierId: string) => {
-    setSelectedCourier(courierId);
+    setSelectedCourier(DEFAULT_COURIER_ID);
     if (deliveryAddress.trim() || deliverySuburb) {
-      calculateCourierCostMutation.mutate({ courierId, location: deliveryAddress });
+      calculateCourierCostMutation.mutate({ courierId: DEFAULT_COURIER_ID, location: deliveryAddress });
     } else {
       toast({
         title: "Enter delivery address first",
@@ -574,18 +575,17 @@ export default function Cart() {
     }
   };
 
-  // Auto-select active courier (e.g. Buylock Delivery) when courier list loads
+  // Product orders always use Buylock Delivery — ignore legacy Fargo courier IDs
   useEffect(() => {
-    if (couriers.length > 0 && !selectedCourier) {
-      const active = couriers.find((c) => c.isActive) || couriers[0];
-      if (active) {
-        setSelectedCourier(active.id);
-        if (deliveryAddress.trim()) {
-          calculateCourierCostMutation.mutate({ courierId: active.id, location: deliveryAddress });
-        }
-      }
+    if (hasOnlyServices) return;
+    setSelectedCourier(DEFAULT_COURIER_ID);
+    if (deliveryAddress.trim()) {
+      calculateCourierCostMutation.mutate({
+        courierId: DEFAULT_COURIER_ID,
+        location: deliveryAddress,
+      });
     }
-  }, [couriers, selectedCourier, deliveryAddress]);
+  }, [hasOnlyServices, deliveryAddress]);
 
 
 
@@ -832,7 +832,7 @@ export default function Cart() {
                           {courierQuote ? (
                             <div className="text-right">
                               <div>{formatPrice(courierQuote.totalCost)}</div>
-                              <div className="text-xs text-gray-500">{courierQuote.courierName}</div>
+                              <div className="text-xs text-gray-500">{DEFAULT_COURIER_NAME}</div>
                             </div>
                           ) : (
                             <span className="text-amber-600">Select courier</span>
@@ -994,7 +994,7 @@ export default function Cart() {
                           ) : courierQuote ? (
                             <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                               <p className="text-sm text-green-800">
-                                <strong>Delivery Fee ({courierQuote.courierName})</strong>: {formatPrice(courierQuote.totalCost)}
+                                <strong>Delivery Fee ({DEFAULT_COURIER_NAME})</strong>: {formatPrice(courierQuote.totalCost)}
                               </p>
                               <p className="text-xs text-green-700">
                                 Distance: ~{courierQuote.estimatedDistance}km • Est. Delivery: {courierQuote.estimatedTime}
