@@ -456,7 +456,17 @@ export default function Cart() {
   const calculateTotal = () => calculateSubtotal() + (hasOnlyServices ? 0 : deliveryFee);
 
   const calculateCourierCostMutation = useMutation({
-    mutationFn: async ({ courierId, location }: { courierId: string; location: string }) => {
+    mutationFn: async ({
+      courierId,
+      location,
+      lat,
+      lng,
+    }: {
+      courierId: string;
+      location: string;
+      lat: string;
+      lng: string;
+    }) => {
       const response = await apiRequest("/api/couriers/calculate", "POST", {
         courierId,
         vendorId: primaryVendorId,
@@ -465,8 +475,8 @@ export default function Cart() {
         suburb: deliverySuburb,
         building: deliveryBuilding,
         postalCode: deliveryPostalCode,
-        deliveryLat,
-        deliveryLng,
+        deliveryLat: lat,
+        deliveryLng: lng,
         weight: calculateWeight(),
         orderSubtotal: calculateSubtotal(),
       });
@@ -502,8 +512,15 @@ export default function Cart() {
     },
   });
 
-  const requestDeliveryQuote = (location: string) => {
-    if (!deliveryLat || !deliveryLng) {
+  const requestDeliveryQuote = (
+    location: string,
+    lat?: string | null,
+    lng?: string | null
+  ) => {
+    const resolvedLat = lat ?? deliveryLat;
+    const resolvedLng = lng ?? deliveryLng;
+
+    if (!resolvedLat || !resolvedLng) {
       toast({
         title: "Select a valid address",
         description: "Choose your delivery address from the location suggestions so we can calculate road distance.",
@@ -519,7 +536,12 @@ export default function Cart() {
       });
       return;
     }
-    calculateCourierCostMutation.mutate({ courierId: DEFAULT_COURIER_ID, location });
+    calculateCourierCostMutation.mutate({
+      courierId: DEFAULT_COURIER_ID,
+      location,
+      lat: resolvedLat,
+      lng: resolvedLng,
+    });
   };
 
   const handleCourierSelect = (courierId: string) => {
@@ -532,17 +554,6 @@ export default function Cart() {
         description: "Please enter your delivery address to calculate courier costs",
         variant: "destructive",
       });
-    }
-  };
-
-  const handleAddressChange = (address: string) => {
-    setDeliveryAddress(address);
-    if (selectedCourier && address.trim()) {
-      // Debounce the calculation
-      const timeoutId = setTimeout(() => {
-        calculateCourierCostMutation.mutate({ courierId: selectedCourier, location: address });
-      }, 1000);
-      return () => clearTimeout(timeoutId);
     }
   };
 
@@ -604,10 +615,12 @@ export default function Cart() {
     setDeliverySuburb(addr.suburb || "");
     setDeliveryBuilding(addr.building || "");
     setDeliveryPostalCode(addr.postalCode || "");
-    setDeliveryLat(addr.latitude?.toString() || null);
-    setDeliveryLng(addr.longitude?.toString() || null);
-    if (selectedCourier && deliveryLat && deliveryLng) {
-      requestDeliveryQuote(addr.addressLine);
+    const lat = addr.latitude?.toString() || null;
+    const lng = addr.longitude?.toString() || null;
+    setDeliveryLat(lat);
+    setDeliveryLng(lng);
+    if (lat && lng) {
+      requestDeliveryQuote(addr.addressLine, lat, lng);
     }
   };
 
@@ -615,10 +628,21 @@ export default function Cart() {
   useEffect(() => {
     if (hasOnlyServices) return;
     setSelectedCourier(DEFAULT_COURIER_ID);
-    if (deliveryAddress.trim() && deliveryLat && deliveryLng && primaryVendorId) {
-      requestDeliveryQuote(deliveryAddress);
+  }, [hasOnlyServices]);
+
+  // Recalculate when subtotal changes (e.g. free-delivery threshold) after coords are known
+  useEffect(() => {
+    if (
+      hasOnlyServices ||
+      !deliveryAddress.trim() ||
+      !deliveryLat ||
+      !deliveryLng ||
+      !primaryVendorId
+    ) {
+      return;
     }
-  }, [hasOnlyServices, deliveryAddress, deliveryLat, deliveryLng, primaryVendorId, cartSubtotal]);
+    requestDeliveryQuote(deliveryAddress, deliveryLat, deliveryLng);
+  }, [cartSubtotal]);
 
 
 
@@ -919,8 +943,12 @@ export default function Cart() {
                             setSelectedSavedAddressId(""); // clear saved selection when typing manually
 
                             // Trigger courier cost calculation if courier is selected
-                            if (selectedCourier && location.latitude && location.longitude) {
-                              requestDeliveryQuote(location.address);
+                            if (location.latitude && location.longitude) {
+                              requestDeliveryQuote(
+                                location.address,
+                                location.latitude,
+                                location.longitude
+                              );
                             }
                           }}
                         />
