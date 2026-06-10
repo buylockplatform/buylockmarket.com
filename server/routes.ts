@@ -3556,45 +3556,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get vendor order earnings - orders with calculated payouts
+  // Get vendor order earnings - per-order breakdown with payout status
   app.get('/api/vendor/:vendorId/order-earnings', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
+      const orderEarnings = await storage.getVendorOrderEarnings(vendorId);
+      const payoutRequests = await storage.getVendorPayoutRequests(vendorId);
+      const paidOrderIds = new Set(
+        payoutRequests
+          .filter(p => ['approved', 'completed'].includes(p.status))
+          .map(p => p.orderId)
+      );
 
-      // Get all orders for this vendor that have earnings calculated
-      const orders = await storage.getVendorOrders(vendorId);
-      const orderEarnings = await storage.getVendorEarnings(vendorId);
+      const enriched = orderEarnings.map(earning => ({
+        ...earning,
+        status: paidOrderIds.has(earning.orderId) ? 'paid_out' : earning.status
+      }));
 
-      // Group earnings by order ID
-      const earningsByOrder = new Map();
-      orderEarnings.forEach(earning => {
-        if (!earningsByOrder.has(earning.orderId)) {
-          earningsByOrder.set(earning.orderId, []);
-        }
-        earningsByOrder.get(earning.orderId).push(earning);
-      });
-
-      // Filter orders that have earnings and combine with their earnings data
-      const ordersWithEarnings = orders
-        .filter(order => earningsByOrder.has(order.id))
-        .map(order => {
-          const earnings = earningsByOrder.get(order.id);
-          const totalEarnings = earnings.reduce((sum: number, earning: any) => sum + parseFloat(earning.netEarnings), 0);
-          const totalPlatformFee = earnings.reduce((sum: number, earning: any) => sum + parseFloat(earning.platformFee), 0);
-          const totalGrossAmount = earnings.reduce((sum: number, earning: any) => sum + parseFloat(earning.grossAmount), 0);
-
-          return {
-            ...order,
-            earnings: earnings,
-            totalEarnings: totalEarnings.toFixed(2),
-            totalPlatformFee: totalPlatformFee.toFixed(2),
-            totalGrossAmount: totalGrossAmount.toFixed(2),
-            earningsCount: earnings.length
-          };
-        })
-        .sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime());
-
-      res.json(ordersWithEarnings);
+      res.json(enriched);
     } catch (error) {
       console.error('Error fetching vendor order earnings:', error);
       res.status(500).json({ message: 'Failed to fetch order earnings data' });
@@ -3677,11 +3656,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Pragma': 'no-cache'
       });
 
-      // Only return pending payout requests for vendors
-      // Approved/failed requests should not show up since they're no longer actionable
       const payoutRequests = await storage.getVendorPayoutRequests(vendorId);
-      const pendingRequests = payoutRequests.filter(request => request.status === 'pending');
-      res.json(pendingRequests);
+      res.json(payoutRequests);
     } catch (error) {
       console.error('Error fetching payout requests:', error);
       res.status(500).json({ message: 'Failed to fetch payout requests' });
@@ -3905,6 +3881,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Process the payout via Paystack
+        const payoutAmount = parseFloat(request.requestedAmount);
         const transferResult = await paystackService.processVendorPayout(
           {
             businessName: vendor.businessName,
@@ -3915,48 +3892,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
             accountNumber: vendor.accountNumber!,
             accountName: vendor.accountName!
           },
-          parseFloat(request.requestedAmount),
-          `Payout to ${vendor.businessName}`
+          payoutAmount,
+          `Payout to ${vendor.businessName}`,
+          requestId
         );
 
-        // Update request status
+        // Update request status — transfer initiated successfully
         const updatedRequest = await storage.updatePayoutRequest(requestId, {
-          status: 'approved',
+          status: 'completed',
           reviewedBy: 'admin', // In production, use actual admin ID
           reviewedAt: new Date(),
           adminNotes,
           paystackTransferId: transferResult.transferId,
           paystackTransferCode: transferResult.transferCode,
-          transferStatus: 'pending'
+          transferStatus: 'success',
+          completedAt: new Date(),
+          actualPaidAmount: payoutAmount.toString()
         });
 
-        // Update vendor balances
-        await storage.updateVendorPendingBalance(request.vendorId, parseFloat(request.requestedAmount), 'subtract');
+        // Move funds from pending to paid-out (available was already reduced when request was created)
+        await storage.completeVendorPayout(request.vendorId, payoutAmount);
 
-        // Create earnings record for the order so it appears in order-earnings
+        // Link order earnings to this payout
         if (request.orderId) {
           try {
-            const payoutAmount = parseFloat(request.requestedAmount);
-            // Calculate platform fee from database settings
-            const platformFeePercent = await storage.getPlatformCommissionPercentage();
-            const platformFeePercentage = platformFeePercent / 100;
-            const platformFee = payoutAmount * (platformFeePercentage / (1 - platformFeePercentage)); // Reverse calculate from net amount
-            const grossAmount = payoutAmount + platformFee;
+            const existingEarnings = await storage.getVendorEarnings(request.vendorId);
+            const hasEarningForOrder = existingEarnings.some(e => e.orderId === request.orderId);
 
-            await storage.createVendorEarning({
-              vendorId: request.vendorId,
-              orderId: request.orderId,
-              grossAmount: grossAmount.toString(),
-              platformFee: platformFee.toString(),
-              netEarnings: payoutAmount.toString(),
-              availableDate: new Date(),
-              status: 'paid'
-            });
+            if (hasEarningForOrder) {
+              await storage.markVendorEarningsPaidOut(request.vendorId, request.orderId, requestId);
+            } else {
+              const platformFeePercent = await storage.getPlatformCommissionPercentage();
+              const platformFee = payoutAmount * (platformFeePercent / (100 - platformFeePercent));
+              const grossAmount = payoutAmount + platformFee;
 
-            console.log(`✅ Created earnings record for order ${request.orderId}: KES ${payoutAmount.toLocaleString()}`);
+              await storage.createVendorEarning({
+                vendorId: request.vendorId,
+                orderId: request.orderId,
+                grossAmount: grossAmount.toString(),
+                platformFeePercentage: platformFeePercent.toString(),
+                platformFee: platformFee.toString(),
+                netEarnings: payoutAmount.toString(),
+                availableDate: new Date(),
+                status: 'paid_out',
+                paidOutAt: new Date(),
+                payoutRequestId: requestId
+              });
+            }
+
+            console.log(`✅ Marked earnings paid for order ${request.orderId}: KES ${payoutAmount.toLocaleString()}`);
           } catch (earningsError) {
-            console.error('Failed to create earnings record:', earningsError);
-            // Don't fail the payout approval if earnings creation fails
+            console.error('Failed to update earnings record:', earningsError);
           }
         }
 
@@ -4467,24 +4453,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (event.event === 'transfer.success') {
         const transfer = event.data;
-        const payoutRequestId = transfer.metadata?.payout_request_id;
+        let payoutRequestId = transfer.metadata?.payout_request_id;
+
+        if (!payoutRequestId && transfer.transfer_code) {
+          const byCode = await storage.getPayoutRequestByTransferCode(transfer.transfer_code);
+          payoutRequestId = byCode?.id;
+        }
 
         if (payoutRequestId) {
           await storage.updatePayoutRequest(payoutRequestId, {
+            status: 'completed',
             transferStatus: 'success',
             completedAt: new Date(),
             actualPaidAmount: (transfer.amount / 100).toString() // Convert from kobo
           });
 
-          // Update vendor's total paid out
           const payoutRequest = await storage.getPayoutRequest(payoutRequestId);
           if (payoutRequest) {
             const vendor = await storage.getVendorById(payoutRequest.vendorId);
             if (vendor) {
-              const newTotalPaidOut = parseFloat(vendor.totalPaidOut || '0') + parseFloat(payoutRequest.requestedAmount.toString());
-              await storage.updateVendorTotalPaidOut(vendor.id, newTotalPaidOut);
-
-              // Send completion notification
               await sendPayoutStatusNotification(vendor, payoutRequest, 'completed');
             }
           }
@@ -4506,8 +4493,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (payoutRequest) {
             const vendor = await storage.getVendorById(payoutRequest.vendorId);
             if (vendor) {
-              // Return funds to available balance
-              await storage.updateVendorBalance(vendor.id, parseFloat(payoutRequest.requestedAmount.toString()));
+              await storage.reverseVendorPayout(
+                vendor.id,
+                parseFloat(payoutRequest.requestedAmount.toString())
+              );
             }
           }
         }
@@ -4576,41 +4565,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/admin/vendor-earnings', isAdminAuthenticated, async (req, res) => {
     try {
-      // Get all vendors
-      const vendors = await storage.getAllVendors();
+      const allVendors = await storage.getAllVendors();
       const vendorEarnings = [];
 
-      for (const vendor of vendors) {
-        const vendorOrders = await storage.getVendorOrders(vendor.id);
-        const confirmedOrders = vendorOrders.filter(order => order.status === 'customer_confirmed');
-        const pendingOrders = vendorOrders.filter(order =>
-          ['delivered', 'completed'].includes(order.status) && order.status !== 'customer_confirmed'
-        );
-        const disputedOrders = vendorOrders.filter(order => order.status === 'disputed');
-
-        const totalEarnings = confirmedOrders.reduce((sum, order) =>
-          sum + parseFloat(order.totalAmount), 0
-        );
-        const pendingBalance = pendingOrders.reduce((sum, order) =>
-          sum + parseFloat(order.totalAmount), 0
-        );
-        const availableBalance = totalEarnings * 0.8; // 80% after platform fee
+      for (const vendor of allVendors) {
+        const summary = await storage.getVendorEarningsSummary(vendor.id);
+        const payoutHistory = await storage.getVendorPayoutRequests(vendor.id);
+        const paidPayouts = payoutHistory.filter(p => ['approved', 'completed'].includes(p.status));
 
         vendorEarnings.push({
           vendorId: vendor.id,
           businessName: vendor.businessName,
-          totalEarnings,
-          availableBalance,
-          pendingBalance,
-          confirmedOrders: confirmedOrders.length,
-          pendingOrders: pendingOrders.length,
-          disputedOrders: disputedOrders.length,
-          lastPayoutDate: null, // TODO: Implement payout tracking
-          lastPayoutAmount: null
+          totalEarnings: parseFloat(vendor.totalEarnings || '0') || summary.totalEarnings,
+          availableBalance: parseFloat(vendor.availableBalance || '0'),
+          pendingBalance: parseFloat(vendor.pendingBalance || '0'),
+          totalPaidOut: parseFloat(vendor.totalPaidOut || '0'),
+          confirmedOrders: summary.confirmedOrders,
+          pendingOrders: summary.pendingOrders,
+          disputedOrders: summary.disputedOrders,
+          lastPayoutDate: paidPayouts[0]?.completedAt || paidPayouts[0]?.reviewedAt || null,
+          lastPayoutAmount: paidPayouts[0] ? parseFloat(paidPayouts[0].requestedAmount) : null
         });
       }
 
-      // Sort by total earnings, highest first
       vendorEarnings.sort((a, b) => b.totalEarnings - a.totalEarnings);
 
       res.json(vendorEarnings);

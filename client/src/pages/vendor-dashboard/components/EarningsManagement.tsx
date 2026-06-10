@@ -45,16 +45,35 @@ interface OrderEarning {
   confirmationDate?: string;
 }
 
+const parseEarningsNumber = (value: string | number | null | undefined) => {
+  const n = parseFloat(String(value ?? ''));
+  return isNaN(n) ? 0 : n;
+};
+
 interface PayoutRequest {
   id: string;
-  amount: number;
   orderId?: string;
-  requestDate: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  requestedAmount: string;
+  amount?: number;
+  status: 'pending' | 'approved' | 'processing' | 'completed' | 'failed' | 'rejected';
+  requestReason?: string;
+  adminNotes?: string;
+  paystackTransferCode?: string;
+  transferStatus?: string;
+  transferFailureReason?: string;
+  createdAt?: string;
+  requestDate?: string;
+  reviewedAt?: string;
+  completedAt?: string;
   bankAccount?: string;
   processedDate?: string;
   failureReason?: string;
 }
+
+const isPaidPayoutStatus = (status: string) => ['approved', 'completed'].includes(status);
+
+const payoutAmount = (request: PayoutRequest) =>
+  parseFloat(request.requestedAmount || String(request.amount ?? '0'));
 
 export default function EarningsManagement({ vendorId }: { vendorId: string }) {
   const { formatPrice } = useCurrency();
@@ -98,14 +117,14 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
 
   // Filter to show only orders with completed payout requests
   // Orders should move from Payout Requests tab to Order Earnings tab after payout completion
-  const completedPayoutEarnings = orderEarnings.filter((earning: OrderEarning) => {
-    // Check if there's a completed payout request for this order
-    return payoutRequests.some((request: PayoutRequest) => 
-      request.status === 'completed' && 
-      // Using amount matching as proxy until proper order-payout linkage is implemented
-      Math.abs(request.amount - earning.amount) < 0.01
-    );
-  });
+  const paidPayoutRequests = payoutRequests.filter((request: PayoutRequest) =>
+    isPaidPayoutStatus(request.status)
+  );
+
+  const completedPayoutEarnings = orderEarnings.filter((earning: OrderEarning) =>
+    earning.status === 'paid_out' ||
+    paidPayoutRequests.some((request: PayoutRequest) => request.orderId === earning.orderId)
+  );
 
   // Fetch delivered orders eligible for payout
   const { data: deliveredOrders = [], isLoading: deliveredOrdersLoading } = useQuery({
@@ -161,7 +180,16 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
     );
   }
 
-  const earningsData: EarningsData = earnings || {
+  const earningsData: EarningsData = earnings ? {
+    totalEarnings: parseEarningsNumber(earnings.totalEarnings),
+    availableBalance: parseEarningsNumber(earnings.availableBalance),
+    pendingBalance: parseEarningsNumber(earnings.pendingBalance),
+    confirmedOrders: parseEarningsNumber((earnings as any).confirmedOrders),
+    pendingOrders: parseEarningsNumber((earnings as any).pendingOrders),
+    disputedOrders: parseEarningsNumber((earnings as any).disputedOrders),
+    lastPayoutDate: (earnings as any).lastPayoutDate,
+    lastPayoutAmount: parseEarningsNumber((earnings as any).lastPayoutAmount),
+  } : {
     totalEarnings: 0,
     availableBalance: 0,
     pendingBalance: 0,
@@ -371,10 +399,11 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                           {formatPrice(earning.amount)}
                         </p>
                         <Badge 
-                          variant={earning.status === 'confirmed' ? 'default' : 
+                          variant={earning.status === 'paid_out' ? 'default' :
+                                 earning.status === 'confirmed' ? 'default' : 
                                  earning.status === 'pending' ? 'secondary' : 'destructive'}
                         >
-                          {earning.status}
+                          {earning.status === 'paid_out' ? 'paid out' : earning.status}
                         </Badge>
                         <p className="text-xs text-gray-500 mt-1">
                           {safeDate(earning.orderDate || earning.confirmationDate)}
@@ -414,7 +443,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                   deliveredOrders.map((order: any) => {
                     // Check if this order already has a pending payout request
                     const hasPendingPayout = payoutRequests.some((request: PayoutRequest) => 
-                      (request.status === 'pending' || request.status === 'processing') && 
+                      (request.status === 'pending' || request.status === 'processing' || request.status === 'approved') && 
                       request.orderId === order.id
                     );
                     
@@ -521,15 +550,20 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                           {safeMoney(request.amount || (request as any).requestedAmount)}
                         </p>
                         <Badge 
-                          variant={request.status === 'completed' ? 'default' : 
+                          variant={isPaidPayoutStatus(request.status) ? 'default' : 
                                  request.status === 'pending' ? 'secondary' : 
                                  request.status === 'processing' ? 'secondary' : 'destructive'}
                         >
                           {request.status}
                         </Badge>
-                        {request.failureReason && (
+                        {request.paystackTransferCode && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Transfer: {request.paystackTransferCode}
+                          </p>
+                        )}
+                        {(request.transferFailureReason || request.failureReason) && (
                           <p className="text-xs text-red-500 mt-1">
-                            {request.failureReason}
+                            {request.transferFailureReason || request.failureReason}
                           </p>
                         )}
                       </div>

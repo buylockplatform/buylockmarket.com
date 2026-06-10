@@ -131,6 +131,9 @@ export interface IStorage {
   getVendorEarningsHistory(vendorId: string): Promise<VendorEarning[]>;
   updateVendorBalance(vendorId: string, amount: number): Promise<void>;
   updateVendorPendingBalance(vendorId: string, amount: number, operation: 'add' | 'subtract'): Promise<void>;
+  completeVendorPayout(vendorId: string, amount: number): Promise<void>;
+  reverseVendorPayout(vendorId: string, amount: number): Promise<void>;
+  markVendorEarningsPaidOut(vendorId: string, orderId: string, payoutRequestId: string): Promise<void>;
   updateVendorTotalPaidOut(vendorId: string, totalAmount: number): Promise<void>;
 
   // Payout Request operations
@@ -2466,9 +2469,10 @@ export class DatabaseStorage implements IStorage {
     // Calculate real-time earnings from orders
     const vendorOrders = await this.getVendorOrders(vendorId);
 
-    const confirmedOrders = vendorOrders.filter(order => order.status === 'customer_confirmed');
+    const confirmedStatuses = ['customer_confirmed', 'fulfilled', 'delivered', 'completed'];
+    const confirmedOrders = vendorOrders.filter(order => confirmedStatuses.includes(order.status));
     const pendingOrders = vendorOrders.filter(order =>
-      ['delivered', 'completed'].includes(order.status) && order.status !== 'customer_confirmed'
+      ['processing', 'ready_for_pickup', 'out_for_delivery', 'shipped'].includes(order.status)
     );
     const disputedOrders = vendorOrders.filter(order => order.status === 'disputed');
 
@@ -2488,7 +2492,7 @@ export class DatabaseStorage implements IStorage {
       .from(payoutRequests)
       .where(and(
         eq(payoutRequests.vendorId, vendorId),
-        eq(payoutRequests.status, 'completed')
+        sql`${payoutRequests.status} IN ('approved', 'completed')`
       ));
 
     const totalPayouts = payoutRequestsList.reduce((sum, payout) =>
@@ -2522,12 +2526,10 @@ export class DatabaseStorage implements IStorage {
       const itemsText = orderItems.map(item => `${item.name} (${item.quantity}x)`).join(', ');
 
       let status = 'pending';
-      if (order.status === 'customer_confirmed') {
+      if (['customer_confirmed', 'fulfilled', 'delivered', 'completed'].includes(order.status)) {
         status = 'confirmed';
       } else if (order.status === 'disputed') {
         status = 'disputed';
-      } else if (['delivered', 'completed'].includes(order.status)) {
-        status = 'pending';
       }
 
       orderEarnings.push({
@@ -2604,6 +2606,40 @@ export class DatabaseStorage implements IStorage {
         availableBalance: sql`COALESCE(${vendors.availableBalance}, 0) - ${adjustment}`
       })
       .where(eq(vendors.id, vendorId));
+  }
+
+  async completeVendorPayout(vendorId: string, amount: number): Promise<void> {
+    await db
+      .update(vendors)
+      .set({
+        pendingBalance: sql`GREATEST(0, COALESCE(${vendors.pendingBalance}, 0) - ${amount})`,
+        totalPaidOut: sql`COALESCE(${vendors.totalPaidOut}, 0) + ${amount}`
+      })
+      .where(eq(vendors.id, vendorId));
+  }
+
+  async reverseVendorPayout(vendorId: string, amount: number): Promise<void> {
+    await db
+      .update(vendors)
+      .set({
+        availableBalance: sql`COALESCE(${vendors.availableBalance}, 0) + ${amount}`,
+        totalPaidOut: sql`GREATEST(0, COALESCE(${vendors.totalPaidOut}, 0) - ${amount})`
+      })
+      .where(eq(vendors.id, vendorId));
+  }
+
+  async markVendorEarningsPaidOut(vendorId: string, orderId: string, payoutRequestId: string): Promise<void> {
+    await db
+      .update(vendorEarnings)
+      .set({
+        status: 'paid_out',
+        paidOutAt: new Date(),
+        payoutRequestId
+      })
+      .where(and(
+        eq(vendorEarnings.vendorId, vendorId),
+        eq(vendorEarnings.orderId, orderId)
+      ));
   }
 
   async updateVendorTotalPaidOut(vendorId: string, totalAmount: number): Promise<void> {

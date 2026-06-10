@@ -285,7 +285,7 @@ export class PaystackService {
     bankCode?: string;
     accountNumber: string;
     accountName: string;
-  }, amount: number, reason?: string): Promise<{ transferId: string; transferCode: string }> {
+  }, amount: number, reason?: string, payoutRequestId?: string): Promise<{ transferId: string; transferCode: string }> {
     // Check if we're in demo mode (development environment)
     const isDemoMode = process.env.NODE_ENV === 'development' || process.env.PAYSTACK_DEMO_MODE === 'true';
     
@@ -344,12 +344,13 @@ export class PaystackService {
     const recipient = await this.createTransferRecipient(recipientData);
 
     // Initiate transfer
-    const transferData: PaystackTransferData = {
+    const transferData: PaystackTransferData & { metadata?: Record<string, any> } = {
       source: 'balance',
       amount: this.kesToKobo(amount),
       recipient: recipient.recipient_code,
       reason: reason || `Payout to ${vendor.businessName}`,
-      currency: 'KES'
+      currency: 'KES',
+      ...(payoutRequestId ? { metadata: { payout_request_id: payoutRequestId } } : {})
     };
 
     const transfer = await this.initiateTransfer(transferData);
