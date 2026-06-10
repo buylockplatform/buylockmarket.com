@@ -250,7 +250,7 @@ export default function LogisticsSettings() {
             />
           </SettingRow>
 
-          <SettingRow label="Free Delivery Threshold (KSh)" hint="Orders above this amount get free delivery">
+          <SettingRow label="Free Delivery Threshold (KSh)" hint="Reserved for future promotions — delivery is currently charged for all orders using the distance formula below">
             <Input
               id="free_delivery_threshold"
               type="number"

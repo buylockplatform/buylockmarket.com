@@ -269,21 +269,15 @@ export async function calculateDeliveryQuote(
     fee *= weightMultiplier;
   }
 
-  baseBreakdown.subtotalBeforeFreeDelivery = Math.round(fee);
-
-  let isFreeDelivery = false;
-  if (orderSubtotal >= settings.freeDeliveryThreshold && settings.freeDeliveryThreshold > 0) {
-    fee = 0;
-    isFreeDelivery = true;
-    baseBreakdown.freeDeliveryApplied = true;
-  }
+  const calculatedFee = Math.max(Math.round(fee), settings.baseDeliveryFee);
+  baseBreakdown.subtotalBeforeFreeDelivery = calculatedFee;
 
   return {
     success: true,
     distanceKm,
     distanceMethod: method,
-    deliveryFee: Math.round(fee),
-    isFreeDelivery,
+    deliveryFee: calculatedFee,
+    isFreeDelivery: false,
     withinRadius: true,
     maxRadiusKm: settings.maxDeliveryRadiusKm,
     estimatedDurationMinutes: durationMinutes,

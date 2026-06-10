@@ -440,7 +440,7 @@ export default function Checkout() {
                           <span className="text-muted-foreground">Calculating…</span>
                         ) : deliveryQuote?.success && distanceKm !== null ? (
                           <div className="text-right">
-                            <p>{deliveryQuote.isFreeDelivery ? "Free" : formatPrice(deliveryFee)}</p>
+                            <p>{formatPrice(deliveryFee)}</p>
                             <p className="text-[10px] text-muted-foreground">
                               ({distanceKm.toFixed(1)} km {deliveryQuote.distanceMethod === "osrm" ? "by road" : "estimated"})
                             </p>

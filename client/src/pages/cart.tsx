@@ -452,8 +452,8 @@ export default function Cart() {
     }, 1); // Minimum 1kg
   };
 
-  const deliveryFee = courierQuote ? courierQuote.totalCost : (hasOnlyServices ? 0 : 0);
-  const calculateTotal = () => calculateSubtotal() + (hasOnlyServices ? 0 : deliveryFee);
+  const deliveryFee = hasOnlyServices ? 0 : (courierQuote?.totalCost ?? null);
+  const calculateTotal = () => calculateSubtotal() + (typeof deliveryFee === "number" ? deliveryFee : 0);
 
   const calculateCourierCostMutation = useMutation({
     mutationFn: async ({
@@ -486,10 +486,8 @@ export default function Cart() {
       setCourierQuote({ ...result, courierId: DEFAULT_COURIER_ID, courierName: DEFAULT_COURIER_NAME });
       const distanceLabel = result.distanceMethod === "osrm" ? "road" : "estimated";
       toast({
-        title: result.isFreeDelivery ? "Free delivery applied" : "Delivery cost calculated",
-        description: result.isFreeDelivery
-          ? "Your order qualifies for free delivery."
-          : `${DEFAULT_COURIER_NAME}: ${formatPrice(result.totalCost)} (${result.estimatedDistance.toFixed(1)}km ${distanceLabel}, ${result.estimatedTime})`,
+        title: "Delivery cost calculated",
+        description: `${DEFAULT_COURIER_NAME}: ${formatPrice(result.totalCost)} (${result.estimatedDistance.toFixed(1)}km ${distanceLabel}, ${result.estimatedTime})`,
       });
     },
     onError: (error: any) => {
