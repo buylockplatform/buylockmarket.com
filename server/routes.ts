@@ -3,9 +3,11 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { appointments } from "@shared/schema";
 import { db } from "./db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, inArray } from "drizzle-orm";
+import { deviceTokens } from "@shared/schema";
+import { sendPushNotification, sendMulticastPushNotification } from "./firebaseAdmin";
 import { getSession } from "./replitAuth";
-import { sendVendorAccountUnderReviewNotification, sendVendorAccountApprovedNotification, sendVendorPasswordResetEmail, sendUserPasswordResetEmail } from "./emailService";
+import { sendVendorAccountUnderReviewNotification, sendVendorAccountApprovedNotification, sendVendorPasswordResetEmail, sendUserPasswordResetEmail, sendAdminCustomerMessage } from "./emailService";
 // Mock vendorEmailService
 const vendorEmailService = {
   sendPayoutRequestEmail: async (data: any) => {},
@@ -5607,10 +5609,177 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      res.json(user);
+
+      const { passwordHash, ...userData } = user;
+      const orders = await storage.getOrdersByUser(req.params.id);
+      const totalSpent = orders.reduce((sum, order) => {
+        const amount = typeof order.totalAmount === "number"
+          ? order.totalAmount
+          : parseFloat(String(order.totalAmount || 0));
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0);
+
+      const completedOrders = orders.filter(
+        (order) => order.status === "completed" || order.status === "fulfilled"
+      ).length;
+
+      res.json({
+        ...userData,
+        stats: {
+          totalOrders: orders.length,
+          completedOrders,
+          totalSpent,
+        },
+        recentOrders: orders.slice(0, 10).map((order) => ({
+          id: order.id,
+          status: order.status,
+          totalAmount: order.totalAmount,
+          vendorName: (order as any).vendorName || null,
+          createdAt: order.createdAt,
+          orderType: (order as any).orderType || null,
+        })),
+      });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  app.patch('/api/admin/users/:id', async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const {
+        firstName,
+        lastName,
+        email,
+        phone,
+        address,
+        city,
+        suburb,
+        building,
+        postalCode,
+        country,
+      } = req.body;
+
+      if (email && email !== user.email) {
+        const existingUser = await storage.getUserByEmail(email.toLowerCase().trim());
+        if (existingUser && existingUser.id !== user.id) {
+          return res.status(400).json({ message: "Another user already uses this email" });
+        }
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (firstName !== undefined) updates.firstName = firstName;
+      if (lastName !== undefined) updates.lastName = lastName;
+      if (email !== undefined) updates.email = email.toLowerCase().trim();
+      if (phone !== undefined) updates.phone = phone;
+      if (address !== undefined) updates.address = address;
+      if (city !== undefined) updates.city = city;
+      if (suburb !== undefined) updates.suburb = suburb;
+      if (building !== undefined) updates.building = building;
+      if (postalCode !== undefined) updates.postalCode = postalCode;
+      if (country !== undefined) updates.country = country;
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
+      }
+
+      const updatedUser = await storage.updateUser(req.params.id, updates);
+      const { passwordHash, ...userData } = updatedUser;
+      res.json(userData);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.post('/api/admin/users/:id/message', async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { subject, message, sendEmail = true, sendPush = true } = req.body;
+      if (!subject?.trim() || !message?.trim()) {
+        return res.status(400).json({ message: "Subject and message are required" });
+      }
+
+      const userName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Customer";
+      const results: { email: boolean; push: boolean; pushDevices: number } = {
+        email: false,
+        push: false,
+        pushDevices: 0,
+      };
+
+      if (sendEmail) {
+        if (!user.email) {
+          return res.status(400).json({ message: "User has no email address on file" });
+        }
+        results.email = await sendAdminCustomerMessage({
+          userEmail: user.email,
+          userName,
+          subject: subject.trim(),
+          message: message.trim(),
+        });
+      }
+
+      if (sendPush) {
+        const tokens = new Set<string>();
+        if (user.fcmToken) {
+          tokens.add(user.fcmToken);
+        }
+
+        const deviceTokenRows = await db
+          .select({ token: deviceTokens.token })
+          .from(deviceTokens)
+          .where(and(eq(deviceTokens.userType, "user"), eq(deviceTokens.userId, user.id)));
+
+        for (const row of deviceTokenRows) {
+          if (row.token) tokens.add(row.token);
+        }
+
+        const tokenList = Array.from(tokens);
+        results.pushDevices = tokenList.length;
+
+        if (tokenList.length === 1) {
+          results.push = await sendPushNotification(tokenList[0], {
+            title: subject.trim(),
+            body: message.trim(),
+          });
+        } else if (tokenList.length > 1) {
+          const pushResult = await sendMulticastPushNotification(
+            tokenList,
+            subject.trim(),
+            message.trim()
+          );
+          results.push = pushResult.successCount > 0;
+
+          if (pushResult.failedTokens.length > 0) {
+            await db.delete(deviceTokens).where(inArray(deviceTokens.token, pushResult.failedTokens));
+          }
+        }
+      }
+
+      if ((sendEmail && !results.email) && (sendPush && !results.push)) {
+        return res.status(500).json({
+          message: "Failed to deliver message via selected channels",
+          results,
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Message sent successfully",
+        results,
+      });
+    } catch (error) {
+      console.error("Error sending user message:", error);
+      res.status(500).json({ message: "Failed to send message" });
     }
   });
 
@@ -5637,7 +5806,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!vendor) {
         return res.status(404).json({ message: "Vendor not found" });
       }
-      res.json(vendor);
+
+      const { passwordHash, ...vendorData } = vendor;
+      const [vendorProducts, vendorServices, vendorOrders, payoutRequestsList] = await Promise.all([
+        storage.getVendorProducts(req.params.id),
+        storage.getVendorServices(req.params.id),
+        storage.getOrdersByVendor(req.params.id),
+        storage.getVendorPayoutRequests(req.params.id),
+      ]);
+
+      const totalRevenue = vendorOrders.reduce((sum, order) => {
+        const amount = typeof order.totalAmount === "number"
+          ? order.totalAmount
+          : parseFloat(String(order.totalAmount || 0));
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0);
+
+      const completedOrders = vendorOrders.filter(
+        (order) => order.status === "completed" || order.status === "fulfilled"
+      ).length;
+
+      res.json({
+        ...vendorData,
+        stats: {
+          totalProducts: vendorProducts.length,
+          totalServices: vendorServices.length,
+          totalOrders: vendorOrders.length,
+          completedOrders,
+          totalRevenue,
+          totalEarnings: parseFloat(vendor.totalEarnings?.toString() || "0"),
+          availableBalance: parseFloat(vendor.availableBalance?.toString() || "0"),
+          pendingBalance: parseFloat(vendor.pendingBalance?.toString() || "0"),
+          totalPaidOut: parseFloat(vendor.totalPaidOut?.toString() || "0"),
+        },
+        recentOrders: vendorOrders.slice(0, 25).map((order) => ({
+          id: order.id,
+          status: order.status,
+          totalAmount: order.totalAmount,
+          paymentStatus: order.paymentStatus,
+          orderType: (order as any).orderType || null,
+          customerName: (order as any).userName?.trim() || "Customer",
+          customerEmail: (order as any).userEmail || null,
+          createdAt: order.createdAt,
+        })),
+        payoutRequests: payoutRequestsList.map((request) => ({
+          id: request.id,
+          requestedAmount: request.requestedAmount,
+          availableBalance: request.availableBalance,
+          status: request.status,
+          requestReason: request.requestReason,
+          adminNotes: request.adminNotes,
+          createdAt: request.createdAt,
+          reviewedAt: request.reviewedAt,
+        })),
+        documents: [
+          {
+            type: "National ID",
+            documentType: "nationalId",
+            number: vendor.nationalIdNumber,
+            url: vendor.nationalIdUrl,
+            uploaded: !!vendor.nationalIdUrl,
+          },
+          ...(vendor.taxPinNumber || vendor.taxCertificateUrl
+            ? [{
+                type: "Tax Certificate",
+                documentType: "taxCertificate",
+                number: vendor.taxPinNumber,
+                url: vendor.taxCertificateUrl,
+                uploaded: !!vendor.taxCertificateUrl,
+              }]
+            : []),
+        ],
+      });
     } catch (error) {
       console.error("Error fetching vendor:", error);
       res.status(500).json({ message: "Failed to fetch vendor" });

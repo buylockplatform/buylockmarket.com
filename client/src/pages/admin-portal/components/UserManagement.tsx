@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AddUserModal } from "./AddUserModal";
+import { ViewUserModal } from "./ViewUserModal";
+import { EditUserModal } from "./EditUserModal";
+import { MessageUserModal } from "./MessageUserModal";
 
 interface User {
   id: string;
@@ -31,16 +34,38 @@ interface User {
   updatedAt: string;
 }
 
+type UserAction = "view" | "edit" | "message";
+
 export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("recent");
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [activeAction, setActiveAction] = useState<UserAction | null>(null);
+
+  const openUserAction = (user: User, action: UserAction) => {
+    setSelectedUser(user);
+    setActiveAction(action);
+  };
+
+  const closeUserAction = () => {
+    setActiveAction(null);
+    setSelectedUser(null);
+  };
 
   // Fetch real users from API
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ['/api/admin/users', searchTerm],
     retry: false,
   });
+
+  const switchAction = (userId: string, action: UserAction) => {
+    const user = users.find((u) => u.id === userId) || selectedUser;
+    if (user) {
+      setSelectedUser(user);
+      setActiveAction(action);
+    }
+  };
 
   const filteredUsers = users.filter((user: User) => {
     const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
@@ -219,15 +244,15 @@ export default function UserManagement() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openUserAction(user, "view")}>
                             <Eye className="w-4 h-4 mr-2" />
                             View Profile
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openUserAction(user, "edit")}>
                             <Edit className="w-4 h-4 mr-2" />
                             Edit User
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openUserAction(user, "message")}>
                             <Mail className="w-4 h-4 mr-2" />
                             Send Message
                           </DropdownMenuItem>
@@ -252,6 +277,32 @@ export default function UserManagement() {
       <AddUserModal 
         isOpen={showAddUserModal}
         onClose={() => setShowAddUserModal(false)}
+      />
+
+      <ViewUserModal
+        userId={selectedUser?.id ?? null}
+        isOpen={activeAction === "view"}
+        onClose={closeUserAction}
+        onEdit={(userId) => switchAction(userId, "edit")}
+        onMessage={(userId) => switchAction(userId, "message")}
+      />
+
+      <EditUserModal
+        userId={selectedUser?.id ?? null}
+        isOpen={activeAction === "edit"}
+        onClose={closeUserAction}
+      />
+
+      <MessageUserModal
+        userId={selectedUser?.id ?? null}
+        userName={
+          selectedUser
+            ? `${selectedUser.firstName || ""} ${selectedUser.lastName || ""}`.trim() || "Customer"
+            : "Customer"
+        }
+        userEmail={selectedUser?.email}
+        isOpen={activeAction === "message"}
+        onClose={closeUserAction}
       />
     </div>
   );

@@ -89,6 +89,7 @@ function Router() {
       
       {/* Admin portal routes */}
       <Route path="/admin-portal/login" component={AdminLogin} />
+      <Route path="/admin-portal/dashboard/vendors/:vendorId" component={AdminDashboard} />
       <Route path="/admin-portal/dashboard/:section" component={AdminDashboard} />
       <Route path="/admin-portal/dashboard" component={AdminDashboard} />
       <Route path="/admin-portal" component={AdminPortalLanding} />

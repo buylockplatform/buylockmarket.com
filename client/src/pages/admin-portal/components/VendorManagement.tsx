@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -57,10 +58,6 @@ interface Vendor {
   verifiedBy?: string;
   createdAt: string;
   updatedAt: string;
-}
-
-interface VendorManagementProps {
-  onViewVendor?: (vendorId: string) => void;
 }
 
 // ─── Structured rejection reasons ────────────────────────────────────────────
@@ -281,7 +278,8 @@ function KycPanel({ vendor }: { vendor: Vendor }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function VendorManagement({ onViewVendor }: VendorManagementProps) {
+export default function VendorManagement() {
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddVendorModal, setShowAddVendorModal] = useState(false);
   const [rejectionTarget, setRejectionTarget] = useState<Vendor | null>(null);
@@ -499,7 +497,7 @@ export default function VendorManagement({ onViewVendor }: VendorManagementProps
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => onViewVendor?.(vendor.id)}>
+                          <DropdownMenuItem onClick={() => setLocation(`/admin-portal/dashboard/vendors/${vendor.id}`)}>
                             <Eye className="w-4 h-4 mr-2" /> View Profile
                           </DropdownMenuItem>
 

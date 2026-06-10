@@ -703,6 +703,66 @@ export async function sendVendorPasswordResetEmail(data: {
   }
 }
 
+export async function sendAdminCustomerMessage(data: {
+  userEmail: string;
+  userName: string;
+  subject: string;
+  message: string;
+}): Promise<boolean> {
+  try {
+    const escapedMessage = data.message
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\n/g, "<br>");
+
+    await transporter.sendMail({
+      from: `"BuyLock Support" <${process.env.GMAIL_USER}>`,
+      to: data.userEmail,
+      subject: data.subject,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+        <body style="margin:0;padding:0;background-color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;padding:40px 0;">
+            <tr><td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.07);">
+                <tr>
+                  <td style="background:#FF4605;padding:32px 40px;text-align:center;">
+                    <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">🛒 BuyLock</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:40px;">
+                    <h2 style="margin:0 0 16px;color:#1f2937;font-size:20px;">${data.subject}</h2>
+                    <p style="color:#6b7280;line-height:1.6;margin:0 0 8px;">
+                      Hi <strong>${data.userName}</strong>,
+                    </p>
+                    <p style="color:#374151;line-height:1.7;margin:0;">${escapedMessage}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+                    <p style="margin:0;color:#9ca3af;font-size:12px;">© ${new Date().getFullYear()} BuyLock Marketplace. This message was sent by BuyLock support.</p>
+                  </td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+        </body>
+        </html>
+      `,
+      text: `Hi ${data.userName},\n\n${data.message}\n\n— BuyLock Support`,
+    });
+    console.log(`Admin customer message sent to ${data.userEmail}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending admin customer message:", error);
+    return false;
+  }
+}
+
 export async function testEmailConnection(): Promise<boolean> {
   try {
     await transporter.verify();

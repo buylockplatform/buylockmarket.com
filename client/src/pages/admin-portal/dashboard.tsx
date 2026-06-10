@@ -58,16 +58,15 @@ interface AdminData {
 
 export default function AdminDashboard() {
   const [location, setLocation] = useLocation();
-  const params = useParams<{ section?: string }>();
-  const activeSection = params.section || "dashboard";
+  const params = useParams<{ section?: string; vendorId?: string }>();
+  const isVendorDetail = Boolean(params.vendorId);
+  const activeSection = isVendorDetail ? "vendors" : (params.section || "dashboard");
 
   // Keep a setter that also updates the URL
   const navigateTo = (section: string) => {
     setLocation(`/admin-portal/dashboard/${section}`);
   };
   const [adminData, setAdminData] = useState<AdminData | null>(null);
-  const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
-  const [showVendorView, setShowVendorView] = useState(false);
 
   // Fetch real admin statistics
   const { data: realStats } = useQuery<{
@@ -200,12 +199,13 @@ export default function AdminDashboard() {
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 capitalize">
-                {activeSection}
+                {isVendorDetail ? "Vendor Detail" : activeSection}
               </h2>
               <p className="text-gray-600">
                 {activeSection === "dashboard" && "Overview of platform performance and metrics"}
                 {activeSection === "users" && "Manage customer accounts and user activity"}
-                {activeSection === "vendors" && "Manage vendor accounts and verification"}
+                {activeSection === "vendors" && !isVendorDetail && "Manage vendor accounts and verification"}
+                {activeSection === "vendors" && isVendorDetail && "View vendor profile, orders, documents, and account controls"}
                 {activeSection === "vendor-requests" && "Review vendor applications and requests"}
                 {activeSection === "appointments" && "Monitor service bookings and appointment status"}
                 {activeSection === "products" && "Monitor and manage all products in the marketplace"}
@@ -396,22 +396,12 @@ export default function AdminDashboard() {
 
           {activeSection === "users" && <UserManagement />}
 
-          {activeSection === "vendors" && !showVendorView && (
-            <VendorManagement 
-              onViewVendor={(vendorId) => {
-                setSelectedVendorId(vendorId);
-                setShowVendorView(true);
-              }}
-            />
-          )}
+          {activeSection === "vendors" && !isVendorDetail && <VendorManagement />}
 
-          {activeSection === "vendors" && showVendorView && (
-            <VendorView 
-              vendorId={selectedVendorId || undefined}
-              onBack={() => {
-                setShowVendorView(false);
-                setSelectedVendorId(null);
-              }}
+          {activeSection === "vendors" && isVendorDetail && params.vendorId && (
+            <VendorView
+              vendorId={params.vendorId}
+              onBack={() => setLocation("/admin-portal/dashboard/vendors")}
             />
           )}
 
