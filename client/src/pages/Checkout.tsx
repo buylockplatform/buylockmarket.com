@@ -23,18 +23,13 @@ interface CartItemWithDetails extends CartItem {
   service?: Service;
 }
 
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+interface DeliveryQuote {
+  success: boolean;
+  distanceKm: number;
+  distanceMethod: "osrm" | "haversine";
+  deliveryFee: number;
+  isFreeDelivery: boolean;
+  error?: string;
 }
 
 export default function Checkout() {
@@ -93,26 +88,6 @@ export default function Checkout() {
     return groupedCart.find((g) => g.vendorId === activeVendorId);
   }, [groupedCart, activeVendorId]);
 
-  // Proximity delivery cost calculation
-  const distanceKm = useMemo(() => {
-    if (!selectedAddress || !activeVendor) return null;
-    const vendorLat = parseFloat(activeVendor.businessLatitude);
-    const vendorLng = parseFloat(activeVendor.businessLongitude);
-    if (isNaN(vendorLat) || isNaN(vendorLng)) return null;
-    return haversineDistance(
-      selectedAddress.latitude,
-      selectedAddress.longitude,
-      vendorLat,
-      vendorLng
-    );
-  }, [selectedAddress, activeVendor]);
-
-  const deliveryFee = useMemo(() => {
-    if (distanceKm === null) return 150; // default base fee
-    const fee = 150 + Math.round(distanceKm * 50);
-    return Math.min(fee, 2500); // capped at KES 2500
-  }, [distanceKm]);
-
   const subtotal = useMemo(() => {
     if (!selectedVendorCart) return 0;
     return selectedVendorCart.items.reduce((sum, item) => {
@@ -121,10 +96,38 @@ export default function Checkout() {
     }, 0);
   }, [selectedVendorCart]);
 
+  const isServiceOnly = selectedVendorCart?.items.every((i) => !i.productId) ?? false;
+
+  const { data: deliveryQuote, isLoading: quoteLoading, error: quoteError } = useQuery<DeliveryQuote>({
+    queryKey: [
+      "/api/logistics/quote",
+      activeVendorId,
+      selectedAddress?.latitude,
+      selectedAddress?.longitude,
+      subtotal,
+    ],
+    queryFn: async () => {
+      return apiRequest("/api/logistics/quote", "POST", {
+        vendorId: activeVendorId,
+        customerLat: selectedAddress!.latitude,
+        customerLng: selectedAddress!.longitude,
+        orderSubtotal: subtotal,
+      });
+    },
+    enabled:
+      !isServiceOnly &&
+      !!selectedAddress &&
+      !!activeVendorId &&
+      activeVendorId !== "unknown",
+    retry: false,
+  });
+
+  const distanceKm = deliveryQuote?.distanceKm ?? null;
+  const deliveryFee = isServiceOnly ? 0 : (deliveryQuote?.deliveryFee ?? 0);
+
   const total = useMemo(() => {
-    const isServiceOnly = selectedVendorCart?.items.every((i) => !i.productId) ?? false;
     return subtotal + (isServiceOnly ? 0 : deliveryFee);
-  }, [subtotal, deliveryFee, selectedVendorCart]);
+  }, [subtotal, deliveryFee, isServiceOnly]);
 
   // Format KES Price
   const formatPrice = (amount: number) => {
@@ -433,11 +436,19 @@ export default function Checkout() {
                         Estimated Delivery
                       </span>
                       <span className="font-medium">
-                        {distanceKm !== null ? (
+                        {quoteLoading ? (
+                          <span className="text-muted-foreground">Calculating…</span>
+                        ) : deliveryQuote?.success && distanceKm !== null ? (
                           <div className="text-right">
-                            <p>{formatPrice(deliveryFee)}</p>
-                            <p className="text-[10px] text-muted-foreground">({distanceKm.toFixed(1)} km away)</p>
+                            <p>{deliveryQuote.isFreeDelivery ? "Free" : formatPrice(deliveryFee)}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              ({distanceKm.toFixed(1)} km {deliveryQuote.distanceMethod === "osrm" ? "by road" : "estimated"})
+                            </p>
                           </div>
+                        ) : selectedAddress ? (
+                          <span className="text-red-600 text-xs text-right max-w-[160px]">
+                            {(quoteError as Error)?.message || deliveryQuote?.error || "Delivery unavailable"}
+                          </span>
                         ) : (
                           <span className="text-amber-600">Select address</span>
                         )}
@@ -455,7 +466,13 @@ export default function Checkout() {
                   <Button
                     className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold h-12 rounded-lg flex items-center justify-center gap-2"
                     onClick={() => checkoutMutation.mutate()}
-                    disabled={checkoutMutation.isPending || !selectedAddress || (!isAuthenticated && (!guestName || !guestPhone || !guestEmail))}
+                    disabled={
+                      checkoutMutation.isPending ||
+                      !selectedAddress ||
+                      quoteLoading ||
+                      (!isServiceOnly && !deliveryQuote?.success) ||
+                      (!isAuthenticated && (!guestName || !guestPhone || !guestEmail))
+                    }
                   >
                     {checkoutMutation.isPending ? (
                       <Loader2 className="w-5 h-5 animate-spin" />

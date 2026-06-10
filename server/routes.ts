@@ -34,6 +34,11 @@ import {
   resolveCourierForOrder,
 } from "./deliveryWorkflow";
 import { pushRouter } from "./pushRoutes";
+import {
+  calculateDeliveryQuote,
+  quoteDeliveryForVendor,
+  clearLogisticsSettingsCache,
+} from "./logisticsService";
 
 // Hybrid user authentication middleware (supports both sessions and JWT tokens)
 const isUserAuthenticated = async (req: any, res: any, next: any) => {
@@ -2051,29 +2056,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // ── Proximity Radius check (30km limit) ─────────────────
       const customerLat = parseFloat(req.body.guestLatitude ?? req.body.customerLat ?? req.body.deliveryLat ?? "");
       const customerLng = parseFloat(req.body.guestLongitude ?? req.body.customerLng ?? req.body.deliveryLng ?? "");
 
-      if (primaryVendorId && !isNaN(customerLat) && !isNaN(customerLng)) {
-        const vendor = await storage.getVendorById(primaryVendorId);
-        const vendorLat = parseFloat(vendor?.businessLatitude ?? "");
-        const vendorLng = parseFloat(vendor?.businessLongitude ?? "");
+      // ── Logistics settings: distance (OSRM/OSM), radius, min order, delivery fee ──
+      if (orderType === "product" && primaryVendorId && !isNaN(customerLat) && !isNaN(customerLng)) {
+        const clientDeliveryFee = parseFloat(req.body.deliveryFee) || 0;
+        const orderSubtotal = totalAmount - clientDeliveryFee;
+        const deliveryQuote = await quoteDeliveryForVendor(primaryVendorId, customerLat, customerLng, {
+          orderSubtotal,
+          weight: parseFloat(req.body.weight) || 1,
+        });
 
-        if (!isNaN(vendorLat) && !isNaN(vendorLng)) {
-          const { calculateDistance } = await import("./geoUtils");
-          const distanceKm = calculateDistance(
-            { latitude: customerLat, longitude: customerLng },
-            { latitude: vendorLat, longitude: vendorLng }
-          );
-
-          if (distanceKm > 30) {
-            return res.status(400).json({
-              message: `Your delivery address is too far from this shop (${distanceKm.toFixed(1)}km). The maximum delivery radius is 30km.`,
-              code: "OUTSIDE_RADIUS_LIMIT",
-            });
-          }
+        if (!deliveryQuote.success) {
+          return res.status(400).json({
+            message: deliveryQuote.error,
+            code: deliveryQuote.code,
+            distanceKm: deliveryQuote.distanceKm,
+            maxRadiusKm: deliveryQuote.maxRadiusKm,
+          });
         }
+
+        if (Math.abs(clientDeliveryFee - deliveryQuote.deliveryFee) > 2) {
+          return res.status(400).json({
+            message: "Delivery fee has changed based on current logistics settings. Please refresh and try again.",
+            code: "DELIVERY_FEE_MISMATCH",
+            expectedFee: deliveryQuote.deliveryFee,
+            distanceKm: deliveryQuote.distanceKm,
+          });
+        }
+
+        req.body.deliveryFee = deliveryQuote.deliveryFee.toString();
       }
 
       // ── Delivery Zone Enforcement Gate ──────────────────────────────────────
@@ -4435,6 +4448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedSetting = await storage.updatePlatformSetting(settingKey, settingValue, adminId);
+      clearLogisticsSettingsCache();
 
       res.json({
         message: 'Platform setting updated successfully',
@@ -4627,6 +4641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.setPlatformSetting(settingKey, settingValue, adminId, description);
+      clearLogisticsSettingsCache();
 
       res.json({
         message: 'Platform setting updated successfully',
@@ -5225,58 +5240,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Calculate delivery cost based on location and courier
+  // Calculate delivery cost using admin logistics settings + OSRM (OpenStreetMap) road distance
   app.post('/api/couriers/calculate', async (req, res) => {
     try {
-      const { courierId: requestedCourierId, location, city, suburb, building, postalCode, weight = 1 } = req.body;
-      const courierId = requestedCourierId === 'fargo_courier' || !requestedCourierId
-        ? DEFAULT_COURIER_ID
-        : requestedCourierId;
+      const {
+        vendorId,
+        vendorLat,
+        vendorLng,
+        deliveryLat,
+        deliveryLng,
+        customerLat,
+        customerLng,
+        location,
+        weight = 1,
+        orderSubtotal = 0,
+        express = false,
+      } = req.body;
 
-      const dbProvider = await storage.getDeliveryProviderById(courierId);
-      if (!dbProvider) {
-        return res.status(400).json({ message: "Invalid courier selected" });
+      const destLat = parseFloat(customerLat ?? deliveryLat);
+      const destLng = parseFloat(customerLng ?? deliveryLng);
+
+      if (!Number.isFinite(destLat) || !Number.isFinite(destLng)) {
+        return res.status(400).json({
+          message: "Delivery GPS coordinates are required. Please select your address from the location suggestions.",
+          code: "MISSING_COORDINATES",
+        });
       }
 
-      const baseRate = parseFloat(dbProvider.baseRate || "0");
-      const perKmRate = parseFloat(dbProvider.distanceRate || "0");
-
-      // Calculate distance based on location (simplified)
-      let estimatedDistance = 5; // Default 5km
-      const locationLower = (location || city || "").toLowerCase();
-
-      if (locationLower.includes("westlands") || locationLower.includes("karen") || locationLower.includes("runda")) {
-        estimatedDistance = 12;
-      } else if (locationLower.includes("thika") || locationLower.includes("kiambu") || locationLower.includes("machakos")) {
-        estimatedDistance = 25;
-      } else if (locationLower.includes("nakuru") || locationLower.includes("mombasa")) {
-        estimatedDistance = 150;
-      } else if (locationLower.includes("cbd") || locationLower.includes("downtown") || locationLower.includes("city center")) {
-        estimatedDistance = 3;
-      } else if (locationLower.includes("kasarani") || locationLower.includes("embakasi") || locationLower.includes("kahawa")) {
-        estimatedDistance = 8;
+      let quote;
+      if (vendorId) {
+        quote = await quoteDeliveryForVendor(vendorId, destLat, destLng, {
+          orderSubtotal: parseFloat(orderSubtotal) || 0,
+          weight: parseFloat(weight) || 1,
+          express: Boolean(express),
+        });
+      } else {
+        const vLat = parseFloat(vendorLat);
+        const vLng = parseFloat(vendorLng);
+        if (!Number.isFinite(vLat) || !Number.isFinite(vLng)) {
+          return res.status(400).json({
+            message: "Vendor location is required to calculate delivery cost.",
+            code: "MISSING_VENDOR_LOCATION",
+          });
+        }
+        quote = await calculateDeliveryQuote({
+          vendorLat: vLat,
+          vendorLng: vLng,
+          customerLat: destLat,
+          customerLng: destLng,
+          orderSubtotal: parseFloat(orderSubtotal) || 0,
+          weight: parseFloat(weight) || 1,
+          express: Boolean(express),
+        });
       }
 
-      // Weight multiplier
-      const weightMultiplier = Math.max(1, Math.ceil(weight / 5));
+      if (!quote.success) {
+        return res.status(400).json({
+          message: quote.error,
+          code: quote.code,
+          distanceKm: quote.distanceKm,
+          maxRadiusKm: quote.maxRadiusKm,
+        });
+      }
 
-      const totalCost = (baseRate + (perKmRate * estimatedDistance)) * weightMultiplier;
+      const dbProvider = await storage.getDeliveryProviderById(DEFAULT_COURIER_ID);
+      const weightMultiplier = Math.max(1, Math.ceil((parseFloat(weight) || 1) / 5));
 
       res.json({
         courierId: DEFAULT_COURIER_ID,
         courierName: DEFAULT_COURIER_NAME,
-        baseRate: baseRate,
-        distanceRate: perKmRate * estimatedDistance,
+        baseRate: quote.breakdown.baseFee,
+        distanceRate: quote.breakdown.distanceCharge,
         weightMultiplier,
-        estimatedDistance,
-        totalCost: Math.round(totalCost),
-        estimatedTime: dbProvider.estimatedDeliveryTime || "1-3 hours",
-        location
+        estimatedDistance: quote.distanceKm,
+        distanceMethod: quote.distanceMethod,
+        totalCost: quote.deliveryFee,
+        isFreeDelivery: quote.isFreeDelivery,
+        estimatedTime: quote.estimatedDurationMinutes
+          ? `~${quote.estimatedDurationMinutes} min`
+          : (dbProvider?.estimatedDeliveryTime || "1-3 hours"),
+        location,
+        breakdown: quote.breakdown,
       });
-
     } catch (error) {
       console.error("Error calculating delivery cost:", error);
       res.status(500).json({ message: "Failed to calculate delivery cost" });
+    }
+  });
+
+  app.post('/api/logistics/quote', async (req, res) => {
+    try {
+      const {
+        vendorId,
+        vendorLat,
+        vendorLng,
+        customerLat,
+        customerLng,
+        deliveryLat,
+        deliveryLng,
+        orderSubtotal = 0,
+        weight = 1,
+        express = false,
+      } = req.body;
+
+      const destLat = parseFloat(customerLat ?? deliveryLat);
+      const destLng = parseFloat(customerLng ?? deliveryLng);
+
+      if (!Number.isFinite(destLat) || !Number.isFinite(destLng)) {
+        return res.status(400).json({
+          message: "Customer coordinates are required",
+          code: "MISSING_COORDINATES",
+        });
+      }
+
+      const quote = vendorId
+        ? await quoteDeliveryForVendor(vendorId, destLat, destLng, {
+            orderSubtotal: parseFloat(orderSubtotal) || 0,
+            weight: parseFloat(weight) || 1,
+            express: Boolean(express),
+          })
+        : await calculateDeliveryQuote({
+            vendorLat: parseFloat(vendorLat),
+            vendorLng: parseFloat(vendorLng),
+            customerLat: destLat,
+            customerLng: destLng,
+            orderSubtotal: parseFloat(orderSubtotal) || 0,
+            weight: parseFloat(weight) || 1,
+            express: Boolean(express),
+          });
+
+      if (!quote.success) {
+        return res.status(400).json(quote);
+      }
+
+      res.json(quote);
+    } catch (error) {
+      console.error("Error generating logistics quote:", error);
+      res.status(500).json({ message: "Failed to generate delivery quote" });
     }
   });
 

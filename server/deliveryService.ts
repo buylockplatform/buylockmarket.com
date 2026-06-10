@@ -33,17 +33,22 @@ export interface DeliveryRequest {
   pickupSuburb?: string;
   pickupBuilding?: string;
   pickupPostalCode?: string;
+  pickupLatitude?: number;
+  pickupLongitude?: number;
   deliveryAddress: string;
   deliveryCity?: string;
   deliverySuburb?: string;
   deliveryBuilding?: string;
   deliveryPostalCode?: string;
+  deliveryLatitude?: number;
+  deliveryLongitude?: number;
   customerPhone: string;
   vendorPhone: string;
   packageDescription: string;
   specialInstructions?: string;
   estimatedWeight?: number;
   declaredValue?: number;
+  orderSubtotal?: number;
 }
 
 export interface CourierResponse {
@@ -440,18 +445,44 @@ export class BuylockDeliveryAPI implements CourierAPIProvider {
   }
 
   async requestQuote(request: DeliveryRequest): Promise<CourierQuoteResponse> {
-    // Flat base rate — actual rate is pulled from delivery_providers.baseRate in DB.
-    // Using 150 KES as the default; admin can update via Courier Configuration panel.
-    const baseRate = parseFloat(process.env.BUYLOCK_DELIVERY_BASE_RATE ?? '150');
-    const distanceRate = parseFloat(process.env.BUYLOCK_DELIVERY_DISTANCE_RATE ?? '15');
-    const estimatedAmount = baseRate + (distanceRate * 3); // Assume ~3 km average
+    const { calculateDeliveryQuote } = await import('./logisticsService');
 
+    if (
+      request.pickupLatitude != null &&
+      request.pickupLongitude != null &&
+      request.deliveryLatitude != null &&
+      request.deliveryLongitude != null
+    ) {
+      const quote = await calculateDeliveryQuote({
+        vendorLat: request.pickupLatitude,
+        vendorLng: request.pickupLongitude,
+        customerLat: request.deliveryLatitude,
+        customerLng: request.deliveryLongitude,
+        orderSubtotal: request.orderSubtotal,
+        weight: request.estimatedWeight,
+      });
+
+      if (quote.success) {
+        return {
+          success: true,
+          amount: quote.deliveryFee,
+          currency: 'KES',
+          quoteId: `BLD-${Date.now()}`,
+          estimatedDeliveryTime: new Date(
+            Date.now() + (quote.estimatedDurationMinutes ?? 180) * 60 * 1000
+          ),
+        };
+      }
+    }
+
+    const { getLogisticsSettings } = await import('./logisticsService');
+    const settings = await getLogisticsSettings();
     return {
       success: true,
-      amount: estimatedAmount,
+      amount: settings.baseDeliveryFee,
       currency: 'KES',
       quoteId: `BLD-${Date.now()}`,
-      estimatedDeliveryTime: new Date(Date.now() + 3 * 60 * 60 * 1000), // 3 hours
+      estimatedDeliveryTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
     };
   }
 }
@@ -492,6 +523,8 @@ export class DeliveryService {
       pickupSuburb: vendor?.suburb || "CBD",
       pickupBuilding: vendor?.building || undefined,
       pickupPostalCode: vendor?.postalCode || undefined,
+      pickupLatitude: vendor?.businessLatitude ? parseFloat(vendor.businessLatitude.toString()) : undefined,
+      pickupLongitude: vendor?.businessLongitude ? parseFloat(vendor.businessLongitude.toString()) : undefined,
 
       // Recipient (Customer) Info
       deliveryAddress: order.deliveryAddress || customer?.address || "No address provided",
@@ -499,6 +532,16 @@ export class DeliveryService {
       deliverySuburb: (order as any).deliverySuburb || customer?.suburb || "CBD",
       deliveryBuilding: (order as any).deliveryBuilding || customer?.building || undefined,
       deliveryPostalCode: (order as any).deliveryPostalCode || customer?.postalCode || undefined,
+      deliveryLatitude: (order as any).guestLatitude
+        ? parseFloat((order as any).guestLatitude)
+        : customer?.latitude
+        ? parseFloat(customer.latitude.toString())
+        : undefined,
+      deliveryLongitude: (order as any).guestLongitude
+        ? parseFloat((order as any).guestLongitude)
+        : customer?.longitude
+        ? parseFloat(customer.longitude.toString())
+        : undefined,
 
       customerPhone: customer?.phone || "0700000000",
       vendorPhone: vendor?.phone || "0700000001",
@@ -506,6 +549,7 @@ export class DeliveryService {
       specialInstructions: order.notes || undefined,
       estimatedWeight: 1.0,
       declaredValue: parseFloat(order.totalAmount.toString()),
+      orderSubtotal: parseFloat(order.totalAmount.toString()) - parseFloat(order.deliveryFee?.toString() || "0"),
     };
 
     return await courierAPI.createDelivery(deliveryRequest);

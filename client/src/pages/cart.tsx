@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -48,7 +48,9 @@ interface CourierQuote {
   distanceRate: number;
   weightMultiplier: number;
   estimatedDistance: number;
+  distanceMethod?: "osrm" | "haversine";
   totalCost: number;
+  isFreeDelivery?: boolean;
   estimatedTime: string;
   location: string;
 }
@@ -86,6 +88,11 @@ export default function Cart() {
   // Check if cart contains only services (hide delivery for services-only carts)
   const hasProducts = cartItems.some(item => item.product);
   const hasOnlyServices = cartItems.length > 0 && !hasProducts;
+
+  const primaryVendorId = useMemo(() => {
+    const productItem = cartItems.find((item) => item.product?.vendorId);
+    return productItem?.product?.vendorId ?? null;
+  }, [cartItems]);
 
   const { data: couriers = [] } = useQuery<Courier[]>({
     queryKey: ["/api/couriers"],
@@ -428,12 +435,14 @@ export default function Cart() {
     removeItemMutation.mutate(id);
   };
 
-  const calculateSubtotal = () => {
+  const cartSubtotal = useMemo(() => {
     return cartItems.reduce((total, item) => {
       const price = parseFloat(item.product?.price || item.service?.price || "0");
       return total + (price * (item.quantity || 1));
     }, 0);
-  };
+  }, [cartItems]);
+
+  const calculateSubtotal = () => cartSubtotal;
 
   const calculateWeight = () => {
     // Estimate weight based on items (simplified)
@@ -443,27 +452,34 @@ export default function Cart() {
     }, 1); // Minimum 1kg
   };
 
-  const deliveryFee = courierQuote ? courierQuote.totalCost : (hasOnlyServices ? 0 : 300);
+  const deliveryFee = courierQuote ? courierQuote.totalCost : (hasOnlyServices ? 0 : 0);
   const calculateTotal = () => calculateSubtotal() + (hasOnlyServices ? 0 : deliveryFee);
 
   const calculateCourierCostMutation = useMutation({
     mutationFn: async ({ courierId, location }: { courierId: string; location: string }) => {
       const response = await apiRequest("/api/couriers/calculate", "POST", {
         courierId,
+        vendorId: primaryVendorId,
         location,
         city: deliveryCity,
         suburb: deliverySuburb,
         building: deliveryBuilding,
         postalCode: deliveryPostalCode,
+        deliveryLat,
+        deliveryLng,
         weight: calculateWeight(),
+        orderSubtotal: calculateSubtotal(),
       });
       return response;
     },
     onSuccess: (result: CourierQuote) => {
       setCourierQuote({ ...result, courierId: DEFAULT_COURIER_ID, courierName: DEFAULT_COURIER_NAME });
+      const distanceLabel = result.distanceMethod === "osrm" ? "road" : "estimated";
       toast({
-        title: "Delivery cost calculated",
-        description: `${DEFAULT_COURIER_NAME}: ${formatPrice(result.totalCost)} (${result.estimatedTime})`,
+        title: result.isFreeDelivery ? "Free delivery applied" : "Delivery cost calculated",
+        description: result.isFreeDelivery
+          ? "Your order qualifies for free delivery."
+          : `${DEFAULT_COURIER_NAME}: ${formatPrice(result.totalCost)} (${result.estimatedDistance.toFixed(1)}km ${distanceLabel}, ${result.estimatedTime})`,
       });
     },
     onError: (error: any) => {
@@ -486,10 +502,30 @@ export default function Cart() {
     },
   });
 
+  const requestDeliveryQuote = (location: string) => {
+    if (!deliveryLat || !deliveryLng) {
+      toast({
+        title: "Select a valid address",
+        description: "Choose your delivery address from the location suggestions so we can calculate road distance.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!primaryVendorId) {
+      toast({
+        title: "Vendor location unavailable",
+        description: "Could not determine the shop location for this cart.",
+        variant: "destructive",
+      });
+      return;
+    }
+    calculateCourierCostMutation.mutate({ courierId: DEFAULT_COURIER_ID, location });
+  };
+
   const handleCourierSelect = (courierId: string) => {
     setSelectedCourier(DEFAULT_COURIER_ID);
     if (deliveryAddress.trim() || deliverySuburb) {
-      calculateCourierCostMutation.mutate({ courierId: DEFAULT_COURIER_ID, location: deliveryAddress });
+      requestDeliveryQuote(deliveryAddress);
     } else {
       toast({
         title: "Enter delivery address first",
@@ -570,8 +606,8 @@ export default function Cart() {
     setDeliveryPostalCode(addr.postalCode || "");
     setDeliveryLat(addr.latitude?.toString() || null);
     setDeliveryLng(addr.longitude?.toString() || null);
-    if (selectedCourier) {
-      calculateCourierCostMutation.mutate({ courierId: selectedCourier, location: addr.addressLine });
+    if (selectedCourier && deliveryLat && deliveryLng) {
+      requestDeliveryQuote(addr.addressLine);
     }
   };
 
@@ -579,13 +615,10 @@ export default function Cart() {
   useEffect(() => {
     if (hasOnlyServices) return;
     setSelectedCourier(DEFAULT_COURIER_ID);
-    if (deliveryAddress.trim()) {
-      calculateCourierCostMutation.mutate({
-        courierId: DEFAULT_COURIER_ID,
-        location: deliveryAddress,
-      });
+    if (deliveryAddress.trim() && deliveryLat && deliveryLng && primaryVendorId) {
+      requestDeliveryQuote(deliveryAddress);
     }
-  }, [hasOnlyServices, deliveryAddress]);
+  }, [hasOnlyServices, deliveryAddress, deliveryLat, deliveryLng, primaryVendorId, cartSubtotal]);
 
 
 
@@ -886,11 +919,8 @@ export default function Cart() {
                             setSelectedSavedAddressId(""); // clear saved selection when typing manually
 
                             // Trigger courier cost calculation if courier is selected
-                            if (selectedCourier) {
-                              calculateCourierCostMutation.mutate({
-                                courierId: selectedCourier,
-                                location: location.address
-                              });
+                            if (selectedCourier && location.latitude && location.longitude) {
+                              requestDeliveryQuote(location.address);
                             }
                           }}
                         />
