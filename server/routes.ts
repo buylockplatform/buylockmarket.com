@@ -45,7 +45,11 @@ const isUserAuthenticated = async (req: any, res: any, next: any) => {
     if (token) {
       const decoded = verifyToken(token);
       if (decoded && decoded.type === 'access') {
-        // JWT authentication successful
+        const account = await storage.getUser(decoded.userId);
+        if (account?.isSuspended) {
+          return res.status(403).json({ message: "Your account has been suspended. Please contact support." });
+        }
+
         req.user = {
           id: decoded.userId,
           email: decoded.email,
@@ -59,6 +63,12 @@ const isUserAuthenticated = async (req: any, res: any, next: any) => {
 
     // Fall back to session authentication
     if (req.session?.userId && req.session?.user) {
+      const account = await storage.getUser(req.session.userId);
+      if (account?.isSuspended) {
+        req.session.destroy(() => {});
+        return res.status(403).json({ message: "Your account has been suspended. Please contact support." });
+      }
+
       req.user = { id: req.session.userId, ...req.session.user };
       req.authType = 'session';
       return next();
@@ -504,6 +514,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.validateUser(email.toLowerCase(), password);
       if (!user) {
         return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      if (user.isSuspended) {
+        return res.status(403).json({
+          message: "Your account has been suspended. Please contact support.",
+          reason: user.suspensionReason || undefined,
+        });
       }
 
       // Check if client wants token-based authentication
@@ -5694,6 +5711,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user:", error);
       res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.patch('/api/admin/users/:id/suspend', async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { suspended, reason } = req.body;
+      if (typeof suspended !== "boolean") {
+        return res.status(400).json({ message: "suspended (boolean) is required" });
+      }
+
+      if (suspended && !reason?.trim()) {
+        return res.status(400).json({ message: "A suspension reason is required" });
+      }
+
+      const updatedUser = await storage.updateUser(req.params.id, {
+        isSuspended: suspended,
+        suspendedAt: suspended ? new Date() : null,
+        suspensionReason: suspended ? reason.trim() : null,
+      });
+
+      const { passwordHash, ...userData } = updatedUser;
+      res.json(userData);
+    } catch (error) {
+      console.error("Error updating user suspension:", error);
+      res.status(500).json({ message: "Failed to update user suspension status" });
     }
   });
 

@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,13 +18,16 @@ import {
   Mail,
   Calendar,
   Activity,
-  Plus
+  Plus,
+  UserCheck,
+  AlertTriangle,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AddUserModal } from "./AddUserModal";
 import { ViewUserModal } from "./ViewUserModal";
 import { EditUserModal } from "./EditUserModal";
 import { MessageUserModal } from "./MessageUserModal";
+import { SuspendUserModal } from "./SuspendUserModal";
 
 interface User {
   id: string;
@@ -30,6 +35,9 @@ interface User {
   lastName?: string;
   email: string;
   profileImageUrl?: string;
+  isSuspended?: boolean;
+  suspendedAt?: string | null;
+  suspensionReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,6 +50,10 @@ export default function UserManagement() {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [activeAction, setActiveAction] = useState<UserAction | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<User | null>(null);
+
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const openUserAction = (user: User, action: UserAction) => {
     setSelectedUser(user);
@@ -66,6 +78,32 @@ export default function UserManagement() {
       setActiveAction(action);
     }
   };
+
+  const suspendUserMutation = useMutation({
+    mutationFn: async ({ userId, suspended, reason }: { userId: string; suspended: boolean; reason?: string }) => {
+      return apiRequest(`/api/admin/users/${userId}/suspend`, "PATCH", { suspended, reason });
+    },
+    onSuccess: (_, { suspended }) => {
+      toast({
+        title: suspended ? "User suspended" : "User reactivated",
+        description: suspended
+          ? "The user can no longer log in or place orders."
+          : "The user account is active again.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setSuspendTarget(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const activeUserCount = users.filter((u) => !u.isSuspended).length;
+  const suspendedUserCount = users.filter((u) => u.isSuspended).length;
 
   const filteredUsers = users.filter((user: User) => {
     const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
@@ -150,7 +188,7 @@ export default function UserManagement() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Active Users</p>
-                <p className="text-2xl font-bold text-gray-900">{users.length.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">{activeUserCount.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -178,7 +216,7 @@ export default function UserManagement() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Suspended</p>
-                <p className="text-2xl font-bold text-gray-900">0</p>
+                <p className="text-2xl font-bold text-gray-900">{suspendedUserCount.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -229,12 +267,18 @@ export default function UserManagement() {
                           <span>•</span>
                           <span>Updated: {formatDate(user.updatedAt)}</span>
                         </div>
+                        {user.isSuspended && user.suspensionReason && (
+                          <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            {user.suspensionReason}
+                          </p>
+                        )}
                       </div>
                     </div>
                     
                     <div className="flex items-center space-x-4">
-                      <Badge className="bg-green-100 text-green-800">
-                        Active
+                      <Badge className={user.isSuspended ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}>
+                        {user.isSuspended ? "Suspended" : "Active"}
                       </Badge>
                       
                       <DropdownMenu>
@@ -256,6 +300,26 @@ export default function UserManagement() {
                             <Mail className="w-4 h-4 mr-2" />
                             Send Message
                           </DropdownMenuItem>
+                          {user.isSuspended ? (
+                            <DropdownMenuItem
+                              className="text-emerald-700 focus:bg-emerald-50"
+                              onClick={() =>
+                                suspendUserMutation.mutate({ userId: user.id, suspended: false })
+                              }
+                              disabled={suspendUserMutation.isPending}
+                            >
+                              <UserCheck className="w-4 h-4 mr-2" />
+                              Reactivate User
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              className="text-red-600 focus:bg-red-50"
+                              onClick={() => setSuspendTarget(user)}
+                            >
+                              <UserX className="w-4 h-4 mr-2" />
+                              Suspend User
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -304,6 +368,25 @@ export default function UserManagement() {
         isOpen={activeAction === "message"}
         onClose={closeUserAction}
       />
+
+      {suspendTarget && (
+        <SuspendUserModal
+          userName={
+            `${suspendTarget.firstName || ""} ${suspendTarget.lastName || ""}`.trim() || "Customer"
+          }
+          userEmail={suspendTarget.email}
+          isOpen={!!suspendTarget}
+          onClose={() => setSuspendTarget(null)}
+          onConfirm={(reason) =>
+            suspendUserMutation.mutate({
+              userId: suspendTarget.id,
+              suspended: true,
+              reason,
+            })
+          }
+          isLoading={suspendUserMutation.isPending}
+        />
+      )}
     </div>
   );
 }

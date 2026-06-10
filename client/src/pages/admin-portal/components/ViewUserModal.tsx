@@ -40,6 +40,9 @@ interface UserDetails {
   postalCode?: string;
   country?: string;
   profileImageUrl?: string;
+  isSuspended?: boolean;
+  suspendedAt?: string | null;
+  suspensionReason?: string | null;
   createdAt: string;
   updatedAt: string;
   stats: {
@@ -138,7 +141,12 @@ export function ViewUserModal({ userId, isOpen, onClose, onEdit, onMessage }: Vi
                     <span>{user.phone}</span>
                   </div>
                 )}
-                <Badge className="mt-2 bg-green-100 text-green-800">Active</Badge>
+                <Badge className={`mt-2 ${user.isSuspended ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
+                  {user.isSuspended ? "Suspended" : "Active"}
+                </Badge>
+                {user.isSuspended && user.suspensionReason && (
+                  <p className="text-sm text-red-600 mt-2">{user.suspensionReason}</p>
+                )}
               </div>
             </div>
 
