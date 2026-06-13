@@ -430,71 +430,110 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
         </TabsContent>
 
         <TabsContent value="pending" className="space-y-4">
-          {/* Pending Payouts */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-gray-600" />
-                <span>Pending Payouts</span>
-              </CardTitle>
-              <p className="text-sm text-gray-600">
-                Payouts automatically created and processed by admin
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {payoutsLoading ? (
-                  <div className="flex justify-center py-4">
-                    <RefreshCw className="w-5 h-5 animate-spin text-gray-400" />
-                  </div>
-                ) : pendingPayoutRequests.length > 0 ? (
-                  pendingPayoutRequests.map((request: PayoutRequest) => (
-                    <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-4">
-                          <div>
-                            <p className="font-semibold text-gray-900">Request #{request.id.slice(0, 8)}</p>
-                            <p className="text-sm text-gray-600">
-                              {request.bankAccount || 'Bank details provided'}
+          {/* Pending Payouts & Orders */}
+          <div className="grid grid-cols-1 gap-6">
+            {/* Section 1: Awaiting Completion */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Clock className="w-5 h-5 text-amber-500" />
+                  <span>Awaiting Order Completion</span>
+                </CardTitle>
+                <p className="text-sm text-gray-600">
+                  Orders currently in transit or processing. Earnings will automatically process for payout once complete.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {pendingEarnings.length > 0 ? (
+                    pendingEarnings.map((earning: any) => (
+                      <div key={earning.orderId} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900">Order #{earning.orderId ? earning.orderId.slice(0, 8) : 'N/A'}</p>
+                          <p className="text-sm text-gray-600">{earning.customerName || 'Customer'}</p>
+                          <p className="text-xs text-gray-500">{earning.items}</p>
+                          <p className="text-xs text-amber-600 font-medium mt-1">Pending delivery (will auto-pay on completion)</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-gray-900">
+                            {formatPrice(earning.amount)}
+                          </p>
+                          <Badge variant="outline" className="border-amber-200 text-amber-700 bg-amber-50">
+                            pending
+                          </Badge>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {safeDate(earning.orderDate)}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p>No orders awaiting completion</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Section 2: Awaiting Payout */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <CreditCard className="w-5 h-5 text-blue-600" />
+                  <span>Awaiting Admin Payout</span>
+                </CardTitle>
+                <p className="text-sm text-gray-600">
+                  Payout requests created for completed orders, awaiting admin transfer.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {payoutsLoading ? (
+                    <div className="flex justify-center py-4">
+                      <RefreshCw className="w-5 h-5 animate-spin text-gray-400" />
+                    </div>
+                  ) : pendingPayoutRequests.length > 0 ? (
+                    pendingPayoutRequests.map((request: PayoutRequest) => {
+                      const matchingOrder = orderEarnings.find((o: any) => o.orderId === request.orderId);
+                      return (
+                        <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900">
+                              {matchingOrder ? `Order #${matchingOrder.orderId.slice(0, 8)}` : `Request #${request.id.slice(0, 8)}`}
                             </p>
-                            <p className="text-xs text-gray-500">
-                              Requested: {safeDate(request.requestDate || (request as any).createdAt)}
+                            <p className="text-sm text-gray-600">{matchingOrder?.customerName || 'Customer'}</p>
+                            <p className="text-xs text-gray-500">{matchingOrder?.items || 'Bank payout requested'}</p>
+                            <p className="text-xs text-blue-600 font-medium mt-1">Awaiting admin transfer</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-buylock-primary">
+                              {safeMoney(request.amount || (request as any).requestedAmount)}
+                            </p>
+                            <Badge 
+                              variant={request.status === 'pending' ? 'secondary' : 
+                                     request.status === 'processing' ? 'secondary' : 'destructive'}
+                            >
+                              {request.status}
+                            </Badge>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {safeDate(request.requestDate || (request as any).createdAt)}
                             </p>
                           </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-buylock-primary">
-                          {safeMoney(request.amount || (request as any).requestedAmount)}
-                        </p>
-                        <Badge 
-                          variant={request.status === 'pending' ? 'secondary' : 
-                                 request.status === 'processing' ? 'secondary' : 'destructive'}
-                        >
-                          {request.status}
-                        </Badge>
-                        {request.paystackTransferCode && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Transfer: {request.paystackTransferCode}
-                          </p>
-                        )}
-                        {(request.transferFailureReason || request.failureReason) && (
-                          <p className="text-xs text-red-500 mt-1">
-                            {request.transferFailureReason || request.failureReason}
-                          </p>
-                        )}
-                      </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <CreditCard className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p>No payout requests currently processing</p>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No pending payout requests yet</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
       </Tabs>

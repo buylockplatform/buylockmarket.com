@@ -49,7 +49,8 @@ export default function VendorEarnings() {
   const [isPayoutDialogOpen, setIsPayoutDialogOpen] = useState(false);
 
   useEffect(() => {
-    const vendorData = localStorage.getItem('vendor');
+    // vendorApiRequest reads 'vendorData' key for auth headers
+    const vendorData = localStorage.getItem('vendorData') || localStorage.getItem('vendor');
     if (vendorData) {
       setVendor(JSON.parse(vendorData));
     }
@@ -57,20 +58,22 @@ export default function VendorEarnings() {
 
   // Fetch vendor earnings
   const { data: earnings, isLoading: earningsLoading, error: earningsError } = useQuery<VendorEarnings>({
-    queryKey: ['/api/vendor/:vendorId/earnings', vendor?.id],
+    queryKey: ['/api/vendor', vendor?.id, 'earnings'],
+    queryFn: () => vendorApiRequest(`/api/vendor/${vendor.id}/earnings`),
     enabled: !!vendor?.id,
-    refetchInterval: 30000, // Refresh every 30 seconds
-    refetchIntervalInBackground: true // Continue polling when tab is not focused
+    refetchInterval: 30000,
+    refetchIntervalInBackground: true
   });
 
   // Fetch payout requests
   const { data: payoutRequests, isLoading: payoutLoading } = useQuery<PayoutRequest[]>({
-    queryKey: ['/api/vendor/:vendorId/payout-requests', vendor?.id],
+    queryKey: ['/api/vendor', vendor?.id, 'payout-requests'],
+    queryFn: () => vendorApiRequest(`/api/vendor/${vendor.id}/payout-requests`),
     enabled: !!vendor?.id,
-    refetchInterval: 15000, // Refresh every 15 seconds (more frequent since admin can approve)
-    refetchIntervalInBackground: true, // Continue polling when tab is not focused
-    staleTime: 0, // Always treat data as stale - force fresh fetch
-    gcTime: 0 // Don't cache data at all (React Query v5 uses gcTime instead of cacheTime)
+    refetchInterval: 15000,
+    refetchIntervalInBackground: true,
+    staleTime: 0,
+    gcTime: 0
   });
 
   // Create payout request mutation
@@ -86,8 +89,8 @@ export default function VendorEarnings() {
       setIsPayoutDialogOpen(false);
       setPayoutAmount('');
       setPayoutReason('');
-      queryClient.invalidateQueries({ queryKey: ['/api/vendor/:vendorId/earnings'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/vendor/:vendorId/payout-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor', vendor?.id, 'earnings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor', vendor?.id, 'payout-requests'] });
     },
     onError: (error: Error) => {
       toast({
@@ -197,8 +200,9 @@ export default function VendorEarnings() {
   }
 
   const isPaidPayoutStatus = (status: string) => ['approved', 'completed'].includes(status);
-  const paidPayoutRequests = payoutRequests?.filter((request) => isPaidPayoutStatus(request.status)) || [];
-  const pendingPayoutRequests = payoutRequests?.filter((request) => !isPaidPayoutStatus(request.status)) || [];
+  const paidPayoutRequests = payoutRequests?.filter((r) => isPaidPayoutStatus(r.status)) || [];
+  const pendingPayoutRequests = payoutRequests?.filter((r) => !isPaidPayoutStatus(r.status)) || [];
+  const pendingPayoutTotal = pendingPayoutRequests.reduce((sum, r) => sum + parseFloat(r.requestedAmount || '0'), 0);
 
   return (
     <div className="space-y-8">
@@ -209,7 +213,6 @@ export default function VendorEarnings() {
         </p>
       </div>
 
-      {/* Earnings Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -220,9 +223,7 @@ export default function VendorEarnings() {
             <div className="text-2xl font-bold">
               {earningsLoading ? '...' : formatCurrency(earnings?.totalEarnings || '0')}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Cumulative earnings from all sales
-            </p>
+            <p className="text-xs text-muted-foreground">Cumulative earnings</p>
           </CardContent>
         </Card>
 
@@ -235,23 +236,21 @@ export default function VendorEarnings() {
             <div className="text-2xl font-bold text-green-600">
               {earningsLoading ? '...' : formatCurrency(earnings?.availableBalance || '0')}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Ready for payout
-            </p>
+            <p className="text-xs text-muted-foreground">Ready for payout</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Balance</CardTitle>
+            <CardTitle className="text-sm font-medium">Pending Earnings</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
-              {earningsLoading ? '...' : formatCurrency(earnings?.pendingBalance || '0')}
+              {payoutLoading ? '...' : formatCurrency(pendingPayoutTotal)}
             </div>
             <p className="text-xs text-muted-foreground">
-              In payout processing
+              {pendingPayoutRequests.length} pending payout{pendingPayoutRequests.length !== 1 ? 's' : ''} awaiting admin
             </p>
           </CardContent>
         </Card>
@@ -265,166 +264,146 @@ export default function VendorEarnings() {
             <div className="text-2xl font-bold">
               {earningsLoading ? '...' : formatCurrency(earnings?.totalPaidOut || '0')}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Successfully transferred
-            </p>
+            <p className="text-xs text-muted-foreground">Successfully transferred</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions */}
       <Card>
         <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>
-            Manage your bank details for automatic payouts
-          </CardDescription>
+          <CardTitle>Request Payout</CardTitle>
+          <CardDescription>Request a manual payout of your available funds</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button variant="outline" className="flex-1" asChild>
-              <a href="/vendor-dashboard/profile">
-                Update Bank Details
-              </a>
-            </Button>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Amount (KES)</Label>
+              <Input type="number" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} placeholder="0.00" />
+            </div>
+            <div className="space-y-2">
+              <Label>Reason (Optional)</Label>
+              <Input value={payoutReason} onChange={(e) => setPayoutReason(e.target.value)} placeholder="e.g. Monthly Withdrawal" />
+            </div>
           </div>
+          <Button onClick={handlePayoutRequest} disabled={createPayoutMutation.isPending}>
+            {createPayoutMutation.isPending ? 'Submitting...' : 'Request Payout'}
+          </Button>
         </CardContent>
       </Card>
 
-      {/* Payout Details Tabs */}
       <Tabs defaultValue="earnings" className="space-y-4">
         <TabsList>
           <TabsTrigger value="earnings">Order Earnings</TabsTrigger>
-          <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="pending" className="relative">
+            Pending
+            {pendingPayoutRequests.length > 0 && (
+              <span className="ml-1.5 bg-yellow-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold leading-none">
+                {pendingPayoutRequests.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
+        {/* Order Earnings tab — shows completed/approved payouts (already paid out) */}
         <TabsContent value="earnings">
           <Card>
             <CardHeader>
-              <CardTitle>Order Earnings Breakdown</CardTitle>
-              <CardDescription>
-                Orders with completed payouts
-              </CardDescription>
+              <CardTitle>Order Earnings</CardTitle>
+              <CardDescription>Orders that have been paid out to you</CardDescription>
             </CardHeader>
             <CardContent>
-              {paidPayoutRequests.length > 0 ? (
-                <div className="space-y-4">
-                  {paidPayoutRequests.map((request) => (
-                    <div key={request.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <Badge className="bg-green-100 text-green-800">
-                            <div className="flex items-center space-x-1">
-                              <Check className="h-4 w-4" />
-                              <span>Paid Out</span>
-                            </div>
-                          </Badge>
-                          <span className="font-semibold">
-                            {formatCurrency(request.requestedAmount)}
-                          </span>
-                        </div>
-                        <span className="text-sm text-muted-foreground">
-                          {formatDate(request.completedAt || request.reviewedAt || request.createdAt)}
-                        </span>
+              {payoutLoading ? (
+                <div className="text-center py-8 text-gray-400">Loading...</div>
+              ) : paidPayoutRequests.length > 0 ? (
+                <div className="space-y-3">
+                  {paidPayoutRequests.map((req) => (
+                    <div key={req.id} className="border rounded-lg p-4 flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold">{formatCurrency(req.requestedAmount)}</p>
+                        {req.orderId && (
+                          <p className="text-sm text-muted-foreground">Order #{req.orderId.slice(-8)}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(req.completedAt || req.reviewedAt || req.createdAt)}
+                        </p>
+                        {req.requestReason && (
+                          <p className="text-xs text-muted-foreground mt-1">{req.requestReason}</p>
+                        )}
                       </div>
-
-                      {request.orderId && (
-                        <p className="text-sm text-muted-foreground mb-2">
-                          <strong>Order Reference:</strong> Order #{request.orderId.slice(-8)}
-                        </p>
-                      )}
-
-                      {request.requestReason && (
-                        <p className="text-sm text-muted-foreground mb-2">
-                          <strong>Reason:</strong> {request.requestReason}
-                        </p>
-                      )}
-
-                      {request.paystackTransferCode && (
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <ExternalLink className="h-4 w-4 mr-1" />
-                          Transfer Code: {request.paystackTransferCode}
-                        </div>
-                      )}
+                      <div className="text-right">
+                        <Badge className="bg-green-100 text-green-800">
+                          <Check className="h-3 w-3 mr-1" />
+                          Paid Out
+                        </Badge>
+                        {req.paystackTransferCode && (
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            {req.paystackTransferCode}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>No completed payouts yet</p>
+                <div className="text-center py-10 text-gray-400">
+                  <DollarSign className="h-12 w-12 mx-auto mb-3 text-gray-200" />
+                  <p className="font-medium">No completed payouts yet</p>
+                  <p className="text-xs mt-1">Completed payouts will appear here</p>
                 </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* Pending tab — shows auto-created payout requests awaiting admin transfer */}
         <TabsContent value="pending">
           <Card>
             <CardHeader>
               <CardTitle>Pending Payouts</CardTitle>
-              <CardDescription>
-                Payouts automatically created and processed by admin
-              </CardDescription>
+              <CardDescription>Auto-created when orders complete — admin will process these</CardDescription>
             </CardHeader>
             <CardContent>
               {payoutLoading ? (
-                <div className="text-center py-8">Loading pending payouts...</div>
+                <div className="text-center py-8 text-gray-400">Loading pending payouts...</div>
               ) : pendingPayoutRequests.length > 0 ? (
-                <div className="space-y-4">
-                  {pendingPayoutRequests.map((request) => (
-                    <div key={request.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <Badge className={getStatusColor(request.status)}>
-                            <div className="flex items-center space-x-1">
-                              {getStatusIcon(request.status)}
-                              <span className="capitalize">{request.status}</span>
-                            </div>
-                          </Badge>
-                          <span className="font-semibold">
-                            {formatCurrency(request.requestedAmount)}
-                          </span>
-                        </div>
-                        <span className="text-sm text-muted-foreground">
-                          {formatDate(request.createdAt)}
-                        </span>
+                <div className="space-y-3">
+                  {pendingPayoutRequests.map((req) => (
+                    <div key={req.id} className="border rounded-lg p-4 flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold">{formatCurrency(req.requestedAmount)}</p>
+                        {req.orderId && (
+                          <p className="text-sm text-muted-foreground">Order #{req.orderId.slice(-8)}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">Created: {formatDate(req.createdAt)}</p>
+                        {req.requestReason && (
+                          <p className="text-xs text-muted-foreground mt-1">{req.requestReason}</p>
+                        )}
+                        {req.adminNotes && (
+                          <div className="mt-2 bg-blue-50 border border-blue-200 px-3 py-2 rounded text-xs text-blue-700">
+                            <strong>Admin:</strong> {req.adminNotes}
+                          </div>
+                        )}
+                        {req.transferFailureReason && (
+                          <div className="mt-2 bg-red-50 border border-red-200 px-3 py-2 rounded text-xs text-red-700">
+                            <strong>Failure:</strong> {req.transferFailureReason}
+                          </div>
+                        )}
                       </div>
-
-                      {request.orderId && (
-                        <p className="text-sm text-muted-foreground mb-2">
-                          <strong>Order Reference:</strong> Order #{request.orderId.slice(-8)}
-                        </p>
-                      )}
-
-                      {request.requestReason && (
-                        <p className="text-sm text-muted-foreground mb-2">
-                          <strong>Reason:</strong> {request.requestReason}
-                        </p>
-                      )}
-
-                      {request.adminNotes && (
-                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-md mb-2">
-                          <p className="text-sm text-blue-700">
-                            <strong>Admin Notes:</strong> {request.adminNotes}
-                          </p>
-                        </div>
-                      )}
-
-                      {request.transferFailureReason && (
-                        <div className="bg-red-50 border border-red-200 p-3 rounded-md mb-2">
-                          <p className="text-sm text-red-700">
-                            <strong>Failure Reason:</strong> {request.transferFailureReason}
-                          </p>
-                        </div>
-                      )}
+                      <div className="text-right">
+                        <Badge className={getStatusColor(req.status)}>
+                          {getStatusIcon(req.status)}
+                          <span className="ml-1 capitalize">{req.status}</span>
+                        </Badge>
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>No pending payouts yet</p>
+                <div className="text-center py-10 text-gray-400">
+                  <Clock className="h-12 w-12 mx-auto mb-3 text-gray-200" />
+                  <p className="font-medium">No pending payouts</p>
+                  <p className="text-xs mt-1">Payouts are auto-created when your orders are completed</p>
                 </div>
               )}
             </CardContent>
