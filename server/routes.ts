@@ -3562,10 +3562,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { vendorId } = req.params;
       const orderEarnings = await storage.getVendorOrderEarnings(vendorId);
       const payoutRequests = await storage.getVendorPayoutRequests(vendorId);
-      const paidOrderIds = new Set(
+      const paidOrderIds = new Set<string>(
         payoutRequests
-          .filter(p => ['approved', 'completed'].includes(p.status))
-          .map(p => p.orderId)
+          .filter(p => p.status && ['approved', 'completed'].includes(p.status) && p.orderId)
+          .map(p => p.orderId as string)
       );
 
       const enriched = orderEarnings.map(earning => ({
@@ -4571,7 +4571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const vendor of allVendors) {
         const summary = await storage.getVendorEarningsSummary(vendor.id);
         const payoutHistory = await storage.getVendorPayoutRequests(vendor.id);
-        const paidPayouts = payoutHistory.filter(p => ['approved', 'completed'].includes(p.status));
+        const paidPayouts = payoutHistory.filter(p => p.status && ['approved', 'completed'].includes(p.status));
 
         vendorEarnings.push({
           vendorId: vendor.id,

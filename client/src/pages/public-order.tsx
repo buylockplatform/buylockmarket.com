@@ -3,7 +3,7 @@ import { useParams } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Truck, Package, Clock, MapPin, Phone, CreditCard } from "lucide-react";
+import { Truck, Package, Clock, MapPin, Phone, CreditCard, CheckCircle } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
 
 type PublicOrder = {
@@ -38,6 +38,8 @@ const statusConfig = {
   ready_for_pickup: { label: "Ready for Pickup", color: "bg-purple-500", icon: Package },
   picked_up: { label: "Out for Delivery", color: "bg-indigo-500", icon: Truck },
   delivered: { label: "Delivered", color: "bg-green-500", icon: Package },
+  completed: { label: "Completed", color: "bg-green-600", icon: CheckCircle },
+  fulfilled: { label: "Completed", color: "bg-green-600", icon: CheckCircle },
   cancelled: { label: "Cancelled", color: "bg-red-500", icon: Package },
 };
 

@@ -257,11 +257,11 @@ export default function MyOrders() {
   };
 
   const ongoingOrders = orders.filter(order => 
-    order.status && !["delivered", "cancelled"].includes(order.status.toLowerCase())
+    order.status && !["delivered", "completed", "fulfilled", "cancelled"].includes(order.status.toLowerCase())
   );
   
   const pastOrders = orders.filter(order => 
-    order.status && ["delivered", "cancelled"].includes(order.status.toLowerCase())
+    order.status && ["delivered", "completed", "fulfilled", "cancelled"].includes(order.status.toLowerCase())
   );
 
   const OrderCard = ({ order }: { order: Order }) => (
@@ -317,7 +317,7 @@ export default function MyOrders() {
             </Button>
           </Link>
 
-          {order.status && order.status.toLowerCase() === "delivered" && (
+          {order.status && ["delivered", "completed", "fulfilled"].includes(order.status.toLowerCase()) && (
             <Button
               variant="outline"
               size="sm"
@@ -329,7 +329,7 @@ export default function MyOrders() {
             </Button>
           )}
 
-          {order.status && !["delivered", "cancelled"].includes(order.status.toLowerCase()) && (
+          {order.status && !["delivered", "completed", "fulfilled", "cancelled"].includes(order.status.toLowerCase()) && (
             <>
               <Link href={`/track/${order.id}`}>
                 <Button

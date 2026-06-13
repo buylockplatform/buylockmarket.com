@@ -37,7 +37,8 @@ export default function TrackOrder() {
     { label: "Laundry Processing", status: "processing", desc: "Items are being washed & folded" },
     { label: "Ready for Delivery", status: "ready", desc: "Garments clean and awaiting courier" },
     { label: "Out for Delivery", status: "delivering", desc: "Rider is returning items to your home" },
-    { label: "Delivered", status: "delivered", desc: "Order completed" },
+    { label: "Delivered", status: "delivered", desc: "Order delivered" },
+    { label: "Completed", status: "completed", desc: "Order marked complete" },
   ];
 
   // Milestones for Standard Product vertical
@@ -48,6 +49,7 @@ export default function TrackOrder() {
     { label: "Picked Up", status: "processing", desc: "Courier has collected your package from the shop" },
     { label: "Out for Delivery", status: "delivering", desc: "Rider is on the way to you" },
     { label: "Delivered", status: "delivered", desc: "Order delivered" },
+    { label: "Completed", status: "completed", desc: "Order marked complete" },
   ];
 
   const milestones = isService ? serviceMilestones : productMilestones;
@@ -58,17 +60,15 @@ export default function TrackOrder() {
     const status = order.status?.toLowerCase() || "pending";
 
     // Map order status fields to milestone index
-    if (status === "pending" || status === "placed" || status === "paid") return 0;
-    if (status === "confirmed" || status === "accepted" || status === "vendor_accepted") return 1;
-    if (status === "ready_for_pickup") return 2;
-    if (status === "dispatched" || status === "passed_to_delivery" || status === "processing" || status === "packed") return 3;
-    if (status === "in_delivery" || status === "shipping" || status === "shipped") return isService ? 4 : 4;
-    if (status === "out_for_delivery") return isService ? 4 : 4;
-    if (status === "delivered" || status === "completed" || status === "fulfilled") {
-      return isService ? 5 : 5;
-    }
+    if (status === "pending" || status === "placed" || status === "paid" || status === "pending_acceptance") return 0;
+    if (status === "confirmed" || status === "accepted" || status === "vendor_accepted" || status === "pickup") return 1;
+    if (status === "ready_for_pickup" || status === "ready") return 2;
+    if (status === "dispatched" || status === "passed_to_delivery" || status === "processing" || status === "packed" || status === "doing") return 3;
+    if (status === "in_delivery" || status === "shipping" || status === "shipped" || status === "out_for_delivery" || status === "delivering") return 4;
+    if (status === "delivered") return 5;
+    if (status === "completed" || status === "fulfilled") return 6;
     return 0;
-  }, [order, isService]);
+  }, [order]);
 
   // Total items cost helper
   const formatPrice = (price: string | number) => {
@@ -164,6 +164,9 @@ export default function TrackOrder() {
                       const isCompleted = index < activeMilestoneIndex;
                       const isActive = index === activeMilestoneIndex;
                       const isLast = index === milestones.length - 1;
+                      
+                      const isStepCompleted = isCompleted || (step.status === "completed" && isActive);
+                      const isStepActive = isActive && step.status !== "completed";
 
                       return (
                         <div key={step.label} className="relative flex gap-4 items-start py-3">
@@ -171,7 +174,7 @@ export default function TrackOrder() {
                           {!isLast && (
                             <div
                               className={`absolute left-[18px] top-[36px] bottom-0 w-0.5 ${
-                                isCompleted ? "bg-green-400" : "bg-gray-200"
+                                isStepCompleted ? "bg-green-400" : "bg-gray-200"
                               }`}
                               style={{ height: "calc(100% - 8px)" }}
                             />
@@ -179,11 +182,11 @@ export default function TrackOrder() {
 
                           {/* Status icon */}
                           <div className="flex-shrink-0 mt-0.5 z-10 bg-white">
-                            {isCompleted ? (
+                            {isStepCompleted ? (
                               <div className="w-9 h-9 rounded-full bg-green-100 border-2 border-green-400 flex items-center justify-center">
                                 <CheckCircle2 className="w-4 h-4 text-green-600" />
                               </div>
-                            ) : isActive ? (
+                            ) : isStepActive ? (
                               <div className="w-9 h-9 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
                                 <Loader2 className="w-4 h-4 text-primary animate-spin" />
                               </div>
@@ -197,26 +200,34 @@ export default function TrackOrder() {
                           {/* Step content */}
                           <div className="flex-1 min-w-0 pt-1.5">
                             <p className={`font-semibold text-sm leading-tight ${
-                              isActive ? "text-primary" : isCompleted ? "text-gray-900" : "text-gray-400"
+                              isStepActive 
+                                ? "text-primary" 
+                                : isStepCompleted 
+                                  ? "text-green-700 font-bold" 
+                                  : "text-gray-400"
                             }`}>
                               {step.label}
                             </p>
                             <p className={`text-xs mt-0.5 leading-relaxed ${
-                              isActive ? "text-primary/70" : "text-gray-400"
+                              isStepActive 
+                                ? "text-primary/70" 
+                                : isStepCompleted 
+                                  ? "text-green-600/80" 
+                                  : "text-gray-400"
                             }`}>
                               {step.desc}
                             </p>
                           </div>
 
-                          {/* Active badge */}
-                          {isActive && (
+                          {/* Active/Completed badges */}
+                          {isStepActive && (
                             <div className="flex-shrink-0 pt-1.5">
                               <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                                 Now
                               </span>
                             </div>
                           )}
-                          {isCompleted && (
+                          {isStepCompleted && (
                             <div className="flex-shrink-0 pt-1.5">
                               <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-green-50 text-green-600 px-2 py-0.5 rounded-full">
                                 ✓ Done
