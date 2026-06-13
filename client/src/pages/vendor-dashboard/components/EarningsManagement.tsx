@@ -115,16 +115,27 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
     retry: false,
   });
 
-  // Filter to show only orders with completed payout requests
-  // Orders should move from Payout Requests tab to Order Earnings tab after payout completion
+  // Filter payout requests by status
   const paidPayoutRequests = payoutRequests.filter((request: PayoutRequest) =>
     isPaidPayoutStatus(request.status)
   );
 
-  const completedPayoutEarnings = orderEarnings.filter((earning: OrderEarning) =>
-    earning.status === 'paid_out' ||
-    paidPayoutRequests.some((request: PayoutRequest) => request.orderId === earning.orderId)
+  const pendingPayoutRequests = payoutRequests.filter((request: PayoutRequest) =>
+    !isPaidPayoutStatus(request.status)
   );
+
+  // Map each completed/approved payout request to its order details for the "Order Earnings" tab
+  const completedPayoutEarningsList = paidPayoutRequests.map((request: PayoutRequest) => {
+    const matchingOrder = orderEarnings.find((o: OrderEarning) => o.orderId === request.orderId);
+    return {
+      orderId: request.orderId || request.id,
+      customerName: matchingOrder?.customerName || 'Customer',
+      items: matchingOrder?.items || 'Product/Service payout',
+      amount: parseFloat(request.requestedAmount),
+      status: 'paid_out' as const,
+      orderDate: matchingOrder?.orderDate || request.createdAt || '',
+    };
+  });
 
   // Fetch delivered orders eligible for payout
   const { data: deliveredOrders = [], isLoading: deliveredOrdersLoading } = useQuery({
@@ -198,10 +209,10 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
     disputedOrders: 0
   };
 
-  // Use completed payout earnings for overview stats
-  const confirmedEarnings = completedPayoutEarnings?.filter((e: OrderEarning) => e.status === 'confirmed') || [];
-  const pendingEarnings = completedPayoutEarnings?.filter((e: OrderEarning) => e.status === 'pending') || [];
-  const disputedEarnings = completedPayoutEarnings?.filter((e: OrderEarning) => e.status === 'disputed') || [];
+  // Use all order earnings for overview stats
+  const confirmedEarnings = orderEarnings?.filter((e: OrderEarning) => e.status === 'confirmed' || e.status === 'paid_out') || [];
+  const pendingEarnings = orderEarnings?.filter((e: OrderEarning) => e.status === 'pending') || [];
+  const disputedEarnings = orderEarnings?.filter((e: OrderEarning) => e.status === 'disputed') || [];
 
   const handlePayoutRequest = (orderId: string, amount: number) => {
     if (!amount || amount <= 0) {
@@ -314,7 +325,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="earnings">Order Earnings</TabsTrigger>
-          <TabsTrigger value="payout-history">Payout History</TabsTrigger>
+          <TabsTrigger value="pending">Pending</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -377,13 +388,13 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
             <CardHeader>
               <CardTitle>Order Earnings Breakdown</CardTitle>
               <p className="text-sm text-gray-600">
-                Orders with completed payout requests only
+                Orders with completed payouts
               </p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {completedPayoutEarnings.length > 0 ? (
-                  completedPayoutEarnings.map((earning: OrderEarning) => (
+                {completedPayoutEarningsList.length > 0 ? (
+                  completedPayoutEarningsList.map((earning: any) => (
                     <div key={earning.orderId} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center space-x-4">
@@ -398,15 +409,11 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                         <p className="font-bold text-buylock-primary">
                           {formatPrice(earning.amount)}
                         </p>
-                        <Badge 
-                          variant={earning.status === 'paid_out' ? 'default' :
-                                 earning.status === 'confirmed' ? 'default' : 
-                                 earning.status === 'pending' ? 'secondary' : 'destructive'}
-                        >
-                          {earning.status === 'paid_out' ? 'paid out' : earning.status}
+                        <Badge variant="default">
+                          paid out
                         </Badge>
                         <p className="text-xs text-gray-500 mt-1">
-                          {safeDate(earning.orderDate || earning.confirmationDate)}
+                          {safeDate(earning.orderDate)}
                         </p>
                       </div>
                     </div>
@@ -414,7 +421,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                 ) : (
                   <div className="text-center py-8 text-gray-500">
                     <DollarSign className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No order earnings data available</p>
+                    <p>No completed order payouts available</p>
                   </div>
                 )}
               </div>
@@ -422,14 +429,17 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="payout-history" className="space-y-4">
-          {/* Payout History */}
+        <TabsContent value="pending" className="space-y-4">
+          {/* Pending Payouts */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Clock className="w-5 h-5 text-gray-600" />
-                <span>Payout History</span>
+                <span>Pending Payouts</span>
               </CardTitle>
+              <p className="text-sm text-gray-600">
+                Payouts automatically created and processed by admin
+              </p>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -437,8 +447,8 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                   <div className="flex justify-center py-4">
                     <RefreshCw className="w-5 h-5 animate-spin text-gray-400" />
                   </div>
-                ) : payoutRequests.length > 0 ? (
-                  payoutRequests.map((request: PayoutRequest) => (
+                ) : pendingPayoutRequests.length > 0 ? (
+                  pendingPayoutRequests.map((request: PayoutRequest) => (
                     <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center space-x-4">
@@ -450,11 +460,6 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                             <p className="text-xs text-gray-500">
                               Requested: {safeDate(request.requestDate || (request as any).createdAt)}
                             </p>
-                            {(request.processedDate || (request as any).reviewedAt) && (
-                              <p className="text-xs text-gray-500">
-                                Processed: {safeDate(request.processedDate || (request as any).reviewedAt)}
-                              </p>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -463,8 +468,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                           {safeMoney(request.amount || (request as any).requestedAmount)}
                         </p>
                         <Badge 
-                          variant={isPaidPayoutStatus(request.status) ? 'default' : 
-                                 request.status === 'pending' ? 'secondary' : 
+                          variant={request.status === 'pending' ? 'secondary' : 
                                  request.status === 'processing' ? 'secondary' : 'destructive'}
                         >
                           {request.status}
@@ -485,7 +489,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
                 ) : (
                   <div className="text-center py-8 text-gray-500">
                     <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No payout requests yet</p>
+                    <p>No pending payout requests yet</p>
                   </div>
                 )}
               </div>

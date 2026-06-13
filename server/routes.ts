@@ -3538,14 +3538,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Vendor not found' });
       }
 
+      // Get real-time earnings summary
+      const summary = await storage.getVendorEarningsSummary(vendorId);
       // Get earnings history
       const recentEarnings = await storage.getVendorEarnings(vendorId);
 
       const earningsData = {
-        totalEarnings: vendor.totalEarnings || '0.00',
-        availableBalance: vendor.availableBalance || '0.00',
-        pendingBalance: vendor.pendingBalance || '0.00',
-        totalPaidOut: vendor.totalPaidOut || '0.00',
+        totalEarnings: summary.totalEarnings.toFixed(2),
+        availableBalance: summary.availableBalance.toFixed(2),
+        pendingBalance: summary.pendingBalance.toFixed(2),
+        totalPaidOut: summary.totalPaidOut.toFixed(2),
+        confirmedOrders: summary.confirmedOrders,
+        pendingOrders: summary.pendingOrders,
+        disputedOrders: summary.disputedOrders,
+        lastPayoutDate: summary.lastPayoutDate,
+        lastPayoutAmount: summary.lastPayoutAmount ? summary.lastPayoutAmount.toFixed(2) : null,
         recentEarnings: recentEarnings
       };
 
@@ -4309,14 +4316,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Vendor not found' });
       }
 
+      // Get real-time earnings summary
+      const summary = await storage.getVendorEarningsSummary(vendorId);
       const earnings = await storage.getVendorEarnings(vendorId);
       const earningsHistory = await storage.getVendorEarningsHistory(vendorId);
 
       res.json({
-        totalEarnings: vendor.totalEarnings || '0.00',
-        availableBalance: vendor.availableBalance || '0.00',
-        pendingBalance: vendor.pendingBalance || '0.00',
-        totalPaidOut: vendor.totalPaidOut || '0.00',
+        totalEarnings: summary.totalEarnings.toFixed(2),
+        availableBalance: summary.availableBalance.toFixed(2),
+        pendingBalance: summary.pendingBalance.toFixed(2),
+        totalPaidOut: summary.totalPaidOut.toFixed(2),
+        confirmedOrders: summary.confirmedOrders,
+        pendingOrders: summary.pendingOrders,
+        disputedOrders: summary.disputedOrders,
+        lastPayoutDate: summary.lastPayoutDate,
+        lastPayoutAmount: summary.lastPayoutAmount ? summary.lastPayoutAmount.toFixed(2) : null,
         recentEarnings: earnings,
         earningsHistory: earningsHistory
       });
@@ -4576,10 +4590,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         vendorEarnings.push({
           vendorId: vendor.id,
           businessName: vendor.businessName,
-          totalEarnings: parseFloat(vendor.totalEarnings || '0') || summary.totalEarnings,
-          availableBalance: parseFloat(vendor.availableBalance || '0'),
-          pendingBalance: parseFloat(vendor.pendingBalance || '0'),
-          totalPaidOut: parseFloat(vendor.totalPaidOut || '0'),
+          totalEarnings: summary.totalEarnings,
+          availableBalance: summary.availableBalance,
+          pendingBalance: summary.pendingBalance,
+          totalPaidOut: summary.totalPaidOut,
           confirmedOrders: summary.confirmedOrders,
           pendingOrders: summary.pendingOrders,
           disputedOrders: summary.disputedOrders,
@@ -5932,11 +5946,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { passwordHash, ...vendorData } = vendor;
-      const [vendorProducts, vendorServices, vendorOrders, payoutRequestsList] = await Promise.all([
+      const [vendorProducts, vendorServices, vendorOrders, payoutRequestsList, summary] = await Promise.all([
         storage.getVendorProducts(req.params.id),
         storage.getVendorServices(req.params.id),
         storage.getOrdersByVendor(req.params.id),
         storage.getVendorPayoutRequests(req.params.id),
+        storage.getVendorEarningsSummary(req.params.id),
       ]);
 
       const totalRevenue = vendorOrders.reduce((sum, order) => {
@@ -5958,10 +5973,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalOrders: vendorOrders.length,
           completedOrders,
           totalRevenue,
-          totalEarnings: parseFloat(vendor.totalEarnings?.toString() || "0"),
-          availableBalance: parseFloat(vendor.availableBalance?.toString() || "0"),
-          pendingBalance: parseFloat(vendor.pendingBalance?.toString() || "0"),
-          totalPaidOut: parseFloat(vendor.totalPaidOut?.toString() || "0"),
+          totalEarnings: summary.totalEarnings,
+          availableBalance: summary.availableBalance,
+          pendingBalance: summary.pendingBalance,
+          totalPaidOut: summary.totalPaidOut,
         },
         recentOrders: vendorOrders.slice(0, 25).map((order) => ({
           id: order.id,

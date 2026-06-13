@@ -2500,39 +2500,42 @@ export class DatabaseStorage implements IStorage {
     const platformFeePercentage = await this.getPlatformCommissionPercentage();
     const vendorPercentage = await this.getVendorCommissionPercentage();
 
+    // Total earnings from all confirmed orders (vendor's cut)
     const totalEarnings = confirmedOrders.reduce((sum, order) =>
       sum + (parseFloat(order.totalAmount) * vendorPercentage / 100), 0
     );
 
-    const pendingBalance = pendingOrders.reduce((sum, order) =>
-      sum + (parseFloat(order.totalAmount) * vendorPercentage / 100), 0
-    );
-
-    // Get total payouts
+    // Fetch all payout requests for the vendor
     const payoutRequestsList = await db.select()
       .from(payoutRequests)
-      .where(and(
-        eq(payoutRequests.vendorId, vendorId),
-        sql`${payoutRequests.status} IN ('approved', 'completed')`
-      ));
+      .where(eq(payoutRequests.vendorId, vendorId));
 
-    const totalPayouts = payoutRequestsList.reduce((sum, payout) =>
-      sum + parseFloat(payout.requestedAmount), 0
-    );
+    // Payouts that have been approved or completed (paid out already)
+    const totalPaidOut = payoutRequestsList
+      .filter(p => p.status && ['approved', 'completed'].includes(p.status))
+      .reduce((sum, payout) => sum + parseFloat(payout.requestedAmount), 0);
 
-    const availableBalance = Math.max(0, totalEarnings - totalPayouts);
+    // Payouts that are pending or processing
+    const pendingPayoutAmount = payoutRequestsList
+      .filter(p => p.status && ['pending', 'processing'].includes(p.status))
+      .reduce((sum, payout) => sum + parseFloat(payout.requestedAmount), 0);
+
+    // Available balance is the remaining cut: totalEarnings - totalPaidOut - pendingPayoutAmount
+    const availableBalance = Math.max(0, totalEarnings - totalPaidOut - pendingPayoutAmount);
 
     const lastPayout = payoutRequestsList
-      .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())[0];
+      .filter(p => p.status && ['approved', 'completed'].includes(p.status))
+      .sort((a, b) => new Date(b.completedAt || b.reviewedAt || 0).getTime() - new Date(a.completedAt || a.reviewedAt || 0).getTime())[0];
 
     return {
       totalEarnings,
       availableBalance,
-      pendingBalance,
+      pendingBalance: pendingPayoutAmount, // pending balance in payout processing
+      totalPaidOut,
       confirmedOrders: confirmedOrders.length,
       pendingOrders: pendingOrders.length,
       disputedOrders: disputedOrders.length,
-      lastPayoutDate: lastPayout?.completedAt,
+      lastPayoutDate: lastPayout?.completedAt || lastPayout?.reviewedAt || null,
       lastPayoutAmount: lastPayout ? parseFloat(lastPayout.requestedAmount) : null
     };
   }
