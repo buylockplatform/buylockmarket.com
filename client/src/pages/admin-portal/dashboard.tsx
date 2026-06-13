@@ -112,7 +112,7 @@ export default function AdminDashboard() {
     { id: "services", label: "Services", icon: Wrench },
     { id: "service-categories", label: "Service Categories", icon: FolderOpen },
     { id: "categories", label: "Categories", icon: FolderOpen },
-    { id: "verticals", label: "Market Verticals", icon: Globe },
+
     { id: "orders", label: "Orders", icon: TrendingUp },
     { id: "earnings", label: "Earnings Management", icon: DollarSign },
     { id: "commission", label: "Commission Settings", icon: Settings },
