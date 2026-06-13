@@ -272,79 +272,11 @@ export default function VendorEarnings() {
         <CardHeader>
           <CardTitle>Quick Actions</CardTitle>
           <CardDescription>
-            Request payouts and manage your bank details
+            Manage your bank details for automatic payouts
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
-            <Dialog open={isPayoutDialogOpen} onOpenChange={setIsPayoutDialogOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  className="flex-1"
-                  disabled={!earnings || parseFloat(earnings.availableBalance) <= 0}
-                >
-                  Request Payout
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Request Payout</DialogTitle>
-                  <DialogDescription>
-                    Available Balance: {earnings ? formatCurrency(earnings.availableBalance) : 'KES 0.00'}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="amount">Amount (KES)</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      placeholder="Enter amount"
-                      value={payoutAmount}
-                      onChange={(e) => setPayoutAmount(e.target.value)}
-                      min="1"
-                      max={earnings?.availableBalance || '0'}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="reason">Reason (Optional)</Label>
-                    <Textarea
-                      id="reason"
-                      placeholder="Brief reason for this payout"
-                      value={payoutReason}
-                      onChange={(e) => setPayoutReason(e.target.value)}
-                      maxLength={200}
-                    />
-                  </div>
-                  
-                  {/* Bank Details Warning */}
-                  {(!vendor.bankName || !vendor.accountNumber) && (
-                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-md">
-                      <div className="flex">
-                        <AlertCircle className="h-5 w-5 text-yellow-400" />
-                        <div className="ml-3">
-                          <p className="text-sm text-yellow-700">
-                            Complete bank details required for payouts.
-                            <Button variant="link" className="p-0 h-auto text-yellow-700" asChild>
-                              <a href="/vendor-dashboard/profile">Update Profile</a>
-                            </Button>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <DialogFooter>
-                  <Button
-                    onClick={handlePayoutRequest}
-                    disabled={createPayoutMutation.isPending || !vendor.bankName || !vendor.accountNumber}
-                  >
-                    {createPayoutMutation.isPending ? 'Submitting...' : 'Submit Request'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
             <Button variant="outline" className="flex-1" asChild>
               <a href="/vendor-dashboard/profile">
                 Update Bank Details
@@ -357,7 +289,7 @@ export default function VendorEarnings() {
       {/* Payout History */}
       <Tabs defaultValue="requests" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="requests">Payout Requests</TabsTrigger>
+          <TabsTrigger value="requests">Payout History</TabsTrigger>
           <TabsTrigger value="earnings">Recent Earnings</TabsTrigger>
         </TabsList>
 

@@ -1271,6 +1271,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, id))
       .returning();
 
+    if (updates.status) {
+      setTimeout(() => {
+        this.triggerAutoPayoutRequest(id, updates.status!).catch(err => 
+          console.error("Error in triggerAutoPayoutRequest:", err)
+        );
+      }, 500);
+    }
+
     return {
       ...updatedOrder,
       paymentMethod: updatedOrder.paymentMethod || 'Unknown',
@@ -1463,6 +1471,13 @@ export class DatabaseStorage implements IStorage {
       .set({ status, updatedAt: new Date() })
       .where(eq(orders.id, id))
       .returning();
+
+    setTimeout(() => {
+      this.triggerAutoPayoutRequest(id, status).catch(err => 
+        console.error("Error in triggerAutoPayoutRequest:", err)
+      );
+    }, 500);
+
     return updatedOrder;
   }
 
@@ -2118,6 +2133,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, orderId))
       .returning();
 
+    setTimeout(() => {
+      this.triggerAutoPayoutRequest(orderId, status).catch(err => 
+        console.error("Error in triggerAutoPayoutRequest:", err)
+      );
+    }, 500);
+
     return updatedOrder;
   }
 
@@ -2655,6 +2676,57 @@ export class DatabaseStorage implements IStorage {
   async createPayoutRequest(request: InsertPayoutRequest): Promise<PayoutRequest> {
     const [payoutRequest] = await db.insert(payoutRequests).values(request).returning();
     return payoutRequest;
+  }
+
+  async triggerAutoPayoutRequest(orderId: string, status: string): Promise<void> {
+    const completedStatuses = ['customer_confirmed', 'fulfilled', 'delivered', 'completed'];
+    if (!status || !completedStatuses.includes(status.toLowerCase())) {
+      return;
+    }
+
+    try {
+      // Check if a payout request already exists for this order
+      const existing = await db
+        .select()
+        .from(payoutRequests)
+        .where(eq(payoutRequests.orderId, orderId))
+        .limit(1);
+
+      if (existing.length > 0) {
+        return; // Already created
+      }
+
+      // Fetch order
+      const order = await db.query.orders.findFirst({
+        where: eq(orders.id, orderId)
+      });
+
+      if (!order || !order.vendorId) {
+        return;
+      }
+
+      const vendorPercentage = await this.getVendorCommissionPercentage();
+      const payoutAmount = parseFloat(order.totalAmount.toString()) * vendorPercentage / 100;
+
+      // Create pending payout request
+      const payoutRequest = await this.createPayoutRequest({
+        vendorId: order.vendorId,
+        orderId: order.id,
+        requestedAmount: payoutAmount.toFixed(2),
+        availableBalance: '0.00',
+        status: 'pending',
+        requestReason: 'Automatic payout request upon order completion.',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // Update vendor pending balance (reduces available balance, increases pending balance)
+      await this.updateVendorPendingBalance(order.vendorId, payoutAmount, 'add');
+
+      console.log(`[Auto Payout] Created pending payout request ${payoutRequest.id} for order ${orderId} vendor ${order.vendorId} amount ${payoutAmount.toFixed(2)}`);
+    } catch (err) {
+      console.error(`[Auto Payout] Failed to create auto payout request for order ${orderId}:`, err);
+    }
   }
 
   async getPayoutRequest(id: string): Promise<PayoutRequest | undefined> {

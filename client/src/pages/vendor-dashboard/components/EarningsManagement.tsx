@@ -314,7 +314,7 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="earnings">Order Earnings</TabsTrigger>
-          <TabsTrigger value="payout-requests">Payout Requests</TabsTrigger>
+          <TabsTrigger value="payout-history">Payout History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -422,100 +422,13 @@ export default function EarningsManagement({ vendorId }: { vendorId: string }) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="payout-requests" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Banknote className="w-5 h-5 text-green-600" />
-                <span>Delivered Orders - Request Payout</span>
-              </CardTitle>
-              <p className="text-sm text-gray-600">
-                Orders delivered by admin and eligible for payout requests
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {deliveredOrdersLoading ? (
-                  <div className="flex justify-center py-8">
-                    <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
-                  </div>
-                ) : deliveredOrders.length > 0 ? (
-                  deliveredOrders.map((order: any) => {
-                    // Check if this order already has a pending payout request
-                    const hasPendingPayout = payoutRequests.some((request: PayoutRequest) => 
-                      (request.status === 'pending' || request.status === 'processing' || request.status === 'approved') && 
-                      request.orderId === order.id
-                    );
-                    
-                    return (
-                    <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg bg-green-50">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-4">
-                          <div>
-                            <p className="font-semibold text-gray-900">Order #{order.id ? order.id.slice(0, 8) : 'N/A'}</p>
-                            <p className="text-sm text-gray-600">{order.userName || order.userEmail || 'Customer'}</p>
-                            <p className="text-xs text-gray-500">Delivered: {safeDate(order.updatedAt || order.createdAt)}</p>
-                            <p className="text-xs text-gray-500">Address: {order.deliveryAddress}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-green-600">
-                          {safeMoney(order.totalAmount)}
-                        </p>
-                        <Badge variant="default" className="bg-green-600">
-                          Delivered
-                        </Badge>
-                        <div className="mt-2">
-                          {hasPendingPayout ? (
-                            <Button 
-                              size="sm" 
-                              disabled
-                              className="bg-gray-400 cursor-not-allowed"
-                              data-testid={`button-request-payout-disabled-${order.id}`}
-                            >
-                              <Clock className="w-4 h-4 mr-1" />
-                              Payout Pending
-                            </Button>
-                          ) : (
-                            <Button 
-                              size="sm" 
-                              className="bg-buylock-primary hover:bg-buylock-primary/90"
-                              data-testid={`button-request-payout-${order.id}`}
-                              onClick={() => handlePayoutRequest(order.id, order.totalAmount)}
-                              disabled={requestPayout.isPending}
-                            >
-                              {requestPayout.isPending ? (
-                                <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
-                              ) : (
-                                <Send className="w-4 h-4 mr-1" />
-                              )}
-                              Request Payout
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Banknote className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>No delivered orders available for payout</p>
-                    <p className="text-sm">Orders delivered by admin will appear here</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-
-          {/* Payout Requests History */}
+        <TabsContent value="payout-history" className="space-y-4">
+          {/* Payout History */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Clock className="w-5 h-5 text-gray-600" />
-                <span>Payout Requests History</span>
+                <span>Payout History</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
