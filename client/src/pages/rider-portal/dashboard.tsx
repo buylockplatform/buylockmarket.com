@@ -20,6 +20,19 @@ type Job = {
   createdAt: string;
 };
 
+type AvailableJob = {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  pickupAddress: string;
+  dropoffAddress: string;
+  jobType: string;
+  totalAmount?: string;
+  deliveryFee?: string;
+  distance?: string;
+  createdAt: string;
+};
+
 type EarningsStats = { pending: number; approved: number; paid: number; totalJobs: number };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -39,11 +52,13 @@ function getUser() {
 
 export default function RiderDashboard() {
   const [, setLocation] = useLocation();
-  const [tab, setTab] = useState<"active" | "history" | "earnings">("active");
+  const [tab, setTab] = useState<"available" | "active" | "history" | "earnings">("available");
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [availableJobs, setAvailableJobs] = useState<AvailableJob[]>([]);
   const [earnings, setEarnings] = useState<EarningsStats>({ pending: 0, approved: 0, paid: 0, totalJobs: 0 });
   const [isOnline, setIsOnline] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [availableLoading, setAvailableLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
 
@@ -60,6 +75,19 @@ export default function RiderDashboard() {
     } catch {}
   }, [user?.id]);
 
+  const fetchAvailableJobs = useCallback(async () => {
+    setAvailableLoading(true);
+    try {
+      const res = await fetch(`/api/delivery/available-jobs`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableJobs(Array.isArray(data) ? data : []);
+      }
+    } catch {} finally {
+      setAvailableLoading(false);
+    }
+  }, [token]);
+
   const fetchEarnings = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -71,9 +99,11 @@ export default function RiderDashboard() {
   useEffect(() => {
     if (!token || !user) { setLocation("/delivery/login"); return; }
     setIsOnline(user.isOnline ?? false);
-    Promise.all([fetchJobs(), fetchEarnings()]).finally(() => setLoading(false));
-    const timer = setInterval(fetchJobs, 30000);
-    return () => clearInterval(timer);
+    Promise.all([fetchJobs(), fetchAvailableJobs(), fetchEarnings()]).finally(() => setLoading(false));
+    // Poll assigned jobs every 30s and available jobs every 15s
+    const jobTimer = setInterval(fetchJobs, 30_000);
+    const availTimer = setInterval(fetchAvailableJobs, 15_000);
+    return () => { clearInterval(jobTimer); clearInterval(availTimer); };
   }, []);
 
   const toggleOnline = async () => {
@@ -111,7 +141,7 @@ export default function RiderDashboard() {
         headers,
         body: JSON.stringify({ riderId: user.id }),
       });
-      await fetchJobs();
+      await Promise.all([fetchJobs(), fetchAvailableJobs()]);
     } finally {
       setActionLoading(null);
     }
@@ -121,7 +151,7 @@ export default function RiderDashboard() {
     setActionLoading(jobId + "decline");
     try {
       await fetch(`/api/delivery/jobs/${jobId}/decline`, { method: "PATCH", headers, body: "{}" });
-      await fetchJobs();
+      await Promise.all([fetchJobs(), fetchAvailableJobs()]);
     } finally {
       setActionLoading(null);
     }
@@ -189,6 +219,7 @@ export default function RiderDashboard() {
       {/* Tabs */}
       <div className="flex border-b border-white/10 px-4">
         {[
+          { key: "available" as const, label: `Available (${availableJobs.length})` },
           { key: "active" as const, label: `Active (${activeJobs.length})` },
           { key: "history" as const, label: `History (${historyJobs.length})` },
           { key: "earnings" as const, label: "Earnings" },
@@ -198,7 +229,12 @@ export default function RiderDashboard() {
             onClick={() => setTab(key)}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${tab === key ? "border-[#FF4705] text-[#FF4705]" : "border-transparent text-gray-400 hover:text-white"}`}
           >
-            {label}
+            {key === "available" && availableJobs.length > 0 ? (
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#FF4705] animate-pulse inline-block" />
+                {label}
+              </span>
+            ) : label}
           </button>
         ))}
       </div>
@@ -207,6 +243,35 @@ export default function RiderDashboard() {
       <div className="p-4 space-y-4 max-w-3xl mx-auto">
         {tab === "earnings" ? (
           <EarningsPanel userId={user?.id} token={token!} />
+        ) : tab === "available" ? (
+          availableLoading ? (
+            <div className="text-center py-16 text-gray-500">
+              <div className="animate-spin w-6 h-6 border-2 border-[#FF4705] border-t-transparent rounded-full mx-auto mb-3" />
+              <p>Looking for jobs nearby…</p>
+            </div>
+          ) : availableJobs.length === 0 ? (
+            <div className="text-center py-16 text-gray-500">
+              <p className="text-4xl mb-3">🛵</p>
+              <p className="font-medium text-white">No available jobs right now</p>
+              <p className="text-sm mt-1">New orders will appear here automatically every 15 seconds</p>
+              <button
+                onClick={fetchAvailableJobs}
+                className="mt-4 px-4 py-2 border border-white/20 rounded-xl text-sm text-gray-300 hover:bg-white/5"
+              >
+                Refresh now
+              </button>
+            </div>
+          ) : (
+            availableJobs.map((job) => (
+              <AvailableJobCard
+                key={job.id}
+                job={job}
+                onAccept={acceptJob}
+                onDecline={declineJob}
+                actionLoading={actionLoading}
+              />
+            ))
+          )
         ) : (
           (tab === "active" ? activeJobs : historyJobs).length === 0 ? (
             <div className="text-center py-16 text-gray-500">
@@ -229,6 +294,65 @@ export default function RiderDashboard() {
             ))
           )
         )}
+      </div>
+    </div>
+  );
+}
+
+function AvailableJobCard({ job, onAccept, onDecline, actionLoading }: {
+  job: AvailableJob;
+  onAccept: (id: string) => void;
+  onDecline: (id: string) => void;
+  actionLoading: string | null;
+}) {
+  return (
+    <div className="bg-white/5 border border-[#FF4705]/30 rounded-2xl overflow-hidden">
+      <div className="h-1 bg-[#FF4705]" />
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-2 h-2 rounded-full bg-[#FF4705] animate-pulse inline-block" />
+              <p className="font-bold text-white">Order #{job.orderNumber}</p>
+            </div>
+            <p className="text-xs text-gray-400">{job.jobType} · {new Date(job.createdAt).toLocaleString()}</p>
+          </div>
+          <div className="text-right">
+            {job.deliveryFee && (
+              <p className="text-[#FF4705] font-bold text-lg">KES {job.deliveryFee}</p>
+            )}
+            {job.distance && (
+              <p className="text-xs text-gray-400">{job.distance} km away</p>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 mb-2">
+          <p className="text-xs font-semibold text-amber-400 mb-1">📍 PICKUP</p>
+          <p className="text-sm text-white">{job.pickupAddress}</p>
+        </div>
+
+        <div className="bg-sky-500/5 border border-sky-500/20 rounded-xl p-3 mb-4">
+          <p className="text-xs font-semibold text-sky-400 mb-1">🏁 DROPOFF</p>
+          <p className="text-sm text-white">{job.dropoffAddress}</p>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => onDecline(job.id)}
+            disabled={actionLoading !== null}
+            className="flex-1 py-3 border border-red-500/50 text-red-400 rounded-xl font-semibold text-sm hover:bg-red-500/10 transition-colors disabled:opacity-50"
+          >
+            Decline
+          </button>
+          <button
+            onClick={() => onAccept(job.id)}
+            disabled={actionLoading !== null}
+            className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50"
+          >
+            {actionLoading === job.id + "accept" ? "Accepting…" : "✅ Accept Job"}
+          </button>
+        </div>
       </div>
     </div>
   );
