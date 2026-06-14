@@ -14,7 +14,6 @@ import {
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import { ObjectStorageService } from "./objectStorage";
 import { generateTokens, verifyToken, extractBearerToken } from "./jwtUtils";
 import { sendPushNotification } from "./firebaseAdmin";
 import { sendUserPasswordResetEmail } from "./emailService";
@@ -22,7 +21,6 @@ import multer from "multer";
 const multerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
 const router = Router();
-const storageService = new ObjectStorageService();
 const riderResetTokens = new Map<string, { userId: string; expiresAt: Date }>();
 
 // ─── Auth middleware for riders ────────────────────────────────────────────
@@ -91,23 +89,15 @@ router.post(
       const files = req.files as Record<string, Express.Multer.File[]> | undefined;
 
       const uploadFile = async (field: string): Promise<string | undefined> => {
-        // Multipart file upload
+        // Multipart file — store as base64 data URL for now (GCS integration later)
         const file = files?.[field]?.[0];
         if (file) {
-          const key = `rider-docs/${Date.now()}-${field}-${file.originalname || field}`;
-          return storage.uploadBuffer(file.buffer, key, file.mimetype);
+          const b64 = file.buffer.toString("base64");
+          return `data:${file.mimetype};base64,${b64}`;
         }
         // Base64 JSON fallback: body.idFrontBase64, etc.
         const b64 = req.body?.[`${field}Base64`] as string | undefined;
-        if (b64) {
-          const matches = b64.match(/^data:(.+);base64,(.+)$/);
-          if (matches) {
-            const mime = matches[1];
-            const buf = Buffer.from(matches[2], "base64");
-            const key = `rider-docs/${Date.now()}-${field}.${mime.split("/")[1] || "jpg"}`;
-            return storage.uploadBuffer(buf, key, mime);
-          }
-        }
+        if (b64) return b64;
         return undefined;
       };
 
@@ -929,7 +919,7 @@ router.post(
       let documentUrl = req.body.documentUrl;
       if (req.file) {
         const key = `rider-docs/${riderId}/${Date.now()}-${req.file.originalname}`;
-        documentUrl = await storage.uploadBuffer(req.file.buffer, key, req.file.mimetype);
+        documentUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
       }
       const [doc] = await db
         .insert(riderDocuments)
