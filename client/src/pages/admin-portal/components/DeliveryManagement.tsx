@@ -98,12 +98,7 @@ export default function DeliveryManagement() {
       setLoading(true);
       const params = new URLSearchParams();
       if (filters.status === 'active') {
-        // Show only actionable statuses — exclude delivered/failed/cancelled
-        params.append('status', 'pending');
-        params.append('status', 'pickup_scheduled');
-        params.append('status', 'picked_up');
-        params.append('status', 'in_transit');
-        params.append('status', 'out_for_delivery');
+        params.append('status', 'active');
       } else if (filters.status !== 'all') {
         params.append('status', filters.status);
       }

@@ -5403,15 +5403,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { status, providerId, orderId, limit = 50, offset = 0 } = req.query;
 
+      const ACTIVE_STATUSES = ['pending', 'pickup_scheduled', 'picked_up', 'in_transit', 'out_for_delivery'];
+      const isActive = status === 'active';
+
+      // Fetch without status filter when 'active' so we can filter by multiple statuses
       const deliveries = await storage.getDeliveries({
-        status: status as string,
+        status: isActive ? undefined : (status as string),
         providerId: providerId as string,
         orderId: orderId as string,
-        limit: parseInt(limit as string),
+        limit: isActive ? 200 : parseInt(limit as string),
         offset: parseInt(offset as string),
       });
 
-      const normalized = await Promise.all(deliveries.map(normalizeAndMigrateDelivery));
+      const filtered = isActive
+        ? deliveries.filter(d => ACTIVE_STATUSES.includes(d.status || ''))
+        : deliveries;
+
+      const normalized = await Promise.all(filtered.map(normalizeAndMigrateDelivery));
       res.json(normalized);
     } catch (error) {
       console.error('Error fetching deliveries:', error);
