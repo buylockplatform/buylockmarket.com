@@ -447,9 +447,29 @@ router.patch("/api/delivery-jobs/:id/status", isRiderAuthenticated, async (req: 
 
     await db.update(deliveryJobs).set({ status, updatedAt: new Date() }).where(eq(deliveryJobs.id, id));
 
+    // ── Sync order status so the customer's /track page reflects reality ──
+    const [job] = await db.select().from(deliveryJobs).where(eq(deliveryJobs.id, id)).limit(1);
+    if (job?.orderId) {
+      // Map delivery job status → order status (matches TrackOrder.tsx milestone mapper)
+      const orderStatusMap: Record<string, string> = {
+        ASSIGNED:         "passed_to_delivery",  // milestone 3
+        PICKED_UP:        "picked_up",            // milestone 3 → "Picked Up"
+        OUT_FOR_DELIVERY: "out_for_delivery",     // milestone 4 → "Out for Delivery"
+        DELIVERED:        "delivered",            // milestone 5
+        CANCELLED:        "cancelled",
+      };
+      const newOrderStatus = orderStatusMap[status];
+      if (newOrderStatus) {
+        const timestampUpdates: any = { status: newOrderStatus, updatedAt: new Date() };
+        if (status === "PICKED_UP")        timestampUpdates.pickedUpAt = new Date();
+        if (status === "DELIVERED")        timestampUpdates.deliveredAt = new Date();
+
+        await db.update(orders).set(timestampUpdates).where(eq(orders.id, job.orderId));
+      }
+    }
+
     // Auto-create earnings when job is delivered
     if (status === "DELIVERED") {
-      const [job] = await db.select().from(deliveryJobs).where(eq(deliveryJobs.id, id)).limit(1);
       if (job?.deliveryPersonId) {
         const [order] = await db.select().from(orders).where(eq(orders.id, job.orderId)).limit(1);
         const deliveryFee = parseFloat(String(order?.deliveryFee ?? "200"));

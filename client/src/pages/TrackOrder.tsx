@@ -63,7 +63,7 @@ export default function TrackOrder() {
     if (status === "pending" || status === "placed" || status === "paid" || status === "pending_acceptance") return 0;
     if (status === "confirmed" || status === "accepted" || status === "vendor_accepted" || status === "pickup") return 1;
     if (status === "ready_for_pickup" || status === "ready") return 2;
-    if (status === "dispatched" || status === "passed_to_delivery" || status === "processing" || status === "packed" || status === "doing") return 3;
+    if (status === "dispatched" || status === "passed_to_delivery" || status === "processing" || status === "packed" || status === "doing" || status === "picked_up") return 3;
     if (status === "in_delivery" || status === "shipping" || status === "shipped" || status === "out_for_delivery" || status === "delivering") return 4;
     if (status === "delivered") return 5;
     if (status === "completed" || status === "fulfilled") return 6;
