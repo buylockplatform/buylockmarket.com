@@ -170,9 +170,9 @@ router.post("/api/auth/rider/login", async (req: Request, res: Response) => {
     if (!valid) return res.status(401).json({ error: "Invalid credentials" });
 
     const tokens = generateTokens({
-      userId: rider.id,
+      id: rider.id,
       email: rider.email!,
-      firstName: rider.firstName || rider.fullName || "",
+      firstName: rider.firstName || (rider as any).fullName || "",
       lastName: rider.lastName || "",
     });
 
