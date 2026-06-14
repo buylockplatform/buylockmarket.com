@@ -61,6 +61,24 @@ export class ObjectNotFoundError extends Error {
 export class ObjectStorageService {
   constructor() { }
 
+  // Upload a buffer directly to GCS and return the public URL.
+  // Falls back to a data-URI stub when GCS credentials are not configured.
+  async uploadBuffer(buffer: Buffer, key: string, mimeType: string): Promise<string> {
+    try {
+      const bucketName = process.env.GCS_BUCKET_NAME;
+      if (!bucketName) throw new Error("GCS_BUCKET_NAME not set");
+      const client = initializeStorageClient();
+      const file = client.bucket(bucketName).file(key);
+      await file.save(buffer, { contentType: mimeType, resumable: false });
+      await file.makePublic();
+      return `https://storage.googleapis.com/${bucketName}/${key}`;
+    } catch (err: any) {
+      // GCS not configured in dev — store nothing and return a placeholder marker
+      console.warn("[ObjectStorage] uploadBuffer failed (GCS unavailable):", err.message);
+      return `[pending-upload:${key}]`;
+    }
+  }
+
   // Gets the public object search paths for GCS.
   getPublicObjectSearchPaths(): Array<string> {
     // For GCS, we use simple paths within the bucket

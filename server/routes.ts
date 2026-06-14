@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { riderRouter } from "./riderRoutes";
 import { storage } from "./storage";
 import { appointments } from "@shared/schema";
 import { db } from "./db";
@@ -174,6 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const paystackService = new PaystackService(secret);
 
   app.use(pushRouter);
+  app.use(riderRouter);
 
   // Rate limiting for authentication endpoints
   const authRateLimit = rateLimit({
@@ -842,17 +844,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vendor = req.vendor;
       const vendorId = vendor.id;
 
-      // Get vendor statistics
+      // Get vendor statistics and dynamic earnings summary
       const stats = await storage.getVendorStats(vendorId);
+      const summary = await storage.getVendorEarningsSummary(vendorId);
 
       res.json({
         totalProducts: stats.totalProducts || 0,
         totalServices: stats.totalServices || 0,
         totalOrders: stats.totalOrders || 0,
         pendingOrders: stats.pendingOrders || 0,
-        totalEarnings: parseFloat(vendor.totalEarnings || '0'),
-        availableBalance: parseFloat(vendor.availableBalance || '0'),
-        pendingBalance: parseFloat(vendor.pendingBalance || '0'),
+        totalEarnings: summary.totalEarnings,
+        availableBalance: summary.availableBalance,
+        pendingBalance: summary.pendingBalance,
         recentOrders: stats.recentOrders || [],
         monthlyEarnings: stats.monthlyEarnings || [],
         topProducts: stats.topProducts || [],

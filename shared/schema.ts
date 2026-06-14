@@ -34,9 +34,11 @@ export const users = pgTable("users", {
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
+  fullName: varchar("full_name"),
   profileImageUrl: varchar("profile_image_url"),
   passwordHash: varchar("password_hash"), // For form-based authentication
   phone: varchar("phone"),
+  mpesaNumber: varchar("mpesa_number"),
   address: text("address"),
   city: varchar("city"),
   suburb: varchar("suburb"),
@@ -44,9 +46,23 @@ export const users = pgTable("users", {
   postalCode: varchar("postal_code"),
   country: varchar("country").default("Kenya"),
   fcmToken: varchar("fcm_token"),
+  role: varchar("role", { length: 20 }).default("customer"), // customer, vendor, delivery, admin
   isSuspended: boolean("is_suspended").default(false),
   suspendedAt: timestamp("suspended_at"),
   suspensionReason: text("suspension_reason"),
+  // Rider-specific fields
+  riderStatus: varchar("rider_status", { length: 30 }), // pending_verification, active, suspended
+  idNumber: varchar("id_number"),
+  dailyCashLimit: decimal("daily_cash_limit", { precision: 10, scale: 2 }).default("1500"),
+  dailySuspended: boolean("daily_suspended").default(false),
+  // Rider document image URLs
+  idFrontUrl: varchar("id_front_url"),
+  idBackUrl: varchar("id_back_url"),
+  licenseFrontUrl: varchar("license_front_url"),
+  licenseBackUrl: varchar("license_back_url"),
+  insuranceUrl: varchar("insurance_url"),
+  goodConductUrl: varchar("good_conduct_url"),
+  // Location fields
   isOnline: boolean("is_online").default(false),
   latitude: decimal("latitude", { precision: 10, scale: 8 }),
   longitude: decimal("longitude", { precision: 11, scale: 8 }),
@@ -414,6 +430,82 @@ export const deliveryJobs = pgTable("delivery_jobs", {
   jobType: varchar("job_type", { length: 20 }).notNull(), // 'PICKUP' | 'DELIVERY'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Rider Earnings - auto-created when a delivery job reaches DELIVERED status
+export const riderEarnings = pgTable("rider_earnings", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  deliveryJobId: uuid("delivery_job_id").references(() => deliveryJobs.id).notNull(),
+  driverId: varchar("driver_id").references(() => users.id).notNull(),
+  orderId: uuid("order_id").references(() => orders.id).notNull(),
+  deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).notNull(),
+  platformCommission: decimal("platform_commission", { precision: 10, scale: 2 }).notNull().default("0"),
+  driverPayout: decimal("driver_payout", { precision: 10, scale: 2 }).notNull(),
+  status: varchar("status", { length: 20 }).default("PENDING").notNull(), // PENDING, APPROVED, PAID, DECLINED
+  mpesaReceiptNumber: varchar("mpesa_receipt_number"),
+  paidAt: timestamp("paid_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Rider Cash Collections - tracks cash collected on delivery
+export const riderCashCollections = pgTable("rider_cash_collections", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").references(() => users.id).notNull(),
+  orderId: uuid("order_id").references(() => orders.id).notNull(),
+  deliveryJobId: uuid("delivery_job_id").references(() => deliveryJobs.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  isReconciled: boolean("is_reconciled").default(false),
+  reconciledAt: timestamp("reconciled_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Rider Bonus Events - daily delivery bonuses
+export const riderBonusEvents = pgTable("rider_bonus_events", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").references(() => users.id).notNull(),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  deliveriesCount: integer("deliveries_count").notNull(),
+  bonusThreshold: integer("bonus_threshold").notNull(),
+  bonusAmount: decimal("bonus_amount", { precision: 10, scale: 2 }).notNull(),
+  status: varchar("status", { length: 20 }).default("PENDING").notNull(), // PENDING, PAID
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payment Requests - rider withdrawal requests
+export const paymentRequests = pgTable("payment_requests", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  driverId: varchar("driver_id").references(() => users.id).notNull(),
+  jobIds: text("job_ids").array().notNull(),
+  status: varchar("status", { length: 20 }).default("PENDING").notNull(), // PENDING, APPROVED, PAID, DECLINED
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
+  notes: text("notes"),
+  adminNotes: text("admin_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Rider Document Types - master list of accepted document categories
+export const riderDocumentTypes = pgTable("rider_document_types", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  isRequired: boolean("is_required").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Rider Documents - uploaded after approval (contracts, renewals, etc.)
+export const riderDocuments = pgTable("rider_documents", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  riderId: varchar("rider_id").references(() => users.id).notNull(),
+  documentTypeId: uuid("document_type_id").references(() => riderDocumentTypes.id),
+  label: varchar("label", { length: 200 }).notNull(),
+  documentUrl: varchar("document_url").notNull(),
+  expiryDate: timestamp("expiry_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Relations

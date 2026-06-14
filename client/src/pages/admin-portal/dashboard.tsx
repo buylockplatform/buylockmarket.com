@@ -21,6 +21,9 @@ import LogisticsSettings from "./components/LogisticsSettings";
 import VerticalsManagement from "./components/VerticalsManagement";
 import AdminSettingsPanel from "./components/AdminSettingsPanel";
 import DeliveryPortalContent from "@/components/DeliveryPortalContent";
+import VerifyRiders from "./verify-riders";
+import RiderEarnings from "./rider-earnings";
+import DeliveryPersonnel from "./delivery-personnel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +120,9 @@ export default function AdminDashboard() {
     { id: "earnings", label: "Earnings Management", icon: DollarSign },
     { id: "commission", label: "Commission Settings", icon: Settings },
     { id: "deliveries", label: "Delivery", icon: Truck },
+    { id: "rider-fleet", label: "Rider Fleet", icon: Truck },
+    { id: "verify-riders", label: "Verify Riders", icon: CheckCircle },
+    { id: "rider-earnings", label: "Rider Earnings", icon: DollarSign },
     { id: "courier-config", label: "Courier Configuration", icon: Settings },
     { id: "logistics-settings", label: "Logistics Settings", icon: Truck },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
@@ -215,6 +221,9 @@ export default function AdminDashboard() {
                 {activeSection === "payouts" && "Manage vendor disbursements and payout requests"}
                 {activeSection === "commission" && "Configure platform and vendor commission percentages"}
                 {activeSection === "deliveries" && "Comprehensive delivery tracking and management"}
+                {activeSection === "rider-fleet" && "View and manage all delivery riders in your fleet"}
+                {activeSection === "verify-riders" && "Review and approve or reject rider applications"}
+                {activeSection === "rider-earnings" && "Manage rider earnings, approvals, and M-Pesa payouts"}
                 {activeSection === "courier-config" && "Configure delivery providers and courier settings"}
                 {activeSection === "logistics-settings" && "Delivery fee formula, surge pricing and fulfillment rules"}
                 {activeSection === "verticals" && "Manage top-level market verticals to organise products, services, and discovery feeds"}
@@ -423,6 +432,9 @@ export default function AdminDashboard() {
           {activeSection === "commission" && <CommissionSettings />}
 
           {activeSection === "deliveries" && <DeliveryPortalContent />}
+          {activeSection === "rider-fleet" && <DeliveryPersonnel />}
+          {activeSection === "verify-riders" && <VerifyRiders />}
+          {activeSection === "rider-earnings" && <RiderEarnings />}
           
           {activeSection === "courier-config" && <CourierConfiguration />}
 

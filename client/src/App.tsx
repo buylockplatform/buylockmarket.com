@@ -24,6 +24,10 @@ import ResetPassword from "@/pages/reset-password";
 import Shop from "@/pages/shop";
 import VendorPortal from "@/pages/vendor-portal";
 import DeliveryPortal from "@/pages/delivery-portal";
+import RiderLogin from "@/pages/rider-portal/login";
+import RiderRegister from "@/pages/rider-portal/register";
+import RiderForgotPassword from "@/pages/rider-portal/forgot-password";
+import RiderDashboard from "@/pages/rider-portal/dashboard";
 import AdminPortalLanding from "@/pages/admin-portal";
 import VendorLogin from "@/pages/vendor-dashboard/login";
 import VendorForgotPassword from "@/pages/vendor-dashboard/forgot-password";
@@ -75,6 +79,12 @@ function Router() {
       {/* Portal routes - accessible without authentication */}
       <Route path="/vendor-portal" component={VendorPortal} />
       <Route path="/delivery-portal" component={DeliveryPortal} />
+
+      {/* Rider portal routes */}
+      <Route path="/delivery/login" component={RiderLogin} />
+      <Route path="/delivery/register" component={RiderRegister} />
+      <Route path="/delivery/forgot-password" component={RiderForgotPassword} />
+      <Route path="/delivery" component={RiderDashboard} />
       
       {/* Public order access - no authentication required */}
       <Route path="/o/:token" component={PublicOrder} />
