@@ -164,9 +164,11 @@ export default function TrackOrder() {
                       const isCompleted = index < activeMilestoneIndex;
                       const isActive = index === activeMilestoneIndex;
                       const isLast = index === milestones.length - 1;
-                      
-                      const isStepCompleted = isCompleted || (step.status === "completed" && isActive);
-                      const isStepActive = isActive && step.status !== "completed";
+
+                      // Terminal statuses — treat the active step as completed too (green, not spinning)
+                      const isTerminalStatus = step.status === "completed" || step.status === "delivered";
+                      const isStepCompleted = isCompleted || (isActive && isTerminalStatus);
+                      const isStepActive = isActive && !isTerminalStatus;
 
                       return (
                         <div key={step.label} className="relative flex gap-4 items-start py-3">
