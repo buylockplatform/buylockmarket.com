@@ -17,6 +17,7 @@ import crypto from "crypto";
 import { generateTokens, verifyToken, extractBearerToken } from "./jwtUtils";
 import { sendPushNotification } from "./firebaseAdmin";
 import { sendUserPasswordResetEmail } from "./emailService";
+import { uwaziiService } from "./uwaziiService";
 import multer from "multer";
 const multerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
@@ -860,17 +861,33 @@ router.get("/api/admin/rider-applications", async (_req: Request, res: Response)
 router.patch("/api/admin/rider-applications/:id", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { action, reason, notes } = req.body; // action: 'approve' | 'reject'
+    const { action, reasons, notes } = req.body; // action: 'approve' | 'reject', reasons: string[], notes: string
+
+    const [rider] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!rider) return res.status(404).json({ error: "Rider not found" });
+
+    const riderName = (rider as any).fullName || rider.firstName || "Rider";
 
     if (action === "approve") {
       await db.update(users).set({ riderStatus: "active", updatedAt: new Date() }).where(eq(users.id, id));
-      // TODO: Send approval SMS
-      res.json({ message: "Rider approved" });
+      await uwaziiService.sendSMS(
+        rider.phone!,
+        `Hi ${riderName}, congratulations! Your Buylock Rider application has been approved. You can now log in to the Buylock Rider app and start accepting deliveries. Welcome to the team!`
+      );
+      res.json({ message: "Rider approved and notified via SMS" });
+
     } else if (action === "reject") {
-      // Delete the record so they can re-apply
+      const phone = rider.phone!;
+      const reasonList = Array.isArray(reasons) && reasons.length > 0
+        ? reasons.join(", ")
+        : "documents did not meet our requirements";
+      const notesPart = notes ? ` Note from admin: ${notes}.` : "";
+      const smsText = `Hi ${riderName}, your Buylock Rider application was not approved. Reason(s): ${reasonList}.${notesPart} Please fix the issue(s) and re-apply on the Buylock Rider app.`;
+
       await db.delete(users).where(eq(users.id, id));
-      // TODO: Send rejection SMS with reason
-      res.json({ message: "Application rejected and record deleted" });
+      await uwaziiService.sendSMS(phone, smsText);
+      res.json({ message: "Application rejected, rider notified via SMS and record deleted" });
+
     } else {
       res.status(400).json({ error: "Invalid action. Use 'approve' or 'reject'" });
     }
