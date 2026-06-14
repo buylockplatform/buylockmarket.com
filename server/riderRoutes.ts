@@ -13,9 +13,11 @@ import {
   riderDocumentTypes,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import { ObjectStorageService } from "./objectStorage";
 import { generateTokens, verifyToken, extractBearerToken } from "./jwtUtils";
 import { sendPushNotification } from "./firebaseAdmin";
+import { sendUserPasswordResetEmail } from "./emailService";
 let multerUpload: any = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -26,7 +28,8 @@ try {
 }
 
 const router = Router();
-const storage = new ObjectStorageService();
+const storageService = new ObjectStorageService();
+const riderResetTokens = new Map<string, { userId: string; expiresAt: Date }>();
 
 // ─── Auth middleware for riders ────────────────────────────────────────────
 const isRiderAuthenticated = async (req: any, res: any, next: any) => {
@@ -202,23 +205,59 @@ router.post("/api/auth/rider/login", async (req: Request, res: Response) => {
 // ─── Forgot Password ───────────────────────────────────────────────────────
 router.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
   try {
-    const { phone } = req.body;
-    if (!phone) return res.status(400).json({ error: "Phone number required" });
+    const { email } = req.body;
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ error: "Email is required" });
+    }
 
-    const [rider] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
-    if (!rider) return res.status(404).json({ error: "No account found with that phone number" });
+    const [rider] = await db.select().from(users)
+      .where(eq(users.email, email.toLowerCase().trim())).limit(1);
 
-    // Generate temp password
-    const tempPassword = Math.random().toString(36).slice(-8).toUpperCase();
-    const hash = await bcrypt.hash(tempPassword, 10);
-    await db.update(users).set({ passwordHash: hash }).where(eq(users.id, rider.id));
+    // Always return success to prevent email enumeration
+    if (!rider) {
+      return res.json({ message: "If an account with that email exists, a reset link has been sent." });
+    }
 
-    // TODO: Send SMS with tempPassword via SMS provider
-    console.log(`[ForgotPassword] Temp password for ${phone}: ${tempPassword}`);
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    riderResetTokens.set(token, { userId: rider.id, expiresAt });
 
-    return res.json({ message: "Temporary password sent via SMS" });
+    const baseUrl = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+    const resetUrl = `${baseUrl}/delivery/reset-password?token=${token}`;
+    const riderName = (rider as any).fullName || (rider as any).firstName || rider.email;
+
+    await sendUserPasswordResetEmail({
+      userEmail: rider.email!,
+      userName: riderName,
+      resetUrl,
+    });
+
+    return res.json({ message: "If an account with that email exists, a reset link has been sent." });
   } catch (err: any) {
+    console.error("[RiderForgotPassword]", err);
     res.status(500).json({ error: "Failed to process request" });
+  }
+});
+
+// ─── Reset Password (token-based) ─────────────────────────────────────────
+router.post("/api/auth/rider/reset-password", async (req: Request, res: Response) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ error: "Token and new password are required" });
+
+    const entry = riderResetTokens.get(token);
+    if (!entry || entry.expiresAt < new Date()) {
+      riderResetTokens.delete(token);
+      return res.status(400).json({ error: "Reset link is invalid or has expired" });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+    await db.update(users).set({ passwordHash: hash, updatedAt: new Date() }).where(eq(users.id, entry.userId));
+    riderResetTokens.delete(token);
+
+    return res.json({ message: "Password updated successfully" });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to reset password" });
   }
 });
 
@@ -891,9 +930,11 @@ router.get("/api/admin/rider-documents/:riderId", async (req: Request, res: Resp
   }
 });
 
+const singleDocMiddlewares = multerUpload ? [multerUpload.single("document")] : [];
+
 router.post(
   "/api/admin/rider-documents",
-  upload.single("document"),
+  ...singleDocMiddlewares,
   async (req: any, res: Response) => {
     try {
       const { riderId, label, documentTypeId, expiryDate, notes } = req.body;

@@ -27,6 +27,7 @@ import DeliveryPortal from "@/pages/delivery-portal";
 import RiderLogin from "@/pages/rider-portal/login";
 import RiderRegister from "@/pages/rider-portal/register";
 import RiderForgotPassword from "@/pages/rider-portal/forgot-password";
+import RiderResetPassword from "@/pages/rider-portal/reset-password";
 import RiderDashboard from "@/pages/rider-portal/dashboard";
 import AdminPortalLanding from "@/pages/admin-portal";
 import VendorLogin from "@/pages/vendor-dashboard/login";
@@ -84,6 +85,7 @@ function Router() {
       <Route path="/delivery/login" component={RiderLogin} />
       <Route path="/delivery/register" component={RiderRegister} />
       <Route path="/delivery/forgot-password" component={RiderForgotPassword} />
+      <Route path="/delivery/reset-password" component={RiderResetPassword} />
       <Route path="/delivery" component={RiderDashboard} />
       
       {/* Public order access - no authentication required */}
