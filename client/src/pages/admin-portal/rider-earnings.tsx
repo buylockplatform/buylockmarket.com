@@ -33,7 +33,8 @@ export default function RiderEarnings() {
     const params = statuses.map((s) => `status=${s}`).join("&");
     fetch(`/api/rider-earnings?${params}`, { headers: { "x-admin-auth": "true" } })
       .then((r) => r.json())
-      .then(setEarnings)
+      .then((data) => setEarnings(Array.isArray(data) ? data : []))
+      .catch(() => setEarnings([]))
       .finally(() => setLoading(false));
   };
 

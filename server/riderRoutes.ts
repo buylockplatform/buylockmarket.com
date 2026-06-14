@@ -584,12 +584,17 @@ router.post("/api/orders/:orderId/assign", async (req: Request, res: Response) =
 });
 
 // ─── Earnings ──────────────────────────────────────────────────────────────
-router.get("/api/rider-earnings", isRiderAuthenticated, async (req: any, res: Response) => {
+router.get("/api/rider-earnings", isAdminOrRider, async (req: any, res: Response) => {
   try {
     const { driverId, status } = req.query;
     const conditions: any[] = [];
     if (driverId) conditions.push(eq(riderEarnings.driverId, driverId as string));
-    if (status) conditions.push(eq(riderEarnings.status, (status as string).toUpperCase()));
+
+    // Support single status string or multiple status values (e.g. ?status=PENDING&status=APPROVED)
+    if (status) {
+      const statuses = (Array.isArray(status) ? status : [status]).map((s: any) => s.toUpperCase());
+      conditions.push(statuses.length === 1 ? eq(riderEarnings.status, statuses[0]) : inArray(riderEarnings.status, statuses));
+    }
 
     const earnings = await db
       .select()
