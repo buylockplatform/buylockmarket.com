@@ -136,6 +136,9 @@ export default function LiveTracking({ orderId, className }: LiveTrackingProps) 
   // Compute positions
   const positions = useMemo(() => {
     if (!data) return null;
+    // Guard: if the response is missing the expected shape (e.g. old flat route),
+    // treat it as no data to avoid crashing on undefined.latitude
+    if (!data.shop || !data.destination) return null;
 
     const shopLat = parseFloat(data.shop.latitude);
     const shopLng = parseFloat(data.shop.longitude);

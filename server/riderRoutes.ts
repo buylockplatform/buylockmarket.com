@@ -292,21 +292,53 @@ router.get("/api/delivery/orders/:personId", isRiderAuthenticated, async (req: a
         updatedAt: deliveryJobs.updatedAt,
         orderNumber: orders.id,
         totalAmount: orders.totalAmount,
-        customerName: orders.customerName,
-        customerPhone: orders.customerPhone,
         deliveryAddress: orders.deliveryAddress,
         deliveryFee: orders.deliveryFee,
         vendorId: orders.vendorId,
+        // Guest checkout fields
+        guestName: orders.guestName,
+        guestPhone: orders.guestPhone,
+        isGuest: orders.isGuest,
+        // Registered customer
+        customerFirstName: users.firstName,
+        customerLastName: users.lastName,
+        customerPhone: users.phone,
       })
       .from(deliveryJobs)
       .leftJoin(orders, eq(deliveryJobs.orderId, orders.id))
+      .leftJoin(users, eq(orders.userId, users.id))
       .where(eq(deliveryJobs.deliveryPersonId, personId))
       .orderBy(desc(deliveryJobs.createdAt));
 
-    const enriched = jobs.map((j) => ({
-      ...j,
-      orderNumber: j.orderNumber?.slice(-8).toUpperCase() ?? "N/A",
-    }));
+    const enriched = jobs.map((j) => {
+      // Resolve customer name/phone: prefer guest fields, fall back to user profile
+      const customerName = j.isGuest
+        ? (j.guestName ?? "Guest")
+        : [j.customerFirstName, j.customerLastName].filter(Boolean).join(" ") || "Customer";
+      const customerPhone = j.isGuest ? (j.guestPhone ?? "") : (j.customerPhone ?? "");
+
+      return {
+        id: j.id,
+        orderId: j.orderId,
+        orderNumber: j.orderNumber?.slice(-8).toUpperCase() ?? "N/A",
+        pickupAddress: j.pickupAddress,
+        dropoffAddress: j.dropoffAddress,
+        pickupLatitude: j.pickupLatitude,
+        pickupLongitude: j.pickupLongitude,
+        dropoffLatitude: j.dropoffLatitude,
+        dropoffLongitude: j.dropoffLongitude,
+        status: j.status,
+        jobType: j.jobType,
+        createdAt: j.createdAt,
+        updatedAt: j.updatedAt,
+        totalAmount: j.totalAmount,
+        deliveryAddress: j.deliveryAddress,
+        deliveryFee: j.deliveryFee,
+        vendorId: j.vendorId,
+        customerName,
+        customerPhone,
+      };
+    });
 
     res.json(enriched);
   } catch (err: any) {
@@ -338,7 +370,7 @@ router.get("/api/delivery/available-jobs", isRiderAuthenticated, async (req: any
       .from(deliveryJobs)
       .leftJoin(orders, eq(deliveryJobs.orderId, orders.id))
       .where(
-        // Unassigned open jobs OR jobs waiting for THIS rider's acceptance
+        // Only show truly open jobs: unassigned ASSIGNING or jobs waiting for THIS rider's acceptance
         and(
           inArray(deliveryJobs.status, ["ASSIGNING", "AWAITING_ACCEPTANCE"]),
           sql`(${deliveryJobs.deliveryPersonId} IS NULL OR ${deliveryJobs.deliveryPersonId} = ${req.rider.id})`
@@ -491,27 +523,9 @@ async function _checkDailyBonus(driverId: string) {
 }
 
 // ─── Rider Location for Customers ─────────────────────────────────────────
-router.get("/api/orders/:id/rider-location", async (req: Request, res: Response) => {
-  try {
-    const [job] = await db
-      .select({ deliveryPersonId: deliveryJobs.deliveryPersonId })
-      .from(deliveryJobs)
-      .where(eq(deliveryJobs.orderId, req.params.id))
-      .limit(1);
-
-    if (!job?.deliveryPersonId) return res.json({ latitude: null, longitude: null });
-
-    const [rider] = await db
-      .select({ latitude: users.latitude, longitude: users.longitude })
-      .from(users)
-      .where(eq(users.id, job.deliveryPersonId))
-      .limit(1);
-
-    res.json(rider ?? { latitude: null, longitude: null });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// NOTE: The canonical implementation is in routes.ts which returns the full
+// { rider, shop, destination, jobStatus } shape required by LiveTracking.tsx.
+// This stub is intentionally removed to prevent it shadowing that route.
 
 // ─── All Delivery Jobs (admin view) ───────────────────────────────────────
 router.get("/api/delivery/jobs", async (req: Request, res: Response) => {
