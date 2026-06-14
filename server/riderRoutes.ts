@@ -18,14 +18,8 @@ import { ObjectStorageService } from "./objectStorage";
 import { generateTokens, verifyToken, extractBearerToken } from "./jwtUtils";
 import { sendPushNotification } from "./firebaseAdmin";
 import { sendUserPasswordResetEmail } from "./emailService";
-let multerUpload: any = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const multer = require("multer");
-  multerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
-} catch {
-  console.warn("[riderRoutes] multer not installed — multipart file uploads disabled; base64 JSON fallback active.");
-}
+import multer from "multer";
+const multerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
 const router = Router();
 const storageService = new ObjectStorageService();
@@ -59,20 +53,16 @@ const isAdminOrRider = async (req: any, res: any, next: any) => {
 };
 
 // ─── Registration ──────────────────────────────────────────────────────────
-const registrationMiddlewares = multerUpload
-  ? [multerUpload.fields([
-      { name: "idFront", maxCount: 1 },
-      { name: "idBack", maxCount: 1 },
-      { name: "licenseFront", maxCount: 1 },
-      { name: "licenseBack", maxCount: 1 },
-      { name: "insurance", maxCount: 1 },
-      { name: "goodConduct", maxCount: 1 },
-    ])]
-  : [];
-
 router.post(
   "/api/auth/driver/register",
-  ...registrationMiddlewares,
+  multerUpload.fields([
+    { name: "idFront", maxCount: 1 },
+    { name: "idBack", maxCount: 1 },
+    { name: "licenseFront", maxCount: 1 },
+    { name: "licenseBack", maxCount: 1 },
+    { name: "insurance", maxCount: 1 },
+    { name: "goodConduct", maxCount: 1 },
+  ]),
   async (req: any, res: Response) => {
     try {
       const { fullName, email, phone, password, idNumber } = req.body;
@@ -930,11 +920,9 @@ router.get("/api/admin/rider-documents/:riderId", async (req: Request, res: Resp
   }
 });
 
-const singleDocMiddlewares = multerUpload ? [multerUpload.single("document")] : [];
-
 router.post(
   "/api/admin/rider-documents",
-  ...singleDocMiddlewares,
+  multerUpload.single("document"),
   async (req: any, res: Response) => {
     try {
       const { riderId, label, documentTypeId, expiryDate, notes } = req.body;
