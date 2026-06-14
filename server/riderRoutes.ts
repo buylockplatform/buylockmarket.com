@@ -706,17 +706,34 @@ router.patch("/api/rider-earnings/:id/mark-paid", async (req: Request, res: Resp
 });
 
 router.post("/api/rider-earnings/:id/pay-now", async (req: Request, res: Response) => {
-  // TODO: Integrate M-Pesa B2C API
   try {
     const [earning] = await db.select().from(riderEarnings).where(eq(riderEarnings.id, req.params.id)).limit(1);
     if (!earning) return res.status(404).json({ error: "Earning not found" });
+    if (earning.status === "PAID") return res.status(400).json({ error: "Already paid" });
 
     const [rider] = await db.select().from(users).where(eq(users.id, earning.driverId)).limit(1);
-    // Placeholder – in production call M-Pesa B2C here
-    console.log(`[PayNow] Would pay KES ${earning.driverPayout} to ${rider?.mpesaNumber ?? rider?.phone}`);
+    if (!rider) return res.status(404).json({ error: "Rider not found" });
 
-    await db.update(riderEarnings).set({ status: "PAID", paidAt: new Date(), updatedAt: new Date() }).where(eq(riderEarnings.id, req.params.id));
-    res.json({ message: "Payment initiated", amount: earning.driverPayout });
+    const mpesaPhone = rider.mpesaNumber ?? rider.phone;
+    if (!mpesaPhone) return res.status(400).json({ error: "Rider has no M-Pesa number on file" });
+
+    const amountKes = parseFloat(String(earning.driverPayout));
+    const { PaystackService } = await import("./paystackService");
+    const paystack = new PaystackService();
+
+    const transfer = await paystack.transferMobileMoneyToRider({
+      riderName: rider.fullName ?? `${rider.firstName ?? ""} ${rider.lastName ?? ""}`.trim() ?? "Rider",
+      mpesaPhone,
+      amountKes,
+      reason: `Buylock delivery payout — order ${earning.orderId.slice(-8).toUpperCase()}`,
+      metadata: { earningId: earning.id, orderId: earning.orderId, driverId: rider.id },
+    });
+
+    await db.update(riderEarnings)
+      .set({ status: "PAID", paidAt: new Date(), mpesaReceiptNumber: transfer.transferCode, updatedAt: new Date() })
+      .where(eq(riderEarnings.id, req.params.id));
+
+    res.json({ message: "Payment initiated via M-Pesa", amount: amountKes, transferCode: transfer.transferCode });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -766,13 +783,17 @@ router.post("/api/rider-earnings/approve-all-for-rider", async (req: Request, re
 });
 
 router.post("/api/rider-earnings/pay-rider", async (req: Request, res: Response) => {
-  // Consolidated B2C payout: sum all APPROVED earnings minus unreconciled cash
+  // Consolidated payout: sum all APPROVED earnings → single M-Pesa transfer via Paystack
   try {
     const { driverId } = req.body;
+    if (!driverId) return res.status(400).json({ error: "driverId required" });
+
     const earnings = await db
       .select()
       .from(riderEarnings)
       .where(and(eq(riderEarnings.driverId, driverId), eq(riderEarnings.status, "APPROVED")));
+
+    if (!earnings.length) return res.status(400).json({ error: "No approved earnings to pay out" });
 
     const totalEarnings = earnings.reduce((sum, e) => sum + parseFloat(String(e.driverPayout)), 0);
 
@@ -785,20 +806,131 @@ router.post("/api/rider-earnings/pay-rider", async (req: Request, res: Response)
     const netPayout = Math.max(0, totalEarnings - cashDebt);
 
     const [rider] = await db.select().from(users).where(eq(users.id, driverId)).limit(1);
-    console.log(`[PayRider] Would pay KES ${netPayout} to ${rider?.mpesaNumber ?? rider?.phone}`);
+    if (!rider) return res.status(404).json({ error: "Rider not found" });
 
-    // Mark all approved earnings as paid and reconcile cash
-    await db
-      .update(riderEarnings)
-      .set({ status: "PAID", paidAt: new Date(), updatedAt: new Date() })
+    const mpesaPhone = rider.mpesaNumber ?? rider.phone;
+    if (!mpesaPhone) return res.status(400).json({ error: "Rider has no M-Pesa number on file" });
+
+    if (netPayout <= 0) {
+      // Cash debt covers everything — just reconcile and mark paid
+      await db.update(riderEarnings)
+        .set({ status: "PAID", paidAt: new Date(), notes: "Offset by cash collections", updatedAt: new Date() })
+        .where(and(eq(riderEarnings.driverId, driverId), eq(riderEarnings.status, "APPROVED")));
+      await db.update(riderCashCollections)
+        .set({ isReconciled: true, reconciledAt: new Date() })
+        .where(and(eq(riderCashCollections.driverId, driverId), eq(riderCashCollections.isReconciled, false)));
+      return res.json({ message: "Earnings offset by cash debt — no transfer needed", netPayout: 0, totalEarnings, cashDebt });
+    }
+
+    // Fire the real Paystack M-Pesa transfer
+    const { PaystackService } = await import("./paystackService");
+    const paystack = new PaystackService();
+
+    const transfer = await paystack.transferMobileMoneyToRider({
+      riderName: rider.fullName ?? `${rider.firstName ?? ""} ${rider.lastName ?? ""}`.trim() ?? "Rider",
+      mpesaPhone,
+      amountKes: netPayout,
+      reason: `Buylock rider payout — ${earnings.length} deliveries`,
+      metadata: { driverId, earningCount: earnings.length, totalEarnings, cashDebt, netPayout },
+    });
+
+    const receipt = transfer.transferCode;
+
+    // Mark all approved earnings as PAID with the transfer code as receipt
+    await db.update(riderEarnings)
+      .set({ status: "PAID", paidAt: new Date(), mpesaReceiptNumber: receipt, updatedAt: new Date() })
       .where(and(eq(riderEarnings.driverId, driverId), eq(riderEarnings.status, "APPROVED")));
 
-    await db
-      .update(riderCashCollections)
-      .set({ isReconciled: true, reconciledAt: new Date() })
+    // Reconcile any cash debt
+    if (cashDebt > 0) {
+      await db.update(riderCashCollections)
+        .set({ isReconciled: true, reconciledAt: new Date() })
+        .where(and(eq(riderCashCollections.driverId, driverId), eq(riderCashCollections.isReconciled, false)));
+    }
+
+    res.json({ message: "Payment sent via M-Pesa", netPayout, totalEarnings, cashDebt, transferCode: receipt });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Rider Self-Service Payout Request ────────────────────────────────────
+// Riders call this from the app; admin must have pre-approved earnings first.
+router.post("/api/rider/request-payout", isRiderAuthenticated, async (req: any, res: Response) => {
+  try {
+    const driverId = req.rider.id;
+
+    const approvedEarnings = await db
+      .select()
+      .from(riderEarnings)
+      .where(and(eq(riderEarnings.driverId, driverId), eq(riderEarnings.status, "APPROVED")));
+
+    if (!approvedEarnings.length) {
+      return res.status(400).json({
+        error: "No approved earnings ready for payout. Pending earnings must be approved by admin first.",
+      });
+    }
+
+    const totalEarnings = approvedEarnings.reduce((s, e) => s + parseFloat(String(e.driverPayout)), 0);
+
+    const [cashRow] = await db
+      .select({ total: sql<string>`SUM(amount)` })
+      .from(riderCashCollections)
       .where(and(eq(riderCashCollections.driverId, driverId), eq(riderCashCollections.isReconciled, false)));
 
-    res.json({ message: "Payment initiated", netPayout, totalEarnings, cashDebt });
+    const cashDebt = parseFloat(cashRow?.total ?? "0");
+    const netPayout = Math.max(0, totalEarnings - cashDebt);
+
+    const mpesaPhone = req.rider.mpesaNumber ?? req.rider.phone;
+    if (!mpesaPhone) return res.status(400).json({ error: "No M-Pesa number on your account. Update your profile first." });
+
+    if (netPayout <= 0) {
+      // Fully offset by cash — reconcile and mark paid without a transfer
+      await db.update(riderEarnings)
+        .set({ status: "PAID", paidAt: new Date(), notes: "Offset by cash collections", updatedAt: new Date() })
+        .where(and(eq(riderEarnings.driverId, driverId), eq(riderEarnings.status, "APPROVED")));
+      await db.update(riderCashCollections)
+        .set({ isReconciled: true, reconciledAt: new Date() })
+        .where(and(eq(riderCashCollections.driverId, driverId), eq(riderCashCollections.isReconciled, false)));
+      return res.json({
+        message: "Your earnings have been offset by your cash debt. Nothing to transfer.",
+        netPayout: 0,
+        totalEarnings,
+        cashDebt,
+      });
+    }
+
+    const { PaystackService } = await import("./paystackService");
+    const paystack = new PaystackService();
+
+    const riderName = req.rider.fullName ?? `${req.rider.firstName ?? ""} ${req.rider.lastName ?? ""}`.trim() ?? "Rider";
+
+    const transfer = await paystack.transferMobileMoneyToRider({
+      riderName,
+      mpesaPhone,
+      amountKes: netPayout,
+      reason: `Buylock rider payout — ${approvedEarnings.length} deliveries`,
+      metadata: { driverId, earningCount: approvedEarnings.length, totalEarnings, cashDebt },
+    });
+
+    await db.update(riderEarnings)
+      .set({ status: "PAID", paidAt: new Date(), mpesaReceiptNumber: transfer.transferCode, updatedAt: new Date() })
+      .where(and(eq(riderEarnings.driverId, driverId), eq(riderEarnings.status, "APPROVED")));
+
+    if (cashDebt > 0) {
+      await db.update(riderCashCollections)
+        .set({ isReconciled: true, reconciledAt: new Date() })
+        .where(and(eq(riderCashCollections.driverId, driverId), eq(riderCashCollections.isReconciled, false)));
+    }
+
+    res.json({
+      message: `KES ${netPayout.toFixed(0)} is on its way to ${mpesaPhone}`,
+      netPayout,
+      totalEarnings,
+      cashDebt,
+      transferCode: transfer.transferCode,
+      earningCount: approvedEarnings.length,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

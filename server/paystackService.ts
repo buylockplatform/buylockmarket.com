@@ -276,6 +276,59 @@ export class PaystackService {
     };
   }
 
+  // ── M-Pesa Mobile Money Transfer (for rider payouts) ─────────────────────
+  // Paystack Kenya supports mobile_money recipient type for M-Pesa B2C transfers.
+  // Phone must be in E.164 format: +2547XXXXXXXX
+  async transferMobileMoneyToRider(params: {
+    riderName: string;
+    mpesaPhone: string;   // e.g. "0712345678" or "+254712345678"
+    amountKes: number;
+    reason?: string;
+    metadata?: Record<string, any>;
+  }): Promise<{ transferCode: string; transferId: string; status: string }> {
+    const isDemoMode = !this.isConfigured || process.env.PAYSTACK_DEMO_MODE === 'true';
+
+    // Normalise phone to E.164 (+254...)
+    let phone = params.mpesaPhone.trim().replace(/\s+/g, '');
+    if (phone.startsWith('0')) phone = '+254' + phone.slice(1);
+    else if (phone.startsWith('254') && !phone.startsWith('+')) phone = '+' + phone;
+
+    if (isDemoMode) {
+      console.log(`🎭 DEMO: M-Pesa payout → ${params.riderName} (${phone}) KES ${params.amountKes}`);
+      return {
+        transferCode: `TRF_DEMO_${Date.now()}`,
+        transferId: `mock_${Date.now()}`,
+        status: 'demo',
+      };
+    }
+
+    // 1. Create a mobile_money transfer recipient (Paystack Kenya)
+    const recipient = await this.createTransferRecipient({
+      type: 'mobile_money',
+      name: params.riderName,
+      account_number: phone,
+      bank_code: 'MPESA',        // Paystack Kenya bank_code for M-Pesa
+      currency: 'KES',
+      description: `Buylock rider payout — ${params.riderName}`,
+      metadata: params.metadata ?? {},
+    });
+
+    // 2. Initiate the transfer from Paystack balance
+    const transfer = await this.initiateTransfer({
+      source: 'balance',
+      amount: this.kesToKobo(params.amountKes),
+      recipient: recipient.recipient_code,
+      reason: params.reason ?? `Buylock rider payout — ${params.riderName}`,
+      currency: 'KES',
+    });
+
+    return {
+      transferCode: transfer.transfer_code,
+      transferId: String(transfer.id),
+      status: transfer.status,
+    };
+  }
+
   // Helper method to process vendor payout
   async processVendorPayout(vendor: {
     businessName: string;
