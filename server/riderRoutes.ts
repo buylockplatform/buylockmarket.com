@@ -337,7 +337,13 @@ router.get("/api/delivery/available-jobs", isRiderAuthenticated, async (req: any
       })
       .from(deliveryJobs)
       .leftJoin(orders, eq(deliveryJobs.orderId, orders.id))
-      .where(and(eq(deliveryJobs.status, "ASSIGNING"), isNull(deliveryJobs.deliveryPersonId)))
+      .where(
+        // Unassigned open jobs OR jobs waiting for THIS rider's acceptance
+        and(
+          inArray(deliveryJobs.status, ["ASSIGNING", "AWAITING_ACCEPTANCE"]),
+          sql`(${deliveryJobs.deliveryPersonId} IS NULL OR ${deliveryJobs.deliveryPersonId} = ${req.rider.id})`
+        )
+      )
       .orderBy(desc(deliveryJobs.createdAt))
       .limit(20);
 

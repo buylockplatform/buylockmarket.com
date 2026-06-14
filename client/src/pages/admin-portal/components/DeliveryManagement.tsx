@@ -78,7 +78,7 @@ export default function DeliveryManagement() {
   const [loading, setLoading] = useState(true);
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
   const [filters, setFilters] = useState({
-    status: 'all',
+    status: 'active',   // default: exclude completed/failed deliveries
     courier: 'all',
     search: '',
   });
@@ -97,7 +97,16 @@ export default function DeliveryManagement() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (filters.status !== 'all') params.append('status', filters.status);
+      if (filters.status === 'active') {
+        // Show only actionable statuses — exclude delivered/failed/cancelled
+        params.append('status', 'pending');
+        params.append('status', 'pickup_scheduled');
+        params.append('status', 'picked_up');
+        params.append('status', 'in_transit');
+        params.append('status', 'out_for_delivery');
+      } else if (filters.status !== 'all') {
+        params.append('status', filters.status);
+      }
       if (filters.courier !== 'all') params.append('providerId', filters.courier);
       
       const response = await fetch(`/api/deliveries?${params}`);
@@ -305,10 +314,13 @@ export default function DeliveryManagement() {
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="active">Active Orders</SelectItem>
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="pickup_scheduled">Pickup Scheduled</SelectItem>
                   <SelectItem value="picked_up">Picked Up</SelectItem>
                   <SelectItem value="in_transit">In Transit</SelectItem>
+                  <SelectItem value="out_for_delivery">Out for Delivery</SelectItem>
                   <SelectItem value="delivered">Delivered</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>
