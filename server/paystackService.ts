@@ -280,8 +280,8 @@ export class PaystackService {
   }
 
   // ── M-Pesa Mobile Money Transfer (for rider payouts) ─────────────────────
-  // Paystack Kenya: type=mobile_money, bank_code fetched dynamically from /bank list
-  // account_number = phone in E.164 format (+2547XXXXXXXX)
+  // Paystack Kenya: type=mobile_money, bank_code=MPESA (slug), 
+  // account_number = phone as "07XXXXXXXX" or "2547XXXXXXXX" (no + prefix)
   async transferMobileMoneyToRider(params: {
     riderName: string;
     mpesaPhone: string;
@@ -291,12 +291,15 @@ export class PaystackService {
   }): Promise<{ transferCode: string; transferId: string; status: string }> {
     const isDemoMode = !this.isConfigured || process.env.PAYSTACK_DEMO_MODE === 'true';
 
-    // Normalise phone to E.164 (+2547XXXXXXXX)
-    let phone = params.mpesaPhone.trim().replace(/\s+/g, '');
-    if (phone.startsWith('0'))        phone = '+254' + phone.slice(1);
-    else if (phone.startsWith('254') && !phone.startsWith('+')) phone = '+' + phone;
-    // Strip any non-digit except leading +
-    phone = '+' + phone.replace(/\D/g, '');
+    // Normalise phone to local Kenyan format "07XXXXXXXX" or "2547XXXXXXXX"
+    // Paystack rejects E.164 (+254...) for mobile_money recipients
+    let phone = params.mpesaPhone.trim().replace(/\s+/g, '').replace(/^\+/, '');
+    // Strip to digits only
+    phone = phone.replace(/\D/g, '');
+    // "254712345678" → keep as-is (Paystack accepts this)
+    // "0712345678"   → keep as-is (Paystack accepts this)
+    // Anything else starting with "7" → prepend 0
+    if (phone.startsWith('7') && phone.length === 9) phone = '0' + phone;
 
     if (isDemoMode) {
       console.log(`🎭 DEMO: M-Pesa payout → ${params.riderName} (${phone}) KES ${params.amountKes}`);
@@ -307,43 +310,23 @@ export class PaystackService {
       };
     }
 
-    // 1. Fetch Kenyan mobile_money banks to get the real Safaricom bank_code
-    let safaricomCode = 'MPESA'; // fallback — may work on some Paystack accounts
-    try {
-      const banks: any[] = await this.getBanks('KE');
-      const safaricom = banks.find(
-        (b: any) =>
-          (b.type === 'mobile_money' || b.type === 'mobile') &&
-          (
-            b.name?.toLowerCase().includes('safaricom') ||
-            b.name?.toLowerCase().includes('m-pesa') ||
-            b.name?.toLowerCase().includes('mpesa') ||
-            b.slug?.toLowerCase().includes('safaricom') ||
-            b.slug?.toLowerCase().includes('mpesa')
-          )
-      );
-      if (safaricom?.code) {
-        safaricomCode = safaricom.code;
-        console.log(`[Paystack] Using Safaricom bank_code: ${safaricomCode}`);
-      } else {
-        console.warn('[Paystack] Safaricom not found in banks list — using fallback MPESA code. Full list:', banks.map((b: any) => `${b.name}(${b.code},${b.type})`).join(', '));
-      }
-    } catch (e) {
-      console.warn('[Paystack] Could not fetch banks list, using fallback:', e);
-    }
+    console.log(`[Paystack] Creating mobile_money recipient: ${params.riderName} → ${phone}`);
 
-    // 2. Create mobile_money transfer recipient
+    // Create mobile_money transfer recipient
+    // bank_code "MPESA" is Paystack's slug for Safaricom M-Pesa in Kenya
     const recipient = await this.createTransferRecipient({
       type: 'mobile_money',
       name: params.riderName,
       account_number: phone,
-      bank_code: safaricomCode,
+      bank_code: 'MPESA',
       currency: 'KES',
       description: `Buylock rider payout — ${params.riderName}`,
       metadata: params.metadata ?? {},
     });
 
-    // 3. Initiate the transfer from Paystack balance
+    console.log(`[Paystack] Recipient created: ${recipient.recipient_code}, initiating transfer of KES ${params.amountKes}`);
+
+    // Initiate the transfer from Paystack balance
     const transfer = await this.initiateTransfer({
       source: 'balance',
       amount: this.kesToKobo(params.amountKes),
