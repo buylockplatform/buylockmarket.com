@@ -811,6 +811,8 @@ router.post("/api/rider-earnings/pay-rider", async (req: Request, res: Response)
     const mpesaPhone = rider.mpesaNumber ?? rider.phone;
     if (!mpesaPhone) return res.status(400).json({ error: "Rider has no M-Pesa number on file" });
 
+    console.log(`[pay-rider] Rider: ${rider.fullName ?? rider.firstName} | mpesaNumber="${rider.mpesaNumber}" | phone="${rider.phone}" | using="${mpesaPhone}"`);
+
     if (netPayout <= 0) {
       // Cash debt covers everything — just reconcile and mark paid
       await db.update(riderEarnings)

@@ -310,7 +310,7 @@ export class PaystackService {
       };
     }
 
-    console.log(`[Paystack] Creating mobile_money recipient: ${params.riderName} → ${phone}`);
+    console.log(`[Paystack] Creating mobile_money recipient: ${params.riderName} → raw="${params.mpesaPhone}" normalized="${phone}"`);
 
     // Create mobile_money transfer recipient
     // bank_code "MPESA" is Paystack's slug for Safaricom M-Pesa in Kenya
