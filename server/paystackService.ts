@@ -291,15 +291,19 @@ export class PaystackService {
   }): Promise<{ transferCode: string; transferId: string; status: string }> {
     const isDemoMode = !this.isConfigured || process.env.PAYSTACK_DEMO_MODE === 'true';
 
-    // Normalise phone to local Kenyan format "07XXXXXXXX" or "2547XXXXXXXX"
-    // Paystack rejects E.164 (+254...) for mobile_money recipients
+    // Normalise phone to exactly "07XXXXXXXX" (10 digits) — the only format
+    // Paystack accepts for mobile_money transfer recipients in Kenya
     let phone = params.mpesaPhone.trim().replace(/\s+/g, '').replace(/^\+/, '');
-    // Strip to digits only
     phone = phone.replace(/\D/g, '');
-    // "254712345678" → keep as-is (Paystack accepts this)
-    // "0712345678"   → keep as-is (Paystack accepts this)
-    // Anything else starting with "7" → prepend 0
-    if (phone.startsWith('7') && phone.length === 9) phone = '0' + phone;
+    if (phone.length === 9 && phone.startsWith('7')) {
+      phone = '0' + phone;                        // 7XXXXXXXX → 07XXXXXXXX
+    } else if (phone.length === 12 && phone.startsWith('254')) {
+      phone = '0' + phone.substring(3);           // 254XXXXXXXXX → 07XXXXXXXX
+    } else if (phone.length === 10 && phone.startsWith('0')) {
+      // already correct
+    } else {
+      throw new Error(`Invalid Kenyan M-Pesa phone format: "${params.mpesaPhone}" (normalised: "${phone}")`);
+    }
 
     if (isDemoMode) {
       console.log(`🎭 DEMO: M-Pesa payout → ${params.riderName} (${phone}) KES ${params.amountKes}`);
