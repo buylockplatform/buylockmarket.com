@@ -826,13 +826,23 @@ router.post("/api/rider-earnings/pay-rider", async (req: Request, res: Response)
     const { PaystackService } = await import("./paystackService");
     const paystack = new PaystackService();
 
-    const transfer = await paystack.transferMobileMoneyToRider({
-      riderName: rider.fullName ?? `${rider.firstName ?? ""} ${rider.lastName ?? ""}`.trim() ?? "Rider",
-      mpesaPhone,
-      amountKes: netPayout,
-      reason: `Buylock rider payout — ${earnings.length} deliveries`,
-      metadata: { driverId, earningCount: earnings.length, totalEarnings, cashDebt, netPayout },
-    });
+    let transfer: { transferCode: string; transferId: string; status: string };
+    try {
+      transfer = await paystack.transferMobileMoneyToRider({
+        riderName: rider.fullName ?? `${rider.firstName ?? ""} ${rider.lastName ?? ""}`.trim() ?? "Rider",
+        mpesaPhone,
+        amountKes: netPayout,
+        reason: `Buylock rider payout — ${earnings.length} deliveries`,
+        metadata: { driverId, earningCount: earnings.length, totalEarnings, cashDebt, netPayout },
+      });
+    } catch (transferErr: any) {
+      console.error("[pay-rider] Paystack transfer failed:", transferErr.message);
+      return res.status(502).json({
+        error: `Paystack transfer failed: ${transferErr.message}`,
+        mpesaPhone,
+        amountKes: netPayout,
+      });
+    }
 
     const receipt = transfer.transferCode;
 
