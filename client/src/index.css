@@ -7,21 +7,27 @@
 :root {
   /* BuyLock Brand Color System */
   /* Primary Brand Colors */
-  --buylock-orange: hsl(11, 100%, 51%); /* #FF4705 - Bright Orange */
+  --buylock-orange: #FF5A1F;
   --buylock-cyan: hsl(192, 100%, 50%); /* #00CFFF - Vibrant Cyan */
   
   /* Supporting Neutral Colors */
-  --buylock-charcoal: hsl(0, 0%, 11.76%); /* #1E1E1E - Dark Charcoal */
-  --buylock-gray: hsl(0, 0%, 95.69%); /* #F4F4F4 - Soft Gray */
-  --buylock-white: hsl(0, 0%, 100%); /* #FFFFFF - White */
+  --buylock-charcoal: #111827;
+  --buylock-gray: #FAFAFB;
+  --buylock-white: #FFFFFF;
   
   /* Secondary Accent Colors */
   --buylock-navy: hsl(205, 100%, 18.43%); /* #003F5C - Muted Navy */
   --buylock-beige: hsl(39, 100%, 95.29%); /* #FFF4E6 - Warm Beige */
 
+  /* New design tokens */
+  --buylock-surface: #FFFFFF;
+  --buylock-border: #F1F5F9;
+  --buylock-text-body: #6B7280;
+  --buylock-text-heading: #111827;
+
   /* Updated system colors using BuyLock palette */
-  --background: var(--buylock-white);
-  --foreground: var(--buylock-charcoal);
+  --background: #FAFAFB;
+  --foreground: #111827;
   --card: var(--buylock-gray);
   --card-foreground: var(--buylock-charcoal);
   --popover: var(--buylock-white);
@@ -63,18 +69,20 @@
   --font-mono: Menlo, monospace;
   
   /* Layout */
-  --radius: 0.75rem;
+  --radius: 1.25rem; /* 20px — premium card radius */
+  --radius-btn: 0.875rem; /* 14px — button radius */
+  --radius-pill: 999px; /* search / chips */
   --spacing: 0.25rem;
   
-  /* Shadows with brand colors */
-  --shadow-2xs: 0px 1px 2px 0px hsl(11, 100%, 51% / 0.05);
-  --shadow-xs: 0px 1px 2px 0px hsl(11, 100%, 51% / 0.05);
-  --shadow-sm: 0px 1px 3px 0px hsl(11, 100%, 51% / 0.1), 0px 1px 2px 0px hsl(11, 100%, 51% / 0.06);
-  --shadow: 0px 1px 3px 0px hsl(11, 100%, 51% / 0.1), 0px 1px 2px 0px hsl(11, 100%, 51% / 0.06);
-  --shadow-md: 0px 4px 6px -1px hsl(11, 100%, 51% / 0.1), 0px 2px 4px -1px hsl(11, 100%, 51% / 0.06);
-  --shadow-lg: 0px 10px 15px -3px hsl(11, 100%, 51% / 0.1), 0px 4px 6px -2px hsl(11, 100%, 51% / 0.05);
-  --shadow-xl: 0px 20px 25px -5px hsl(11, 100%, 51% / 0.1), 0px 10px 10px -5px hsl(11, 100%, 51% / 0.04);
-  --shadow-2xl: 0px 25px 50px -12px hsl(11, 100%, 51% / 0.25);
+  /* Shadows — ultra-soft, no harsh outlines */
+  --shadow-2xs: 0 2px 8px rgba(15, 23, 42, 0.04);
+  --shadow-xs:  0 2px 8px rgba(15, 23, 42, 0.04);
+  --shadow-sm:  0 4px 16px rgba(15, 23, 42, 0.05);
+  --shadow:     0 8px 30px rgba(15, 23, 42, 0.05);
+  --shadow-md:  0 8px 30px rgba(15, 23, 42, 0.05);
+  --shadow-lg:  0 15px 45px rgba(15, 23, 42, 0.08);
+  --shadow-xl:  0 20px 60px rgba(15, 23, 42, 0.10);
+  --shadow-2xl: 0 30px 80px rgba(15, 23, 42, 0.12);
   --tracking-normal: 0em;
   
   /* Legacy variables for backward compatibility */
@@ -263,3 +271,121 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ============================================================
+   BuyLock 2.0 — Global Experience Layer
+   ============================================================ */
+
+/* Page & body */
+body {
+  background-color: #FAFAFB;
+}
+
+/* Premium card — lifts + scales on hover */
+.bl-card {
+  background: #FFFFFF;
+  border: 1px solid #F1F5F9;
+  border-radius: 20px;
+  box-shadow: 0 8px 30px rgba(15,23,42,.05);
+  transition: transform 180ms ease-out, box-shadow 180ms ease-out;
+}
+.bl-card:hover {
+  transform: translateY(-4px) scale(1.015);
+  box-shadow: 0 15px 45px rgba(15,23,42,.08);
+}
+
+/* Primary CTA button */
+.bl-btn-primary {
+  background: #FF5A1F;
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: transform 180ms ease-out, box-shadow 180ms ease-out, background 180ms ease-out;
+}
+.bl-btn-primary:hover {
+  background: #e64e17;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255,90,31,.30);
+}
+
+/* Outlined button */
+.bl-btn-outline {
+  background: transparent;
+  border: 2px solid #FF5A1F;
+  color: #FF5A1F;
+  border-radius: 14px;
+  font-weight: 600;
+  transition: all 180ms ease-out;
+}
+.bl-btn-outline:hover {
+  background: #FF5A1F;
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+/* Section heading */
+.bl-section-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.02em;
+}
+.bl-section-sub {
+  font-size: 0.9375rem;
+  color: #6B7280;
+}
+
+/* Pill / chip */
+.bl-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Skeleton shimmer */
+@keyframes bl-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.bl-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 800px 100%;
+  animation: bl-shimmer 1.4s infinite linear;
+  border-radius: 8px;
+}
+
+/* Fade-up entrance */
+@keyframes bl-fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.bl-fade-up {
+  animation: bl-fade-up 0.45s ease-out both;
+}
+.bl-fade-up-1 { animation-delay: 0.05s; }
+.bl-fade-up-2 { animation-delay: 0.1s; }
+.bl-fade-up-3 { animation-delay: 0.15s; }
+.bl-fade-up-4 { animation-delay: 0.2s; }
+.bl-fade-up-5 { animation-delay: 0.25s; }
+
+/* Icon circle */
+.bl-icon-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  transition: transform 180ms ease-out, box-shadow 180ms ease-out;
+}
+.bl-icon-circle:hover {
+  transform: scale(1.1);
+}
+
+/* Override Tailwind radius tokens to match new scale */
+.rounded-xl  { border-radius: 16px !important; }
+.rounded-2xl { border-radius: 20px !important; }

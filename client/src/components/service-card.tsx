@@ -59,51 +59,66 @@ export function ServiceCard({ service, showDistanceBadge = false }: ServiceCardP
 
   return (
     <Link href={`/services/${service.slug}`}>
-      <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border group cursor-pointer">
-        <div className="relative">
-          <img 
-            src={service.imageUrl || "https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=250"} 
-            alt={service.name} 
-            className="w-full h-48 object-cover rounded-t-xl"
+      <div
+        className="group relative bg-white border border-[#F1F5F9] rounded-2xl overflow-hidden cursor-pointer"
+        style={{
+          boxShadow: "0 8px 30px rgba(15,23,42,.05)",
+          transition: "transform 180ms ease-out, box-shadow 180ms ease-out",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLDivElement).style.transform = "translateY(-4px) scale(1.015)";
+          (e.currentTarget as HTMLDivElement).style.boxShadow = "0 15px 45px rgba(15,23,42,.08)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLDivElement).style.transform = "translateY(0) scale(1)";
+          (e.currentTarget as HTMLDivElement).style.boxShadow = "0 8px 30px rgba(15,23,42,.05)";
+        }}
+      >
+        {/* Image */}
+        <div className="relative overflow-hidden" style={{ height: "192px" }}>
+          <img
+            src={service.imageUrl || "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=400&h=250"}
+            alt={service.name}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.06]"
           />
           {service.isAvailableToday && (
-            <div className="absolute top-3 left-3 bg-green-500 text-white px-2 py-1 rounded text-xs font-semibold">
+            <div className="absolute top-3 left-3 bl-pill bg-emerald-500 text-white text-[10px]">
               Available Today
             </div>
           )}
           <button
             onClick={handleWishlistToggle}
-            className="absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-100 transition-colors z-10"
+            className="absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform z-10"
           >
-            <Heart className={`w-4 h-4 transition-colors ${isWished ? 'fill-buylock-orange text-buylock-orange' : 'text-gray-600'}`} />
+            <Heart className={`w-4 h-4 transition-colors ${isWished ? "fill-[#FF5A1F] text-[#FF5A1F]" : "text-[#9CA3AF]"}`} />
           </button>
         </div>
-        <div className="p-6">
-          <h3 className="font-semibold text-gray-900 mb-2 text-xl">{service.name}</h3>
-          <p className="text-gray-600 mb-4 line-clamp-2">{service.shortDescription}</p>
-          <div className="flex items-center mb-4">
-            <div className="flex text-yellow-400 text-sm">
+
+        {/* Body */}
+        <div className="p-4">
+          <h3 className="text-[15px] font-semibold text-[#111827] mb-1 group-hover:text-[#FF5A1F] transition-colors line-clamp-1">
+            {service.name}
+          </h3>
+          <p className="text-[13px] text-[#6B7280] mb-3 line-clamp-2">{service.shortDescription}</p>
+
+          {/* Rating */}
+          <div className="flex items-center gap-1 mb-3">
+            <div className="flex">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Star 
-                  key={i} 
-                  className={`w-4 h-4 ${i < Math.floor(parseFloat(service.rating || "0")) ? 'fill-current' : ''}`} 
-                />
+                <Star key={i} className={`w-3.5 h-3.5 ${i < Math.floor(parseFloat(service.rating || "0")) ? "fill-yellow-400 text-yellow-400" : "text-[#E5E7EB]"}`} />
               ))}
             </div>
-            <span className="text-gray-500 text-sm ml-2">({service.reviewCount || 0} reviews)</span>
+            <span className="text-[11px] text-[#9CA3AF]">({service.reviewCount || 0})</span>
           </div>
-          <div className="flex flex-col gap-4">
-            <ServicePriceDisplay 
-              price={service.price} 
-              priceType={(service.priceType as any) || "fixed"}
-              size="lg"
-              className="text-buylock-primary" 
-            />
-            {showDistanceBadge && <ProximityBadge distance={service.distance} />}
-            <Button className="bg-buylock-primary text-white hover:bg-buylock-primary/90 font-semibold w-full">
+
+          <div className="flex items-center justify-between">
+            <ServicePriceDisplay price={service.price} priceType={(service.priceType as any) || "fixed"} size="lg" className="text-[#FF5A1F] font-bold" />
+            <Button className="bg-[#FF5A1F] text-white text-[12px] font-semibold px-4 py-2 rounded-xl hover:bg-[#e64e17] transition-colors h-auto">
               Book Now
             </Button>
           </div>
+
+          {showDistanceBadge && <ProximityBadge distance={service.distance} className="mt-2" />}
         </div>
       </div>
     </Link>

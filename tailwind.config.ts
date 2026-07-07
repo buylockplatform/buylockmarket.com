@@ -7,8 +7,10 @@ export default {
     extend: {
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 4px)",
+        sm: "calc(var(--radius) - 8px)",
+        btn: "var(--radius-btn, 14px)",
+        pill: "999px",
       },
       colors: {
         background: "var(--background)",
@@ -62,15 +64,19 @@ export default {
           ring: "var(--sidebar-ring)",
         },
         buylock: {
-          primary: "#FF4705",
-          orange: "#FF4705",
+          primary: "#FF5A1F",
+          orange: "#FF5A1F",
           cyan: "#00CFFF",
-          charcoal: "#1E1E1E",
-          gray: "#F4F4F4",
+          charcoal: "#111827",
+          gray: "#FAFAFB",
           white: "#FFFFFF",
           navy: "#003F5C",
           beige: "#FFF4E6",
           secondary: "#00CFFF",
+          surface: "#FFFFFF",
+          border: "#F1F5F9",
+          body: "#6B7280",
+          heading: "#111827",
         },
       },
       fontFamily: {

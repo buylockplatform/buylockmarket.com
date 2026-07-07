@@ -474,100 +474,66 @@ export function Header() {
     "Services",
     "Sports",
     "Books",
+    "Deals",
   ];
 
   return (
     <>
       {/* Top Banner */}
-      <div className="bg-buylock-orange text-buylock-white text-center py-2 text-sm">
-        <span>
-          🚚 Free delivery on orders over Ksh 25,000 • Fast delivery in under 45
-          minutes
-        </span>
+      <div className="bg-[#FF5A1F] text-white text-center py-2 text-[13px] font-medium">
+        🚚 Free delivery on orders over Ksh 25,000 • Fast delivery in under 45 minutes
       </div>
 
-      {/* Main Header */}
-      <header className="bg-white shadow-md sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between gap-6">
+      {/* Main Header — blurred sticky */}
+      <header
+        className="sticky top-0 z-50 border-b border-[#F1F5F9]"
+        style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center justify-between gap-4">
             {/* Logo */}
-            <Link href="/" className="flex items-center">
-              <BuyLockLogo className="h-10 max-w-24" />
+            <Link href="/" className="flex items-center flex-shrink-0">
+              <BuyLockLogo className="h-9 max-w-24" />
             </Link>
 
-            {/* Main Navigation */}
-            <nav className="hidden lg:flex items-center space-x-8">
-              <Link
-                href="/shop"
-                className="text-buylock-charcoal hover:text-buylock-orange font-medium transition-colors px-2 py-1"
-              >
-                Shop
-              </Link>
-              <Link
-                href="/shop?product_type=products"
-                className="text-buylock-charcoal hover:text-buylock-orange font-medium transition-colors px-2 py-1"
-              >
-                Products
-              </Link>
-              <Link
-                href="/shop?product_type=services"
-                className="text-buylock-charcoal hover:text-buylock-orange font-medium transition-colors px-2 py-1"
-              >
-                Services
-              </Link>
-            </nav>
-
-            {/* Search Bar */}
-            <div className="hidden md:flex flex-1 max-w-2xl mx-6">
+            {/* Search Bar — pill shape, centered */}
+            <div className="hidden md:flex flex-1 max-w-xl mx-4">
               <form onSubmit={handleSearch} className="relative w-full">
-                <Input
+                <input
                   ref={searchInputRef}
                   type="text"
-                  placeholder="Search products and services..."
+                  placeholder="Search products, brands or services..."
                   value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setShowSuggestions(true);
-                  }}
+                  onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
                   onFocus={() => handleInputFocus(false)}
                   onBlur={() => handleInputBlur(false)}
-                  className="w-full pl-4 pr-12 py-2.5 border border-buylock-gray rounded-lg focus:ring-2 focus:ring-buylock-orange focus:border-buylock-orange shadow-sm"
                   autoComplete="off"
+                  className="w-full pl-5 pr-12 py-2.5 text-sm border border-[#E5E7EB] rounded-full bg-white focus:outline-none focus:ring-2 focus:ring-[#FF5A1F] focus:border-[#FF5A1F] transition-all shadow-[0_2px_8px_rgba(15,23,42,.04)]"
                 />
-                <Button
+                <button
                   type="submit"
-                  size="sm"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-buylock-orange hover:text-buylock-orange/80 bg-transparent shadow-none"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#FF5A1F] rounded-full flex items-center justify-center hover:bg-[#e64e17] transition-colors"
                 >
-                  <Search className="w-4 h-4" />
-                </Button>
-
-                {/* Desktop Autocomplete Suggestions */}
+                  <Search className="w-3.5 h-3.5 text-white" />
+                </button>
                 {renderSuggestions(searchQuery, showSuggestions, false)}
               </form>
             </div>
 
-            {/* Right Menu */}
-            <div className="flex items-center space-x-4">
+            {/* Right actions */}
+            <div className="flex items-center gap-3">
               {/* Location */}
               <Dialog open={isLocationModalOpen} onOpenChange={setIsLocationModalOpen}>
                 <DialogTrigger asChild>
-                  <div className="hidden lg:flex items-center space-x-1 text-buylock-charcoal hover:text-buylock-cyan cursor-pointer transition-colors">
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-sm truncate max-w-32" title={customerLocation.description}>
-                      {customerLocation.description.split(',').slice(0, 2).join(',') || "Nairobi, Kenya"}
-                    </span>
-                  </div>
+                  <button className="hidden lg:flex items-center gap-1.5 text-[13px] text-[#6B7280] hover:text-[#FF5A1F] transition-colors max-w-[140px]">
+                    <MapPin className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{customerLocation.description.split(',').slice(0,2).join(',') || "Nairobi"}</span>
+                  </button>
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
-                  <DialogHeader>
-                    <DialogTitle>Select Your Location</DialogTitle>
-                  </DialogHeader>
+                  <DialogHeader><DialogTitle>Select Your Location</DialogTitle></DialogHeader>
                   <div className="h-[60vh]">
-                    <LocationPicker
-                      onLocationSelect={handleLocationSelect}
-                      initialLocation={customerLocation}
-                    />
+                    <LocationPicker onLocationSelect={handleLocationSelect} initialLocation={customerLocation} />
                   </div>
                 </DialogContent>
               </Dialog>
@@ -575,248 +541,129 @@ export function Header() {
               {/* Account */}
               {isAuthenticated ? (
                 <div className="relative group">
-                  <div className="flex items-center space-x-1 text-buylock-charcoal hover:text-buylock-cyan cursor-pointer transition-colors">
-                    <User className="w-4 h-4" />
-                    <span className="hidden sm:block text-sm">
-                      {(user as any)?.firstName || "Account"}
-                    </span>
-                  </div>
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-buylock-white border border-buylock-gray rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                    <Link
-                      href="/profile"
-                      className="block px-4 py-2 text-buylock-charcoal hover:bg-buylock-cyan/10 hover:text-buylock-cyan transition-colors"
-                    >
-                      Profile
-                    </Link>
-                    <Link
-                      href="/my-orders"
-                      className="block px-4 py-2 text-buylock-charcoal hover:bg-buylock-cyan/10 hover:text-buylock-cyan transition-colors"
-                    >
-                      My Orders
-                    </Link>
-                    <Link
-                      href="/wishlist"
-                      className="block px-4 py-2 text-buylock-charcoal hover:bg-buylock-cyan/10 hover:text-buylock-cyan transition-colors"
-                    >
-                      My Wishlist
-                    </Link>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        logout();
-                      }}
-                      disabled={isLoggingOut}
-                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                    >
+                  <button className="flex items-center gap-1.5 text-[13px] text-[#6B7280] hover:text-[#111827] transition-colors">
+                    <div className="w-8 h-8 rounded-full bg-[#FF5A1F]/10 flex items-center justify-center">
+                      <User className="w-4 h-4 text-[#FF5A1F]" />
+                    </div>
+                    <span className="hidden sm:block">{(user as any)?.firstName || "Account"}</span>
+                  </button>
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-[#F1F5F9] rounded-2xl shadow-[0_15px_45px_rgba(15,23,42,.08)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 overflow-hidden">
+                    <Link href="/profile" className="block px-4 py-2.5 text-sm text-[#374151] hover:bg-[#FAFAFB] hover:text-[#FF5A1F] transition-colors">Profile</Link>
+                    <Link href="/my-orders" className="block px-4 py-2.5 text-sm text-[#374151] hover:bg-[#FAFAFB] hover:text-[#FF5A1F] transition-colors">My Orders</Link>
+                    <Link href="/wishlist" className="block px-4 py-2.5 text-sm text-[#374151] hover:bg-[#FAFAFB] hover:text-[#FF5A1F] transition-colors">My Wishlist</Link>
+                    <button onClick={(e) => { e.preventDefault(); logout(); }} disabled={isLoggingOut}
+                      className="block w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50">
                       {isLoggingOut ? "Logging out..." : "Logout"}
                     </button>
                   </div>
                 </div>
               ) : (
-                <Button
-                  onClick={() => (window.location.href = "/login")}
-                  variant="ghost"
-                  className="flex items-center space-x-1 text-buylock-charcoal hover:text-buylock-cyan transition-colors"
-                >
+                <button onClick={() => (window.location.href = "/login")}
+                  className="flex items-center gap-1.5 text-[13px] text-[#6B7280] hover:text-[#111827] transition-colors">
                   <User className="w-4 h-4" />
-                  <span className="hidden sm:block text-sm">Login</span>
-                </Button>
+                  <span className="hidden sm:block">Login</span>
+                </button>
               )}
 
-              {/* Become a Vendor Button */}
-              <Link
-                href="/vendor/registration"
-                className="hidden lg:inline-flex items-center text-buylock-orange hover:text-buylock-white font-medium transition-colors border-2 border-buylock-orange px-3 py-1.5 rounded-lg hover:bg-buylock-orange text-sm"
-              >
+              {/* Become a Vendor */}
+              <Link href="/vendor/registration"
+                className="hidden lg:inline-flex items-center text-[13px] font-semibold text-[#FF5A1F] border-2 border-[#FF5A1F] px-4 py-1.5 rounded-full hover:bg-[#FF5A1F] hover:text-white transition-all duration-180">
                 Become a Vendor
               </Link>
 
-              {/* Currency Switcher */}
+              {/* Currency */}
               <CurrencySwitch />
 
               {/* Cart */}
-              <Link
-                href="/cart"
-                className="relative flex items-center space-x-1 text-buylock-charcoal hover:text-buylock-orange cursor-pointer transition-colors"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                <span className="hidden sm:block text-sm">Cart</span>
-                {(cartItems as any)?.length > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-buylock-orange text-buylock-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {(cartItems as any)?.length}
-                  </span>
-                )}
+              <Link href="/cart" className="relative flex items-center gap-1.5 text-[13px] text-[#374151] hover:text-[#FF5A1F] transition-colors">
+                <div className="relative">
+                  <ShoppingCart className="w-5 h-5" />
+                  {(cartItems as any)?.length > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-[#FF5A1F] text-white text-[10px] rounded-full w-4.5 h-4.5 min-w-[18px] min-h-[18px] flex items-center justify-center font-bold">
+                      {(cartItems as any)?.length}
+                    </span>
+                  )}
+                </div>
+                <span className="hidden sm:block">Cart</span>
               </Link>
 
-              {/* Mobile Menu Button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="md:hidden"
-              >
-                {isMenuOpen ? (
-                  <X className="w-5 h-5" />
-                ) : (
-                  <Menu className="w-5 h-5" />
-                )}
-              </Button>
+              {/* Mobile menu toggle */}
+              <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-1.5 rounded-lg hover:bg-[#FAFAFB] transition-colors">
+                {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
             </div>
           </div>
 
           {/* Mobile Search */}
-          <div className="md:hidden mt-3">
+          <div className="md:hidden mt-3 pb-1">
             <form onSubmit={handleMobileSearch} className="relative">
-              <Input
+              <input
                 ref={mobileSearchInputRef}
                 type="text"
                 placeholder="Search products and services..."
                 value={mobileSearchQuery}
-                onChange={(e) => {
-                  setMobileSearchQuery(e.target.value);
-                  setShowMobileSuggestions(true);
-                }}
+                onChange={(e) => { setMobileSearchQuery(e.target.value); setShowMobileSuggestions(true); }}
                 onFocus={() => handleInputFocus(true)}
                 onBlur={() => handleInputBlur(true)}
-                className="w-full pl-4 pr-12 py-3 border border-buylock-gray rounded-lg focus:ring-2 focus:ring-buylock-orange focus:border-buylock-orange shadow-sm"
                 autoComplete="off"
+                className="w-full pl-5 pr-12 py-3 text-sm border border-[#E5E7EB] rounded-full bg-white focus:outline-none focus:ring-2 focus:ring-[#FF5A1F] focus:border-[#FF5A1F] transition-all"
               />
-              <Button
-                type="submit"
-                size="sm"
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-buylock-orange hover:text-buylock-orange/80 bg-transparent shadow-none"
-              >
-                <Search className="w-4 h-4" />
-              </Button>
-
-              {/* Mobile Autocomplete Suggestions */}
-              {renderSuggestions(
-                mobileSearchQuery,
-                showMobileSuggestions,
-                true,
-              )}
+              <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#FF5A1F] rounded-full flex items-center justify-center">
+                <Search className="w-3.5 h-3.5 text-white" />
+              </button>
+              {renderSuggestions(mobileSearchQuery, showMobileSuggestions, true)}
             </form>
           </div>
         </div>
 
         {/* Category Navigation */}
-        <nav className="bg-buylock-gray border-t border-buylock-gray">
-          <div className="container mx-auto px-4 py-2">
-            <div className="flex space-x-8 overflow-x-auto scrollbar-hide">
-              {headerCategories.map((category) => (
+        <div className="border-t border-[#F1F5F9]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-2">
+              {headerCategories.map((cat) => (
                 <Link
-                  key={category}
-                  href={`/shop?category=${category.toLowerCase().replace(/ & /g, "-").replace(/ /g, "-")}`}
-                  className="text-sm font-medium text-buylock-charcoal hover:text-buylock-orange whitespace-nowrap py-2 transition-colors hover:border-b-2 hover:border-buylock-orange"
+                  key={cat}
+                  href={`/shop?category=${cat.toLowerCase().replace(/ & /g, "-").replace(/ /g, "-")}`}
+                  className="whitespace-nowrap text-[13px] font-medium text-[#374151] hover:text-[#FF5A1F] px-3 py-1.5 rounded-full hover:bg-[#FF5A1F]/08 transition-all duration-150"
                 >
-                  {category}
+                  {cat === "Deals" ? <span className="flex items-center gap-1">{cat} <span className="text-[10px] bg-[#FF5A1F] text-white rounded-full px-1.5 py-0.5 font-bold">NEW</span></span> : cat}
                 </Link>
               ))}
             </div>
           </div>
-        </nav>
+        </div>
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden bg-buylock-white border-t border-buylock-gray shadow-lg">
-            <div className="px-4 py-4 space-y-4">
-              <div className="space-y-3">
-                <Link
-                  href="/shop"
-                  className="block text-buylock-charcoal hover:text-buylock-orange font-medium transition-colors px-3 py-2 rounded-lg hover:bg-buylock-orange/10"
-                >
-                  Shop
+          <div className="md:hidden border-t border-[#F1F5F9] bg-white">
+            <div className="px-4 py-4 space-y-1">
+              {["Shop", "Products", "Services"].map((item) => (
+                <Link key={item} href={item === "Shop" ? "/shop" : `/shop?product_type=${item.toLowerCase()}`}
+                  className="block text-[15px] font-medium text-[#374151] hover:text-[#FF5A1F] px-3 py-2.5 rounded-xl hover:bg-[#FAFAFB] transition-colors">
+                  {item}
                 </Link>
-                <Link
-                  href="/shop?product_type=products"
-                  className="block text-buylock-charcoal hover:text-buylock-orange font-medium transition-colors px-3 py-2 rounded-lg hover:bg-buylock-orange/10"
-                >
-                  Products
+              ))}
+              <div className="border-t border-[#F1F5F9] pt-3 mt-3">
+                <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide px-3 mb-2">Business</p>
+                <Link href="/vendor/registration"
+                  className="block text-[14px] font-semibold text-[#FF5A1F] border border-[#FF5A1F] px-3 py-2 rounded-xl mb-2 text-center hover:bg-[#FF5A1F] hover:text-white transition-colors">
+                  Become a Vendor
                 </Link>
-                <Link
-                  href="/shop?product_type=services"
-                  className="block text-buylock-charcoal hover:text-buylock-orange font-medium transition-colors px-3 py-2 rounded-lg hover:bg-buylock-orange/10"
-                >
-                  Services
-                </Link>
-                <div className="border-t pt-3">
-                  <p className="text-sm font-semibold text-gray-900 mb-2">
-                    Business
-                  </p>
-                  <Link
-                    href="/vendor/registration"
-                    className="block text-sm text-buylock-primary hover:text-buylock-primary/80 font-medium pl-3 py-2 border border-buylock-primary rounded-lg mb-2 text-center"
-                  >
-                    Become a Vendor
-                  </Link>
-                  <a
-                    href="https://vendor.buylock.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-sm text-gray-700 hover:text-buylock-primary pl-3 py-1"
-                  >
-                    Vendor Dashboard
-                  </a>
-                  <a
-                    href="https://delivery.buylock.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-sm text-gray-700 hover:text-buylock-primary pl-3 py-1"
-                  >
-                    Delivery Partner
-                  </a>
-                  <a
-                    href="https://admin.buylock.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-sm text-gray-700 hover:text-buylock-primary pl-3 py-1"
-                  >
-                    Admin Dashboard
-                  </a>
-                </div>
-              </div>
-              <div 
-                className="flex items-center space-x-2 text-gray-700 hover:text-buylock-cyan cursor-pointer pt-3 border-t transition-colors"
-                onClick={() => setIsLocationModalOpen(true)}
-              >
-                <MapPin className="w-4 h-4" />
-                <span className="text-sm truncate" title={customerLocation.description}>
-                  {customerLocation.description.split(',').slice(0, 2).join(',') || "Nairobi, Kenya"}
-                </span>
               </div>
               {isAuthenticated ? (
-                <div className="border-t pt-3 space-y-2">
-                  <Link
-                    href="/my-orders"
-                    className="block text-gray-700 hover:text-buylock-primary font-medium"
-                  >
-                    My Orders
-                  </Link>
-                  <Link
-                    href="/wishlist"
-                    className="block text-gray-700 hover:text-buylock-primary font-medium"
-                  >
-                    My Wishlist
-                  </Link>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      logout();
-                      setIsMenuOpen(false);
-                    }}
-                    disabled={isLoggingOut}
-                    className="block w-full text-left text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
-                  >
+                <div className="border-t border-[#F1F5F9] pt-3 space-y-1">
+                  <Link href="/my-orders" className="block text-[14px] text-[#374151] hover:text-[#FF5A1F] px-3 py-2 rounded-xl hover:bg-[#FAFAFB]">My Orders</Link>
+                  <Link href="/wishlist" className="block text-[14px] text-[#374151] hover:text-[#FF5A1F] px-3 py-2 rounded-xl hover:bg-[#FAFAFB]">My Wishlist</Link>
+                  <button onClick={(e) => { e.preventDefault(); logout(); setIsMenuOpen(false); }} disabled={isLoggingOut}
+                    className="block w-full text-left text-[14px] text-red-500 px-3 py-2 rounded-xl hover:bg-red-50 disabled:opacity-50">
                     {isLoggingOut ? "Logging out..." : "Logout"}
                   </button>
                 </div>
               ) : (
-                <Button
-                  onClick={() => (window.location.href = "/login")}
-                  className="w-full bg-buylock-primary hover:bg-buylock-primary/90"
-                >
+                <button onClick={() => (window.location.href = "/login")}
+                  className="w-full mt-2 bl-btn-primary py-3 text-[15px]">
                   Login
-                </Button>
+                </button>
               )}
             </div>
           </div>

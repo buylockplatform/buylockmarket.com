@@ -9,125 +9,101 @@ import { Newsletter } from "@/components/newsletter";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import type { Product, Service } from "@shared/schema";
 
 export default function Home() {
 
-  const { data: featuredProducts = [], isLoading: productsLoading, error: productsError } = useQuery<Product[]>({
+  const { data: featuredProducts = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ["/api/products", { featured: true, limit: 5 }],
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     retry: 1,
-    enabled: true, // Always enable this query regardless of auth state
+    enabled: true,
   });
 
-  const { data: featuredServices = [], isLoading: servicesLoading, error: servicesError } = useQuery<Service[]>({
+  const { data: featuredServices = [], isLoading: servicesLoading } = useQuery<Service[]>({
     queryKey: ["/api/services", { featured: true, limit: 3 }],
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     retry: 1,
-    enabled: true, // Always enable this query regardless of auth state
-  });
-
-
-  // Debug logging
-  console.log("Featured Products Query:", { 
-    data: featuredProducts, 
-    loading: productsLoading, 
-    error: productsError,
-    dataLength: featuredProducts?.length || 0 
-  });
-  console.log("Featured Services Query:", { 
-    data: featuredServices, 
-    loading: servicesLoading, 
-    error: servicesError,
-    dataLength: featuredServices?.length || 0 
+    enabled: true,
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: "#FAFAFB" }}>
       <Header />
       <HeroSection />
       <CategoryGrid />
       <FlashDeals />
-      
-      {/* Featured Products */}
-      <section className="container mx-auto px-4 py-12">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">Featured Products</h2>
-          <Link href="/products">
-            <Button variant="ghost" className="text-buylock-primary font-semibold hover:underline">
-              View All
-            </Button>
-          </Link>
-        </div>
-        
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {productsLoading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl shadow-sm border">
-                <Skeleton className="w-full h-48 rounded-t-xl" />
-                <div className="p-4 space-y-3">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-4 w-1/3" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              </div>
-            ))
-          ) : featuredProducts.length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <p className="text-gray-500">No featured products available</p>
-            </div>
-          ) : (
-            featuredProducts.map((product) => (
-              <ProductCard 
-                key={product.id} 
-                product={product}
-              />
-            ))
-          )}
-        </div>
-      </section>
 
-      {/* Featured Services */}
-      <section className="bg-gray-100 py-12">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">Popular Services</h2>
-            <Link href="/services">
-              <Button variant="ghost" className="text-buylock-primary font-semibold hover:underline">
-                View All Services
+      {/* Featured Products */}
+      <section className="bg-white py-14 border-t border-[#F1F5F9]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <h2 className="bl-section-title">Featured Products</h2>
+              <p className="bl-section-sub mt-1">Handpicked products just for you</p>
+            </div>
+            <Link href="/products">
+              <Button variant="ghost" className="text-[#FF5A1F] font-semibold text-sm hover:underline p-0">
+                View all products →
               </Button>
             </Link>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            {productsLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="rounded-2xl overflow-hidden border border-[#F1F5F9] bg-white">
+                  <div className="bl-skeleton h-48 rounded-none" />
+                  <div className="p-4 space-y-3">
+                    <div className="bl-skeleton h-4 w-3/4" />
+                    <div className="bl-skeleton h-4 w-1/2" />
+                    <div className="bl-skeleton h-4 w-1/3" />
+                  </div>
+                </div>
+              ))
+            ) : featuredProducts.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-[#9CA3AF]">No featured products available</div>
+            ) : (
+              featuredProducts.map((product) => <ProductCard key={product.id} product={product} />)
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Popular Services */}
+      <section className="bg-[#FAFAFB] py-14 border-t border-[#F1F5F9]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <h2 className="bl-section-title">Popular Services</h2>
+              <p className="bl-section-sub mt-1">Professional services tailored for you</p>
+            </div>
+            <Link href="/services">
+              <Button variant="ghost" className="text-[#FF5A1F] font-semibold text-sm hover:underline p-0">
+                View all services →
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {servicesLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-xl shadow-sm border">
-                  <Skeleton className="w-full h-48 rounded-t-xl" />
-                  <div className="p-6 space-y-4">
-                    <Skeleton className="h-6 w-3/4" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-1/2" />
-                    <div className="flex justify-between items-center">
-                      <Skeleton className="h-6 w-1/3" />
-                      <Skeleton className="h-10 w-24" />
-                    </div>
+                <div key={i} className="rounded-2xl overflow-hidden border border-[#F1F5F9] bg-white">
+                  <div className="bl-skeleton h-48 rounded-none" />
+                  <div className="p-4 space-y-3">
+                    <div className="bl-skeleton h-5 w-3/4" />
+                    <div className="bl-skeleton h-4 w-full" />
+                    <div className="bl-skeleton h-4 w-1/2" />
                   </div>
                 </div>
               ))
             ) : featuredServices.length === 0 ? (
-              <div className="col-span-full text-center py-12">
-                <p className="text-gray-500">No featured services available</p>
-              </div>
+              <div className="col-span-full text-center py-12 text-[#9CA3AF]">No featured services available</div>
             ) : (
-              featuredServices.map((service) => (
-                <ServiceCard key={service.id} service={service} />
-              ))
+              featuredServices.map((service) => <ServiceCard key={service.id} service={service} />)
             )}
           </div>
         </div>
