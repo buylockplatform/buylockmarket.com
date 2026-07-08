@@ -2911,6 +2911,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk create vendor products
+  app.post('/api/vendor/products/bulk', isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { products: productList } = req.body;
+      const vendor = req.vendor;
+
+      if (!Array.isArray(productList) || productList.length === 0) {
+        return res.status(400).json({ message: "Request body must contain a non-empty 'products' array" });
+      }
+
+      if (productList.length > 100) {
+        return res.status(400).json({ message: "Bulk upload is limited to 100 products per request" });
+      }
+
+      // Validate each item has required fields
+      const validationErrors: { index: number; name: string; error: string }[] = [];
+      for (let i = 0; i < productList.length; i++) {
+        const p = productList[i];
+        if (!p.name || !p.description || !p.price || !p.categoryId) {
+          validationErrors.push({ index: i, name: p.name ?? `item[${i}]`, error: "Missing required fields: name, description, price, categoryId" });
+        }
+      }
+      if (validationErrors.length > 0) {
+        return res.status(400).json({ message: "Validation failed for one or more products", errors: validationErrors });
+      }
+
+      // Ensure vendor exists in users table (for foreign key constraint)
+      await storage.ensureUserExists(vendor.id, vendor.email, vendor.businessName || 'Vendor');
+
+      // Attach vendor ID and defaults to each item
+      const now = new Date();
+      const preparedProducts = productList.map((p: any) => ({
+        ...p,
+        vendorId: vendor.id,
+        rating: "0.00",
+        reviewCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      }));
+
+      const result = await storage.bulkCreateProducts(preparedProducts);
+
+      const status = result.errors.length === 0 ? 201 : 207; // 207 Multi-Status if partial failures
+      res.status(status).json({
+        message: `${result.created.length} product(s) created${result.errors.length > 0 ? `, ${result.errors.length} failed` : ""}`,
+        created: result.created,
+        errors: result.errors,
+      });
+    } catch (error) {
+      console.error("Error bulk creating vendor products:", error);
+      res.status(500).json({ message: "Failed to bulk create products" });
+    }
+  });
+
   // Update vendor product
   app.put('/api/vendor/products/:id', isVendorAuthenticated, async (req: any, res) => {
     try {
@@ -2984,6 +3038,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating vendor service:", error);
       res.status(500).json({ message: "Failed to create service" });
+    }
+  });
+
+  // Bulk create vendor services
+  app.post('/api/vendor/services/bulk', isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const { services: serviceList } = req.body;
+      const vendor = req.vendor;
+
+      if (!Array.isArray(serviceList) || serviceList.length === 0) {
+        return res.status(400).json({ message: "Request body must contain a non-empty 'services' array" });
+      }
+
+      if (serviceList.length > 100) {
+        return res.status(400).json({ message: "Bulk upload is limited to 100 services per request" });
+      }
+
+      // Validate each item has required fields
+      const validationErrors: { index: number; name: string; error: string }[] = [];
+      for (let i = 0; i < serviceList.length; i++) {
+        const s = serviceList[i];
+        if (!s.name || !s.description || !s.price || !s.categoryId) {
+          validationErrors.push({ index: i, name: s.name ?? `item[${i}]`, error: "Missing required fields: name, description, price, categoryId" });
+        }
+      }
+      if (validationErrors.length > 0) {
+        return res.status(400).json({ message: "Validation failed for one or more services", errors: validationErrors });
+      }
+
+      // Ensure vendor exists in users table (for foreign key constraint)
+      await storage.ensureUserExists(vendor.id, vendor.email, vendor.businessName || 'Vendor');
+
+      // Attach provider ID and defaults to each item
+      const now = new Date();
+      const preparedServices = serviceList.map((s: any) => ({
+        ...s,
+        providerId: vendor.id,
+        rating: "0.00",
+        reviewCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      }));
+
+      const result = await storage.bulkCreateServices(preparedServices);
+
+      const status = result.errors.length === 0 ? 201 : 207; // 207 Multi-Status if partial failures
+      res.status(status).json({
+        message: `${result.created.length} service(s) created${result.errors.length > 0 ? `, ${result.errors.length} failed` : ""}`,
+        created: result.created,
+        errors: result.errors,
+      });
+    } catch (error) {
+      console.error("Error bulk creating vendor services:", error);
+      res.status(500).json({ message: "Failed to bulk create services" });
     }
   });
 

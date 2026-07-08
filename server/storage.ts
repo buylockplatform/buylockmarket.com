@@ -176,6 +176,7 @@ export interface IStorage {
   getProduct(id: string): Promise<Product | undefined>;
   getProductBySlug(slug: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
+  bulkCreateProducts(products: InsertProduct[]): Promise<{ created: Product[]; errors: { index: number; name: string; error: string }[] }>;
   updateProduct(id: string, updates: Partial<InsertProduct>): Promise<Product>;
   deleteProduct(id: string): Promise<void>;
 
@@ -193,6 +194,7 @@ export interface IStorage {
   getService(id: string): Promise<Service | undefined>;
   getServiceBySlug(slug: string): Promise<Service | undefined>;
   createService(service: InsertService): Promise<Service>;
+  bulkCreateServices(services: InsertService[]): Promise<{ created: Service[]; errors: { index: number; name: string; error: string }[] }>;
   updateService(id: string, updates: Partial<InsertService>): Promise<Service>;
   deleteService(id: string): Promise<void>;
 
@@ -775,6 +777,22 @@ export class DatabaseStorage implements IStorage {
     return newProduct;
   }
 
+  async bulkCreateProducts(productList: InsertProduct[]): Promise<{ created: Product[]; errors: { index: number; name: string; error: string }[] }> {
+    const created: Product[] = [];
+    const errors: { index: number; name: string; error: string }[] = [];
+
+    for (let i = 0; i < productList.length; i++) {
+      try {
+        const [newProduct] = await db.insert(products).values(productList[i]).returning();
+        created.push(newProduct);
+      } catch (err: any) {
+        errors.push({ index: i, name: productList[i].name, error: err?.message ?? "Unknown error" });
+      }
+    }
+
+    return { created, errors };
+  }
+
   async updateProduct(id: string, updates: Partial<InsertProduct>): Promise<Product> {
     const [updatedProduct] = await db
       .update(products)
@@ -881,6 +899,22 @@ export class DatabaseStorage implements IStorage {
   async createService(service: InsertService): Promise<Service> {
     const [newService] = await db.insert(services).values(service).returning();
     return newService;
+  }
+
+  async bulkCreateServices(serviceList: InsertService[]): Promise<{ created: Service[]; errors: { index: number; name: string; error: string }[] }> {
+    const created: Service[] = [];
+    const errors: { index: number; name: string; error: string }[] = [];
+
+    for (let i = 0; i < serviceList.length; i++) {
+      try {
+        const [newService] = await db.insert(services).values(serviceList[i]).returning();
+        created.push(newService);
+      } catch (err: any) {
+        errors.push({ index: i, name: serviceList[i].name, error: err?.message ?? "Unknown error" });
+      }
+    }
+
+    return { created, errors };
   }
 
   async updateService(id: string, updates: Partial<InsertService>): Promise<Service> {
