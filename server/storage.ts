@@ -807,7 +807,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getVendorProducts(vendorId: string): Promise<Product[]> {
-    return await db.select().from(products).where(eq(products.vendorId, vendorId)).orderBy(desc(products.createdAt));
+    const result = await db
+      .select()
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(eq(products.vendorId, vendorId))
+      .orderBy(desc(products.createdAt));
+
+    return result.map(r => ({
+      ...r.products,
+      categoryName: r.categories?.name ?? null,
+    })) as any as Product[];
   }
 
   // Service operations
@@ -931,7 +941,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getVendorServices(vendorId: string): Promise<Service[]> {
-    return await db.select().from(services).where(eq(services.providerId, vendorId)).orderBy(desc(services.createdAt));
+    const result = await db
+      .select()
+      .from(services)
+      .leftJoin(categories, eq(services.categoryId, categories.id))
+      .where(eq(services.providerId, vendorId))
+      .orderBy(desc(services.createdAt));
+
+    return result.map(r => ({
+      ...r.services,
+      categoryName: r.categories?.name ?? null,
+    })) as any as Service[];
   }
 
   // Cart operations
@@ -2924,7 +2944,18 @@ export class DatabaseStorage implements IStorage {
 
   // Admin product and service management methods
   async getAllProducts(): Promise<Product[]> {
-    return await db.select().from(products).orderBy(products.createdAt);
+    const result = await db
+      .select()
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .leftJoin(vendors, eq(products.vendorId, vendors.id))
+      .orderBy(products.createdAt);
+
+    return result.map(r => ({
+      ...r.products,
+      categoryName: r.categories?.name ?? null,
+      vendorBusinessName: r.vendors?.businessName ?? null,
+    })) as any as Product[];
   }
 
   async updateProductApproval(id: string, approved: boolean): Promise<Product | undefined> {
@@ -2942,7 +2973,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllServices(): Promise<Service[]> {
-    return await db.select().from(services).orderBy(services.createdAt);
+    const result = await db
+      .select()
+      .from(services)
+      .leftJoin(categories, eq(services.categoryId, categories.id))
+      .leftJoin(vendors, eq(services.providerId, vendors.id))
+      .orderBy(services.createdAt);
+
+    return result.map(r => ({
+      ...r.services,
+      categoryName: r.categories?.name ?? null,
+      providerBusinessName: r.vendors?.businessName ?? null,
+    })) as any as Service[];
   }
 
   async updateServiceApproval(id: string, approved: boolean): Promise<Service | undefined> {

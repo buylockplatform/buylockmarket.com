@@ -770,6 +770,13 @@ export default function VendorDashboard() {
 
           {activeSection === "services" && (
             <div className="space-y-6">
+              <Tabs defaultValue="catalog" className="space-y-6">
+                <TabsList>
+                  <TabsTrigger value="catalog">Service Catalog</TabsTrigger>
+                  <TabsTrigger value="collections">Collections</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="catalog" className="space-y-6">
               {/* Services Header */}
               <div className="flex justify-between items-center">
                 <div>
@@ -907,6 +914,12 @@ export default function VendorDashboard() {
                   </div>
                 </CardContent>
               </Card>
+                </TabsContent>
+
+                <TabsContent value="collections">
+                  <CollectionsManager />
+                </TabsContent>
+              </Tabs>
             </div>
           )}
 
