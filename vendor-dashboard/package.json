@@ -48,6 +48,7 @@
     "input-otp": "^1.2.4",
     "lucide-react": "^0.363.0",
     "bcrypt": "^5.1.1",
+    "@sendgrid/mail": "^8.1.5",
     "nodemailer": "^6.9.13",
     "nanoid": "^5.0.6",
     "react": "^18.2.0",

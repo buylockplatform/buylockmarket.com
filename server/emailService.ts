@@ -1,13 +1,9 @@
-import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 
-// Email configuration using Gmail SMTP
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+// Email configuration using SendGrid
+sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
+
+const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || process.env.GMAIL_USER || 'noreply@buylockmarket.com';
 
 interface CourierNotificationData {
   courierEmail: string;
@@ -183,8 +179,8 @@ export async function sendCourierNotification(data: CourierNotificationData): Pr
       © 2025 BuyLock Marketplace | Kenya's Premier E-commerce Platform
     `;
 
-    await transporter.sendMail({
-      from: `"BuyLock Marketplace" <${process.env.GMAIL_USER}>`,
+    await sgMail.send({
+      from: `"BuyLock Marketplace" <${FROM_EMAIL}>`,
       to: data.courierEmail,
       subject: `🚛 New Pickup Request - Order #${data.orderId}`,
       text: textContent,
@@ -322,8 +318,8 @@ export async function sendCustomerOrderConfirmation(data: CustomerOrderConfirmat
       © 2025 BuyLock Marketplace | Kenya's Premier E-commerce Platform
     `;
 
-    await transporter.sendMail({
-      from: `"BuyLock Marketplace" <${process.env.GMAIL_USER}>`,
+    await sgMail.send({
+      from: `"BuyLock Marketplace" <${FROM_EMAIL}>`,
       to: data.customerEmail,
       subject: `✅ Order Confirmed #${data.orderId} - BuyLock`,
       text: textContent,
@@ -426,8 +422,8 @@ export async function sendVendorAccountUnderReviewNotification(data: VendorAccou
       © 2025 BuyLock Marketplace | Kenya's Premier E-commerce Platform
     `;
 
-    await transporter.sendMail({
-      from: `"BuyLock Marketplace" <${process.env.GMAIL_USER}>`,
+    await sgMail.send({
+      from: `"BuyLock Marketplace" <${FROM_EMAIL}>`,
       to: data.vendorEmail,
       subject: `📋 Account Under Review - ${data.businessName} | BuyLock`,
       text: textContent,
@@ -559,8 +555,8 @@ export async function sendVendorAccountApprovedNotification(data: VendorAccountA
       Welcome to the BuyLock family! Let's grow your business together.
     `;
 
-    await transporter.sendMail({
-      from: `"BuyLock Marketplace" <${process.env.GMAIL_USER}>`,
+    await sgMail.send({
+      from: `"BuyLock Marketplace" <${FROM_EMAIL}>`,
       to: data.vendorEmail,
       subject: `🎉 Account Approved - Welcome to BuyLock | ${data.businessName}`,
       text: textContent,
@@ -581,8 +577,8 @@ export async function sendUserPasswordResetEmail(data: {
   resetUrl: string;
 }): Promise<boolean> {
   try {
-    await transporter.sendMail({
-      from: `"BuyLock" <${process.env.GMAIL_USER}>`,
+    await sgMail.send({
+      from: `"BuyLock" <${FROM_EMAIL}>`,
       to: data.userEmail,
       subject: "Reset Your BuyLock Password",
       html: `
@@ -645,8 +641,8 @@ export async function sendVendorPasswordResetEmail(data: {
   resetUrl: string;
 }): Promise<boolean> {
   try {
-    await transporter.sendMail({
-      from: `"BuyLock Vendor" <${process.env.GMAIL_USER}>`,
+    await sgMail.send({
+      from: `"BuyLock Vendor" <${FROM_EMAIL}>`,
       to: data.vendorEmail,
       subject: "Reset Your BuyLock Vendor Password",
       html: `
@@ -716,8 +712,8 @@ export async function sendAdminCustomerMessage(data: {
       .replace(/>/g, "&gt;")
       .replace(/\n/g, "<br>");
 
-    await transporter.sendMail({
-      from: `"BuyLock Support" <${process.env.GMAIL_USER}>`,
+    await sgMail.send({
+      from: `"BuyLock Support" <${FROM_EMAIL}>`,
       to: data.userEmail,
       subject: data.subject,
       html: `
@@ -765,11 +761,13 @@ export async function sendAdminCustomerMessage(data: {
 
 export async function testEmailConnection(): Promise<boolean> {
   try {
-    await transporter.verify();
-    console.log('Email service connection verified successfully');
+    if (!process.env.SENDGRID_API_KEY) {
+      throw new Error('SENDGRID_API_KEY is not set');
+    }
+    console.log('Email service (SendGrid) configured successfully');
     return true;
   } catch (error) {
-    console.error('Email service connection failed:', error);
+    console.error('Email service configuration check failed:', error);
     return false;
   }
 }
