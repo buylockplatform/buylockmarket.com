@@ -610,10 +610,14 @@ router.post("/api/orders/:orderId/assign", async (req: Request, res: Response) =
     // Notify rider via FCM
     const [rider] = await db.select({ fcmToken: users.fcmToken }).from(users).where(eq(users.id, riderId)).limit(1);
     if (rider?.fcmToken) {
-      await sendPushNotification(rider.fcmToken, "New Job Assigned", "You have a new delivery job. Tap to view.", {
-        type: "new_job",
-        jobId: job.id,
-        orderId,
+      await sendPushNotification(rider.fcmToken, {
+        title: "New Job Assigned",
+        body: "You have a new delivery job. Tap to view.",
+        data: {
+          type: "new_job",
+          jobId: String(job.id),
+          orderId: String(orderId),
+        }
       });
     }
 
