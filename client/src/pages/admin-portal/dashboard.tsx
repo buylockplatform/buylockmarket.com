@@ -145,35 +145,35 @@ export default function AdminDashboard() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-[#FAFAFB] flex admin-portal-dashboard">
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg flex flex-col">
+      <div className="w-64 flex flex-col dashboard-sidebar">
         {/* Header */}
-        <div className="p-6 border-b">
-          <Link href="/admin-portal" className="flex items-center space-x-3 hover:bg-gray-50 p-2 rounded-lg transition-colors">
-            <div className="bg-buylock-primary text-white p-2 rounded-lg">
+        <div className="p-6 border-b border-[#F1F5F9]">
+          <Link href="/admin-portal" className="flex items-center space-x-3 hover:bg-[#FAFAFB] p-2 rounded-xl transition-all duration-200">
+            <div className="dashboard-sidebar-header-icon p-2.5">
               <Shield className="w-6 h-6" />
             </div>
             <div>
               <h1 className="text-lg font-bold text-gray-900">BuyLock Admin</h1>
-              <p className="text-sm text-gray-600">{adminData.name}</p>
+              <p className="text-sm text-gray-500">{adminData.name}</p>
             </div>
           </Link>
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 flex-1">
-          <ul className="space-y-2">
+        <nav className="p-3.5 flex-1 space-y-1 overflow-y-auto">
+          <ul className="space-y-1">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
               return (
                 <li key={item.id}>
                   <button
                     onClick={() => navigateTo(item.id)}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors dashboard-sidebar-btn ${
                       activeSection === item.id
-                        ? "bg-buylock-primary text-white"
-                        : "text-gray-700 hover:bg-gray-100"
+                        ? "dashboard-sidebar-btn-active"
+                        : "dashboard-sidebar-btn-inactive"
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -186,10 +186,10 @@ export default function AdminDashboard() {
         </nav>
 
         {/* Logout */}
-        <div className="p-4 border-t">
+        <div className="p-4 border-t border-[#F1F5F9]">
           <Button
             variant="outline"
-            className="w-full justify-start"
+            className="w-full justify-start border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 hover:border-red-100 rounded-xl transition-colors font-medium py-5"
             onClick={handleLogout}
           >
             <LogOut className="w-4 h-4 mr-2" />
@@ -201,7 +201,7 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
         {/* Top Bar */}
-        <div className="bg-white shadow-sm border-b px-6 py-4">
+        <div className="bg-white border-b border-[#F1F5F9] px-8 py-5">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 capitalize">
@@ -245,57 +245,57 @@ export default function AdminDashboard() {
             <div className="space-y-6">
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card>
+                <Card className="rounded-2xl border-[#F1F5F9] shadow-[0_8px_30px_rgba(15,23,42,0.04)] bg-white">
                   <CardContent className="p-6">
                     <div className="flex items-center">
-                      <div className="bg-blue-100 p-3 rounded-full">
-                        <Users className="w-6 h-6 text-blue-600" />
+                      <div className="bg-blue-50 text-blue-600 p-3.5 rounded-2xl">
+                        <Users className="w-6 h-6" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total Users</p>
-                        <p className="text-2xl font-bold text-gray-900">{stats.totalUsers.toLocaleString()}</p>
+                        <p className="text-sm font-semibold text-gray-500">Total Users</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-0.5">{stats.totalUsers.toLocaleString()}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="rounded-2xl border-[#F1F5F9] shadow-[0_8px_30px_rgba(15,23,42,0.04)] bg-white">
                   <CardContent className="p-6">
                     <div className="flex items-center">
-                      <div className="bg-green-100 p-3 rounded-full">
-                        <Store className="w-6 h-6 text-green-600" />
+                      <div className="bg-emerald-50 text-emerald-600 p-3.5 rounded-2xl">
+                        <Store className="w-6 h-6" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total Vendors</p>
-                        <p className="text-2xl font-bold text-gray-900">{stats.totalVendors}</p>
+                        <p className="text-sm font-semibold text-gray-500">Total Vendors</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-0.5">{stats.totalVendors}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="rounded-2xl border-[#F1F5F9] shadow-[0_8px_30px_rgba(15,23,42,0.04)] bg-white">
                   <CardContent className="p-6">
                     <div className="flex items-center">
-                      <div className="bg-yellow-100 p-3 rounded-full">
-                        <Package className="w-6 h-6 text-yellow-600" />
+                      <div className="bg-amber-50 text-amber-600 p-3.5 rounded-2xl">
+                        <Package className="w-6 h-6" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total Products</p>
-                        <p className="text-2xl font-bold text-gray-900">{(stats.totalProducts + stats.totalServices).toLocaleString()}</p>
+                        <p className="text-sm font-semibold text-gray-500">Total Products</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-0.5">{(stats.totalProducts + stats.totalServices).toLocaleString()}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="rounded-2xl border-[#F1F5F9] shadow-[0_8px_30px_rgba(15,23,42,0.04)] bg-white">
                   <CardContent className="p-6">
                     <div className="flex items-center">
-                      <div className="bg-purple-100 p-3 rounded-full">
-                        <DollarSign className="w-6 h-6 text-purple-600" />
+                      <div className="bg-purple-50 text-purple-600 p-3.5 rounded-2xl">
+                        <DollarSign className="w-6 h-6" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                        <p className="text-2xl font-bold text-gray-900">KES {Number(stats.totalRevenue).toLocaleString('en-KE')}</p>
+                        <p className="text-sm font-semibold text-gray-500">Total Revenue</p>
+                        <p className="text-2xl font-bold text-[#FF5A1F] mt-0.5">KES {Number(stats.totalRevenue).toLocaleString('en-KE')}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -304,43 +304,43 @@ export default function AdminDashboard() {
 
               {/* Alert Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="border-orange-200 bg-orange-50">
+                <Card className="border-orange-100 bg-orange-50/40 rounded-2xl shadow-sm">
                   <CardContent className="p-6">
                     <div className="flex items-center">
-                      <div className="bg-orange-100 p-3 rounded-full">
-                        <AlertTriangle className="w-6 h-6 text-orange-600" />
+                      <div className="bg-orange-100 text-orange-600 p-3.5 rounded-2xl">
+                        <AlertTriangle className="w-6 h-6" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-orange-800">Pending Vendors</p>
-                        <p className="text-2xl font-bold text-orange-900">{stats.pendingVendors}</p>
+                        <p className="text-sm font-semibold text-orange-800">Pending Vendors</p>
+                        <p className="text-2xl font-bold text-orange-900 mt-0.5">{stats.pendingVendors}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-red-200 bg-red-50">
+                <Card className="border-red-100 bg-red-50/40 rounded-2xl shadow-sm">
                   <CardContent className="p-6">
                     <div className="flex items-center">
-                      <div className="bg-red-100 p-3 rounded-full">
-                        <AlertTriangle className="w-6 h-6 text-red-600" />
+                      <div className="bg-red-100 text-red-600 p-3.5 rounded-2xl">
+                        <AlertTriangle className="w-6 h-6" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-red-800">Flagged Orders</p>
-                        <p className="text-2xl font-bold text-red-900">0</p>
+                        <p className="text-sm font-semibold text-red-800">Flagged Orders</p>
+                        <p className="text-2xl font-bold text-red-900 mt-0.5">0</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-green-200 bg-green-50">
+                <Card className="border-green-100 bg-green-50/40 rounded-2xl shadow-sm">
                   <CardContent className="p-6">
                     <div className="flex items-center">
-                      <div className="bg-green-100 p-3 rounded-full">
-                        <CheckCircle className="w-6 h-6 text-green-600" />
+                      <div className="bg-green-100 text-green-600 p-3.5 rounded-2xl">
+                        <CheckCircle className="w-6 h-6" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-green-800">Active Users</p>
-                        <p className="text-2xl font-bold text-green-900">{stats.totalUsers.toLocaleString()}</p>
+                        <p className="text-sm font-semibold text-green-800">Active Users</p>
+                        <p className="text-2xl font-bold text-green-900 mt-0.5">{stats.totalUsers.toLocaleString()}</p>
                       </div>
                     </div>
                   </CardContent>

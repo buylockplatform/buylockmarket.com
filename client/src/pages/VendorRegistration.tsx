@@ -235,20 +235,20 @@ export default function VendorRegistration() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-2xl mx-auto px-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center">Vendor Registration</CardTitle>
-            <CardDescription className="text-center">
+    <div className="min-h-screen bg-gradient-to-tr from-[#FFF4E6] via-[#FAFAFB] to-[#FAFAFB] py-12 px-4">
+      <div className="max-w-2xl mx-auto">
+        <Card className="rounded-2xl border-[#F1F5F9] shadow-[0_15px_45px_rgba(15,23,42,0.06)] bg-white overflow-hidden p-2">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-2xl font-extrabold text-center text-gray-900 tracking-tight">Vendor Registration</CardTitle>
+            <CardDescription className="text-center text-gray-500 mt-1">
               Join the BuyLock marketplace and start selling your products and services
             </CardDescription>
             <div className="text-center pt-2">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-500">
                 Already have an account?{" "}
                 <a 
                   href="/vendor-dashboard/login" 
-                  className="text-[#FF4605] hover:text-[#E63D00] font-medium hover:underline"
+                  className="text-[#FF5A1F] hover:text-[#e64e17] font-semibold transition-colors"
                 >
                   Login here
                 </a>
@@ -567,8 +567,8 @@ export default function VendorRegistration() {
                     )}
                   </div>
 
-                  <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-                    <FileText className="w-4 h-4 inline mr-2" />
+                  <div className="text-sm text-blue-800 bg-blue-50/60 border border-blue-100/80 rounded-2xl p-5 shadow-sm">
+                    <FileText className="w-4 h-4 inline mr-2 text-blue-600" />
                     {watchVendorType === "registered" 
                       ? "Please combine both sides of your national ID into a single PDF file, and upload your tax certificate as a separate PDF. Maximum file size: 10MB for National ID, 5MB for tax certificate."
                       : "Please combine both sides of your national ID into a single PDF file. Maximum file size: 10MB."
@@ -579,14 +579,14 @@ export default function VendorRegistration() {
                 {/* Submit Button */}
                 <Button 
                   type="submit" 
-                  className="w-full bg-[#FF4605] hover:bg-[#E63D00]" 
+                  className="w-full bg-[#FF5A1F] hover:bg-[#e64e17] text-white font-semibold rounded-[14px] py-6 shadow-sm hover:shadow-[0_8px_24px_rgba(255,90,31,0.3)] transition-all hover:-translate-y-0.5 flex items-center justify-center border-none mt-4" 
                   disabled={isSubmitting || !allRequiredDocumentsUploaded()}
                 >
                   {isSubmitting ? "Registering..." : "Register as Vendor"}
                 </Button>
 
                 {!allRequiredDocumentsUploaded() && (
-                  <p className="text-sm text-red-600 text-center">
+                  <p className="text-xs text-red-500 font-semibold text-center mt-2">
                     Please upload all required documents and confirm your business location before submitting
                   </p>
                 )}

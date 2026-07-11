@@ -81,65 +81,65 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-tr from-[#FFF4E6] to-[#FAFAFB] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
           <Link href="/admin-portal" className="inline-block">
-            <div className="mx-auto h-16 w-16 bg-buylock-primary rounded-full flex items-center justify-center hover:bg-buylock-primary/90 transition-colors">
-              <Shield className="h-8 w-8 text-white" />
+            <div className="mx-auto h-16 w-16 bg-[#FF5A1F]/10 text-[#FF5A1F] rounded-2xl flex items-center justify-center hover:bg-[#FF5A1F]/20 transition-all duration-300 shadow-sm border border-[#FF5A1F]/10">
+              <Shield className="h-8 w-8 text-[#FF5A1F]" />
             </div>
           </Link>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900 tracking-tight">
             Admin Portal
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-gray-500">
             Sign in to access the BuyLock admin dashboard
           </p>
           <Link 
             href="/admin-portal" 
-            className="mt-2 inline-block text-sm text-buylock-primary hover:text-buylock-primary/80"
+            className="mt-3 inline-block text-sm text-[#FF5A1F] hover:text-[#e64e17] font-semibold transition-colors"
           >
             ← Back to Admin Portal
           </Link>
         </div>
 
         {/* Login Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-center text-xl">Administrator Login</CardTitle>
+        <Card className="rounded-2xl border-[#F1F5F9] shadow-[0_15px_45px_rgba(15,23,42,0.06)] bg-white overflow-hidden p-2">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-center text-xl font-bold text-gray-900">Administrator Login</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <Label htmlFor="email">Email Address</Label>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="font-semibold text-gray-700">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
                   placeholder="admin@buylock.com"
-                  className="mt-1"
+                  className="mt-1 rounded-xl border-gray-200 focus:border-[#FF5A1F] focus:ring-2 focus:ring-[#FF5A1F]/20"
                   required
                 />
               </div>
 
-              <div>
-                <Label htmlFor="password">Password</Label>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="font-semibold text-gray-700">Password</Label>
                 <Input
                   id="password"
                   type="password"
                   value={formData.password}
                   onChange={(e) => handleInputChange("password", e.target.value)}
                   placeholder="Enter your password"
-                  className="mt-1"
+                  className="mt-1 rounded-xl border-gray-200 focus:border-[#FF5A1F] focus:ring-2 focus:ring-[#FF5A1F]/20"
                   required
                 />
               </div>
 
               <Button 
                 type="submit" 
-                className="w-full bg-buylock-primary hover:bg-buylock-primary/90"
+                className="w-full bg-[#FF5A1F] hover:bg-[#e64e17] text-white font-semibold rounded-[14px] py-6 shadow-sm hover:shadow-[0_8px_24px_rgba(255,90,31,0.3)] transition-all hover:-translate-y-0.5 flex items-center justify-center border-none"
                 disabled={loginMutation.isPending}
               >
                 {loginMutation.isPending ? "Signing in..." : "Sign In"}
@@ -147,9 +147,9 @@ export default function AdminLogin() {
             </form>
 
             {/* Security Notice */}
-            <Alert className="mt-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
+            <Alert className="mt-6 rounded-xl border-amber-100 bg-amber-50/50 text-amber-800">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
                 This is a secure admin area. Unauthorized access is prohibited and monitored.
               </AlertDescription>
             </Alert>
@@ -157,9 +157,9 @@ export default function AdminLogin() {
         </Card>
 
         {/* Demo Credentials */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-2">Demo Credentials</h3>
-          <p className="text-sm text-blue-800">
+        <div className="bg-blue-50/60 border border-blue-100/80 rounded-2xl p-5 shadow-sm">
+          <h3 className="font-bold text-blue-900 mb-1.5 text-[15px]">Demo Credentials</h3>
+          <p className="text-sm text-blue-800 leading-relaxed">
             <strong>Email:</strong> admin@buylock.com<br />
             <strong>Password:</strong> admin123
           </p>

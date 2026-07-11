@@ -72,37 +72,38 @@ export default function VendorLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-buylock-primary/10 via-white to-buylock-secondary/20 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
+    <div className="min-h-screen bg-gradient-to-tr from-[#FFF4E6] to-[#FAFAFB] flex items-center justify-center p-4">
+      <Card className="w-full max-w-md rounded-2xl border-[#F1F5F9] shadow-[0_15px_45px_rgba(15,23,42,0.06)] bg-white overflow-hidden p-2">
+        <CardHeader className="space-y-1 text-center pb-4">
           <div className="flex items-center justify-center mb-4">
-            <div className="bg-buylock-primary text-white p-3 rounded-xl">
-              <Store className="w-8 h-8" />
+            <div className="bg-[#FF5A1F]/10 text-[#FF5A1F] p-3 rounded-2xl border border-[#FF5A1F]/10">
+              <Store className="w-8 h-8 text-[#FF5A1F]" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Vendor Login</CardTitle>
-          <p className="text-gray-600">Access your BuyLock vendor dashboard</p>
+          <CardTitle className="text-2xl font-extrabold text-gray-900 tracking-tight">Vendor Login</CardTitle>
+          <p className="text-gray-500 text-sm mt-1">Access your BuyLock vendor dashboard</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email" className="font-semibold text-gray-700">Email Address</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="vendor@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 rounded-xl border-gray-200 focus:border-[#FF5A1F] focus:ring-2 focus:ring-[#FF5A1F]/20"
                 required
               />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="font-semibold text-gray-700">Password</Label>
                 <button
                   type="button"
                   onClick={() => setLocation("/vendor-dashboard/forgot-password")}
-                  className="text-xs text-buylock-primary hover:underline"
+                  className="text-xs text-[#FF5A1F] hover:text-[#e64e17] font-semibold transition-colors"
                 >
                   Forgot password?
                 </button>
@@ -114,19 +115,20 @@ export default function VendorLogin() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className="mt-1 rounded-xl border-gray-200 focus:border-[#FF5A1F] focus:ring-2 focus:ring-[#FF5A1F]/20"
                   required
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-auto p-1"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-auto p-1 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
+                    <EyeOff className="w-4 h-4 text-gray-400" />
                   ) : (
-                    <Eye className="w-4 h-4" />
+                    <Eye className="w-4 h-4 text-gray-400" />
                   )}
                 </Button>
               </div>
@@ -134,20 +136,20 @@ export default function VendorLogin() {
 
             <Button
               type="submit"
-              className="w-full bg-buylock-primary hover:bg-buylock-primary/90"
+              className="w-full bg-[#FF5A1F] hover:bg-[#e64e17] text-white font-semibold rounded-[14px] py-6 shadow-sm hover:shadow-[0_8px_24px_rgba(255,90,31,0.3)] transition-all hover:-translate-y-0.5 flex items-center justify-center border-none mt-2"
               disabled={loginMutation.isPending}
             >
               {loginMutation.isPending ? "Signing in..." : "Sign In"}
             </Button>
           </form>
 
-          <div className="mt-6 text-center space-y-2">
-            <p className="text-sm text-gray-600">
+          <div className="mt-6 text-center space-y-2.5">
+            <p className="text-sm text-gray-500">
               Don't have a vendor account?
             </p>
             <Button
               variant="outline"
-              className="w-full"
+              className="w-full border-2 border-[#FF5A1F] text-[#FF5A1F] hover:bg-[#FF5A1F] hover:text-white rounded-[14px] font-semibold transition-all py-5 flex items-center justify-center"
               onClick={() => setLocation("/vendor/registration")}
             >
               Register as Vendor
@@ -157,7 +159,7 @@ export default function VendorLogin() {
           <div className="mt-4 text-center">
             <Button
               variant="ghost"
-              className="text-sm text-gray-600"
+              className="text-sm text-gray-400 hover:text-gray-600"
               onClick={() => setLocation("/")}
             >
               ← Back to Main Site

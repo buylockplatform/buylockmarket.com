@@ -389,3 +389,62 @@ body {
 /* Override Tailwind radius tokens to match new scale */
 .rounded-xl  { border-radius: 16px !important; }
 .rounded-2xl { border-radius: 20px !important; }
+
+/* ============================================================
+   BuyLock 2.0 — Admin & Vendor Dashboard Portal Layer
+   ============================================================ */
+.admin-portal-dashboard, .vendor-portal-dashboard {
+  background-color: #FAFAFB !important;
+}
+
+/* Ensure all cards inside portals inherit the premium border, shadow, and corner radius */
+.admin-portal-dashboard .rounded-lg, .vendor-portal-dashboard .rounded-lg,
+.admin-portal-dashboard .rounded-xl, .vendor-portal-dashboard .rounded-xl {
+  border-radius: 20px !important;
+}
+
+.admin-portal-dashboard .border, .vendor-portal-dashboard .border {
+  border-color: #F1F5F9 !important;
+}
+
+.admin-portal-dashboard .shadow-sm, .vendor-portal-dashboard .shadow-sm {
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05) !important;
+}
+
+/* Sidebar styling overrides */
+.dashboard-sidebar {
+  background-color: #FFFFFF !important;
+  border-right: 1px solid #F1F5F9 !important;
+  box-shadow: none !important;
+}
+
+.dashboard-sidebar-header-icon {
+  background-color: rgba(255, 90, 31, 0.1) !important;
+  color: #FF5A1F !important;
+  border-radius: 12px !important;
+}
+
+/* Sidebar buttons */
+.dashboard-sidebar-btn {
+  border-radius: 12px !important;
+  font-weight: 500 !important;
+  transition: all 180ms ease-out !important;
+  padding: 10px 14px !important;
+  margin-bottom: 2px !important;
+}
+
+.dashboard-sidebar-btn-active {
+  background-color: #FF5A1F !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 8px 24px rgba(255, 90, 31, 0.25) !important;
+  font-weight: 600 !important;
+}
+
+.dashboard-sidebar-btn-inactive {
+  color: #6B7280 !important;
+}
+.dashboard-sidebar-btn-inactive:hover {
+  background-color: #FAFAFB !important;
+  color: #111827 !important;
+}
+

@@ -427,35 +427,35 @@ export default function VendorDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-[#FAFAFB] flex vendor-portal-dashboard">
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg flex flex-col">
+      <div className="w-64 flex flex-col dashboard-sidebar">
         {/* Header */}
-        <div className="p-6 border-b">
+        <div className="p-6 border-b border-[#F1F5F9]">
           <div className="flex items-center space-x-3">
-            <div className="bg-buylock-primary text-white p-2 rounded-lg">
+            <div className="dashboard-sidebar-header-icon p-2.5">
               <Store className="w-6 h-6" />
             </div>
             <div>
               <h1 className="text-lg font-bold text-gray-900">BuyLock Vendor</h1>
-              <p className="text-sm text-gray-600">{vendorData.businessName}</p>
+              <p className="text-sm text-gray-500">{vendorData.businessName}</p>
             </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 flex-1">
-          <ul className="space-y-2">
+        <nav className="p-3.5 flex-1 space-y-1 overflow-y-auto">
+          <ul className="space-y-1">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
               return (
                 <li key={item.id}>
                   <button
                     onClick={() => navigateTo(item.id)}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors dashboard-sidebar-btn ${
                       activeSection === item.id
-                        ? "bg-buylock-primary text-white"
-                        : "text-gray-700 hover:bg-gray-100"
+                        ? "dashboard-sidebar-btn-active"
+                        : "dashboard-sidebar-btn-inactive"
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -468,10 +468,10 @@ export default function VendorDashboard() {
         </nav>
 
         {/* Logout */}
-        <div className="p-4 border-t">
+        <div className="p-4 border-t border-[#F1F5F9]">
           <Button
             variant="outline"
-            className="w-full justify-start"
+            className="w-full justify-start border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 hover:border-red-100 rounded-xl transition-colors font-medium py-5"
             onClick={handleLogout}
           >
             <LogOut className="w-4 h-4 mr-2" />
@@ -483,13 +483,13 @@ export default function VendorDashboard() {
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
         {/* Top Bar */}
-        <div className="bg-white shadow-sm border-b px-6 py-4">
+        <div className="bg-white border-b border-[#F1F5F9] px-8 py-5">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 capitalize">
                 {activeSection}
               </h2>
-              <p className="text-gray-600">
+              <p className="text-gray-500 text-sm mt-0.5">
                 {activeSection === "dashboard" && "Overview of your business performance"}
                 {activeSection === "orders" && "Manage customer orders and fulfillment workflow"}
                 {activeSection === "appointments" && "Manage your service appointments and bookings"}
@@ -510,57 +510,57 @@ export default function VendorDashboard() {
             <div className="space-y-6">
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <Card>
+                <Card className="rounded-2xl border-[#F1F5F9] shadow-[0_8px_30px_rgba(15,23,42,0.04)] bg-white">
                   <CardContent className="p-6">
                     <div className="flex items-center">
-                      <div className="bg-blue-100 p-3 rounded-full">
-                        <TrendingUp className="w-6 h-6 text-blue-600" />
+                      <div className="bg-blue-50 text-blue-600 p-3.5 rounded-2xl">
+                        <TrendingUp className="w-6 h-6" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total Sales</p>
-                        <p className="text-2xl font-bold text-gray-900">{realStats.totalSales}</p>
+                        <p className="text-sm font-semibold text-gray-500">Total Sales</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-0.5">{realStats.totalSales}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="rounded-2xl border-[#F1F5F9] shadow-[0_8px_30px_rgba(15,23,42,0.04)] bg-white">
                   <CardContent className="p-6">
                     <div className="flex items-center">
-                      <div className="bg-green-100 p-3 rounded-full">
-                        <DollarSign className="w-6 h-6 text-green-600" />
+                      <div className="bg-emerald-50 text-emerald-600 p-3.5 rounded-2xl">
+                        <DollarSign className="w-6 h-6" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                        <p className="text-2xl font-bold text-gray-900">{realStats.totalRevenue}</p>
+                        <p className="text-sm font-semibold text-gray-500">Total Revenue</p>
+                        <p className="text-2xl font-bold text-[#FF5A1F] mt-0.5">{realStats.totalRevenue}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="rounded-2xl border-[#F1F5F9] shadow-[0_8px_30px_rgba(15,23,42,0.04)] bg-white">
                   <CardContent className="p-6">
                     <div className="flex items-center">
-                      <div className="bg-yellow-100 p-3 rounded-full">
-                        <ShoppingCart className="w-6 h-6 text-yellow-600" />
+                      <div className="bg-amber-50 text-amber-600 p-3.5 rounded-2xl">
+                        <ShoppingCart className="w-6 h-6" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Total Orders</p>
-                        <p className="text-2xl font-bold text-gray-900">{realStats.totalOrders}</p>
+                        <p className="text-sm font-semibold text-gray-500">Total Orders</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-0.5">{realStats.totalOrders}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="rounded-2xl border-[#F1F5F9] shadow-[0_8px_30px_rgba(15,23,42,0.04)] bg-white">
                   <CardContent className="p-6">
                     <div className="flex items-center">
-                      <div className="bg-purple-100 p-3 rounded-full">
-                        <Package className="w-6 h-6 text-purple-600" />
+                      <div className="bg-purple-50 text-purple-600 p-3.5 rounded-2xl">
+                        <Package className="w-6 h-6" />
                       </div>
                       <div className="ml-4">
-                        <p className="text-sm font-medium text-gray-600">Products Sold</p>
-                        <p className="text-2xl font-bold text-gray-900">{realStats.productsSold}</p>
+                        <p className="text-sm font-semibold text-gray-500">Products Sold</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-0.5">{realStats.productsSold}</p>
                       </div>
                     </div>
                   </CardContent>
