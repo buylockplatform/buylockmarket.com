@@ -1,13 +1,30 @@
 import nodemailer from 'nodemailer';
 
 // Email configuration using Gmail SMTP
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+// Email configuration supporting SMTP (Titan Mail) and Gmail fallbacks
+const transporter = nodemailer.createTransport(
+  process.env.SMTP_HOST
+    ? {
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '465', 10),
+        secure: process.env.SMTP_SECURE !== 'false',
+        auth: {
+          user: process.env.SMTP_USER || 'hello@buylockmarket.com',
+          pass: process.env.SMTP_PASS,
+        },
+      }
+    : {
+        service: 'gmail',
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD,
+        },
+      }
+);
+
+const getSenderEmail = () => {
+  return process.env.SMTP_USER || process.env.GMAIL_USER || 'hello@buylockmarket.com';
+};
 
 interface CourierNotificationData {
   courierEmail: string;
@@ -184,7 +201,7 @@ export async function sendCourierNotification(data: CourierNotificationData): Pr
     `;
 
     await transporter.sendMail({
-      from: `"BuyLock Marketplace" <${process.env.GMAIL_USER}>`,
+      from: `"BuyLock Marketplace" <${getSenderEmail()}>`,
       to: data.courierEmail,
       subject: `🚛 New Pickup Request - Order #${data.orderId}`,
       text: textContent,
@@ -323,7 +340,7 @@ export async function sendCustomerOrderConfirmation(data: CustomerOrderConfirmat
     `;
 
     await transporter.sendMail({
-      from: `"BuyLock Marketplace" <${process.env.GMAIL_USER}>`,
+      from: `"BuyLock Marketplace" <${getSenderEmail()}>`,
       to: data.customerEmail,
       subject: `✅ Order Confirmed #${data.orderId} - BuyLock`,
       text: textContent,
@@ -427,7 +444,7 @@ export async function sendVendorAccountUnderReviewNotification(data: VendorAccou
     `;
 
     await transporter.sendMail({
-      from: `"BuyLock Marketplace" <${process.env.GMAIL_USER}>`,
+      from: `"BuyLock Marketplace" <${getSenderEmail()}>`,
       to: data.vendorEmail,
       subject: `📋 Account Under Review - ${data.businessName} | BuyLock`,
       text: textContent,
@@ -560,7 +577,7 @@ export async function sendVendorAccountApprovedNotification(data: VendorAccountA
     `;
 
     await transporter.sendMail({
-      from: `"BuyLock Marketplace" <${process.env.GMAIL_USER}>`,
+      from: `"BuyLock Marketplace" <${getSenderEmail()}>`,
       to: data.vendorEmail,
       subject: `🎉 Account Approved - Welcome to BuyLock | ${data.businessName}`,
       text: textContent,
@@ -582,7 +599,7 @@ export async function sendUserPasswordResetEmail(data: {
 }): Promise<boolean> {
   try {
     await transporter.sendMail({
-      from: `"BuyLock" <${process.env.GMAIL_USER}>`,
+      from: `"BuyLock" <${getSenderEmail()}>`,
       to: data.userEmail,
       subject: "Reset Your BuyLock Password",
       html: `
@@ -646,7 +663,7 @@ export async function sendVendorPasswordResetEmail(data: {
 }): Promise<boolean> {
   try {
     await transporter.sendMail({
-      from: `"BuyLock Vendor" <${process.env.GMAIL_USER}>`,
+      from: `"BuyLock Vendor" <${getSenderEmail()}>`,
       to: data.vendorEmail,
       subject: "Reset Your BuyLock Vendor Password",
       html: `
@@ -717,7 +734,7 @@ export async function sendAdminCustomerMessage(data: {
       .replace(/\n/g, "<br>");
 
     await transporter.sendMail({
-      from: `"BuyLock Support" <${process.env.GMAIL_USER}>`,
+      from: `"BuyLock Support" <${getSenderEmail()}>`,
       to: data.userEmail,
       subject: data.subject,
       html: `
