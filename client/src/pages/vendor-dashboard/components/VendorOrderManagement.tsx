@@ -60,7 +60,7 @@ export default function VendorOrderManagement({ vendorId }: VendorOrderManagemen
   });
 
   // Simplified order filtering for new workflow
-  const paidOrders = orders.filter(order => order.status === 'paid');
+  const paidOrders = orders.filter(order => order.status === 'paid' || order.status === 'vendor_accepted');
   const readyOrders = orders.filter(order => order.status === 'ready_for_pickup');
   const cancelledOrders = orders.filter(order => order.status === 'cancelled');
   const completedOrders = orders.filter(order => order.status === 'completed');
@@ -298,6 +298,26 @@ export default function VendorOrderManagement({ vendorId }: VendorOrderManagemen
                 Cancel Order
               </Button>
               <Button 
+                onClick={() => acceptOrder(order.id)}
+                className="bg-blue-600 hover:bg-blue-700"
+                size="sm"
+                data-testid={`button-accept-${order.id}`}
+              >
+                Accept Order
+              </Button>
+            </>
+          )}
+          {order.status === 'vendor_accepted' && (
+            <>
+              <Button 
+                onClick={() => cancelOrder(order.id)}
+                variant="destructive"
+                size="sm"
+                data-testid={`button-cancel-${order.id}`}
+              >
+                Cancel Order
+              </Button>
+              <Button 
                 onClick={() => markReadyForPickup(order.id)}
                 className="bg-green-600 hover:bg-green-700"
                 size="sm"
@@ -307,6 +327,7 @@ export default function VendorOrderManagement({ vendorId }: VendorOrderManagemen
               </Button>
             </>
           )}
+
           {order.status === 'ready_for_pickup' && (
             <Badge variant="default" className="bg-green-100 text-green-800">
               Ready for courier pickup
