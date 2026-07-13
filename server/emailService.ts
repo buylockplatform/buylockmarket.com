@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 
-// Email configuration using Gmail SMTP
 // Email configuration supporting SMTP (Titan Mail) and Gmail fallbacks
 const transporter = nodemailer.createTransport(
   process.env.SMTP_HOST
@@ -31,6 +31,46 @@ const transporter = nodemailer.createTransport(
 const getSenderEmail = () => {
   return process.env.SMTP_USER || process.env.GMAIL_USER || 'hello@buylockmarket.com';
 };
+
+// Universal sendMail wrapper that supports SendGrid REST API (to bypass SMTP firewall blocks) and falls back to Nodemailer SMTP
+async function sendMailWrapper(options: {
+  to: string;
+  from: string;
+  subject: string;
+  text?: string;
+  html?: string;
+}): Promise<boolean> {
+  if (process.env.SENDGRID_API_KEY) {
+    try {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      // Clean up "from" format if needed for SendGrid API which prefers structured objects or raw strings
+      const mailData: any = {
+        to: options.to,
+        from: options.from,
+        subject: options.subject,
+        html: options.html,
+      };
+      if (options.text) {
+        mailData.text = options.text;
+      }
+      await sgMail.send(mailData);
+      console.log(`Email sent successfully via SendGrid REST API to ${options.to}`);
+      return true;
+    } catch (error: any) {
+      console.error("Error sending email via SendGrid REST API:", error?.response?.body || error);
+      console.log("Attempting fallback to Nodemailer SMTP...");
+    }
+  }
+
+  try {
+    await transporter.sendMail(options);
+    console.log(`Email sent successfully via Nodemailer SMTP to ${options.to}`);
+    return true;
+  } catch (error) {
+    console.error("Error sending email via Nodemailer SMTP:", error);
+    return false;
+  }
+}
 
 interface CourierNotificationData {
   courierEmail: string;
@@ -206,7 +246,7 @@ export async function sendCourierNotification(data: CourierNotificationData): Pr
       © 2025 BuyLock Marketplace | Kenya's Premier E-commerce Platform
     `;
 
-    await transporter.sendMail({
+    await sendMailWrapper({
       from: `"BuyLock Marketplace" <${getSenderEmail()}>`,
       to: data.courierEmail,
       subject: `🚛 New Pickup Request - Order #${data.orderId}`,
@@ -345,7 +385,7 @@ export async function sendCustomerOrderConfirmation(data: CustomerOrderConfirmat
       © 2025 BuyLock Marketplace | Kenya's Premier E-commerce Platform
     `;
 
-    await transporter.sendMail({
+    await sendMailWrapper({
       from: `"BuyLock Marketplace" <${getSenderEmail()}>`,
       to: data.customerEmail,
       subject: `✅ Order Confirmed #${data.orderId} - BuyLock`,
@@ -449,7 +489,7 @@ export async function sendVendorAccountUnderReviewNotification(data: VendorAccou
       © 2025 BuyLock Marketplace | Kenya's Premier E-commerce Platform
     `;
 
-    await transporter.sendMail({
+    await sendMailWrapper({
       from: `"BuyLock Marketplace" <${getSenderEmail()}>`,
       to: data.vendorEmail,
       subject: `📋 Account Under Review - ${data.businessName} | BuyLock`,
@@ -582,7 +622,7 @@ export async function sendVendorAccountApprovedNotification(data: VendorAccountA
       Welcome to the BuyLock family! Let's grow your business together.
     `;
 
-    await transporter.sendMail({
+    await sendMailWrapper({
       from: `"BuyLock Marketplace" <${getSenderEmail()}>`,
       to: data.vendorEmail,
       subject: `🎉 Account Approved - Welcome to BuyLock | ${data.businessName}`,
@@ -604,7 +644,7 @@ export async function sendUserPasswordResetEmail(data: {
   resetUrl: string;
 }): Promise<boolean> {
   try {
-    await transporter.sendMail({
+    await sendMailWrapper({
       from: `"BuyLock" <${getSenderEmail()}>`,
       to: data.userEmail,
       subject: "Reset Your BuyLock Password",
@@ -668,7 +708,7 @@ export async function sendVendorPasswordResetEmail(data: {
   resetUrl: string;
 }): Promise<boolean> {
   try {
-    await transporter.sendMail({
+    await sendMailWrapper({
       from: `"BuyLock Vendor" <${getSenderEmail()}>`,
       to: data.vendorEmail,
       subject: "Reset Your BuyLock Vendor Password",
@@ -739,7 +779,7 @@ export async function sendAdminCustomerMessage(data: {
       .replace(/>/g, "&gt;")
       .replace(/\n/g, "<br>");
 
-    await transporter.sendMail({
+    await sendMailWrapper({
       from: `"BuyLock Support" <${getSenderEmail()}>`,
       to: data.userEmail,
       subject: data.subject,
