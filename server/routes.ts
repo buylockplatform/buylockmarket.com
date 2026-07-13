@@ -2316,8 +2316,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
 
-      // Allow cancellation for orders that are not yet delivered or already cancelled
-      const nonCancellableStatuses = ["delivered", "cancelled", "shipped"];
+      // Allow cancellation for orders that are not yet completed or already cancelled
+      const nonCancellableStatuses = ["completed", "cancelled", "shipped"];
       if (nonCancellableStatuses.includes(order.status)) {
         console.log(`Cannot cancel order with status: ${order.status}`);
         return res.status(400).json({
@@ -2377,7 +2377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { status: "Shipped", description: "Order has been shipped and is on the way.", location: "Nairobi Distribution Center" },
         { status: "In Transit", description: "Package is in transit to your location.", location: "Local Courier" },
         { status: "Out for Delivery", description: "Package is out for delivery.", location: "Your Area" },
-        { status: "Delivered", description: "Package has been delivered successfully.", location: "Your Address", isDelivered: true },
+        { status: "Completed", description: "Package has been delivered successfully.", location: "Your Address", isDelivered: true },
       ];
 
       // Add next tracking step
@@ -2390,9 +2390,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...nextStep,
         });
 
-        // Update order status if delivered
+        // Update order status if delivered (completed)
         if (nextStep.isDelivered) {
-          await storage.updateOrderStatus(req.params.id, "delivered");
+          await storage.updateOrderStatus(req.params.id, "completed");
         } else if (nextStep.status === "Shipped") {
           await storage.updateOrderStatus(req.params.id, "shipped");
         }
@@ -2854,17 +2854,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get vendor delivered orders (fulfilled in admin deliveries, ready for payout)
-  app.get('/api/vendor/:vendorId/orders/delivered', isVendorAuthenticated, async (req, res) => {
+  // Get vendor completed orders (fulfilled in admin deliveries, ready for payout)
+  app.get('/api/vendor/:vendorId/orders/completed', isVendorAuthenticated, async (req, res) => {
     try {
       const { vendorId } = req.params;
 
-      // Get orders that have delivery status 'delivered' and belong to this vendor
-      const deliveredOrders = await storage.getVendorDeliveredOrders(vendorId);
-      res.json(deliveredOrders);
+      // Get orders that have delivery status 'completed' and belong to this vendor
+      const completedOrders = await storage.getVendorCompletedOrders(vendorId);
+      res.json(completedOrders);
     } catch (error) {
-      console.error('Error fetching delivered orders:', error);
-      res.status(500).json({ message: 'Failed to fetch delivered orders' });
+      console.error('Error fetching completed orders:', error);
+      res.status(500).json({ message: 'Failed to fetch completed orders' });
     }
   });
 
@@ -3237,7 +3237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // ready_for_pickup: courier notification + delivery creation handled after status update
 
       // If order is being marked as delivered/completed, send confirmation email
-      if (status === 'delivered' || status === 'completed') {
+      if (status === 'completed') {
         try {
           const order = await storage.getOrderById(orderId);
           if (order) {
@@ -3271,10 +3271,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             body = "Your order has been shipped!";
           } else if (status === 'out_for_delivery') {
             body = "Your order is out for delivery!";
-          } else if (status === 'delivered') {
-            body = "Your order has been delivered!";
           } else if (status === 'completed') {
-            body = "Your order is completed!";
+            body = "Your order has been completed!";
           }
 
           await sendPushNotification(customer.fcmToken, {
@@ -3509,7 +3507,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // In production, this would query orders by confirmationToken
       const orders = await storage.getAllOrders();
       const simulatedOrder = orders.find(o =>
-        o.status === 'delivered' || o.status === 'completed'
+        o.status === 'completed'
       );
 
       if (!simulatedOrder) {
@@ -3558,7 +3556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For now, simulate order confirmation since we don't have DB fields yet
       const orders = await storage.getAllOrders();
       const simulatedOrder = orders.find(o =>
-        o.status === 'delivered' || o.status === 'completed'
+        o.status === 'completed'
       );
 
       if (!simulatedOrder) {
@@ -7118,9 +7116,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [order] = await database.select().from(ordersTable)
         .where(and(eq(ordersTable.id, req.params.id), eq(ordersTable.userId, req.user.id)));
       if (!order) return res.status(404).json({ message: "Order not found" });
-      const reviewableStatuses = ["fulfilled", "completed", "delivered", "customer_confirmed"];
+      const reviewableStatuses = ["completed", "fulfilled"];
       if (!reviewableStatuses.includes(order.status ?? "")) {
-        return res.status(400).json({ message: "Can only review completed or delivered orders" });
+        return res.status(400).json({ message: "Can only review completed orders" });
       }
 
       // Check no existing review

@@ -898,7 +898,6 @@ export default function Cart() {
 
                     {courierQuote && (
                       <div className="text-sm text-gray-600">
-                        <p>Estimated time: {courierQuote.estimatedTime}</p>
                         <p>Distance: ~{courierQuote.estimatedDistance}km</p>
                       </div>
                     )}

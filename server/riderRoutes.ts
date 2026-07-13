@@ -455,7 +455,7 @@ router.patch("/api/delivery-jobs/:id/status", isRiderAuthenticated, async (req: 
         ASSIGNED:         "passed_to_delivery",  // milestone 3
         PICKED_UP:        "picked_up",            // milestone 3 → "Picked Up"
         OUT_FOR_DELIVERY: "out_for_delivery",     // milestone 4 → "Out for Delivery"
-        DELIVERED:        "delivered",            // milestone 5
+        DELIVERED:        "completed",            // milestone 5 - NORMALIZED to "completed"
         CANCELLED:        "cancelled",
       };
       const newOrderStatus = orderStatusMap[status];

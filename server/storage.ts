@@ -229,6 +229,7 @@ export interface IStorage {
   // Vendor order management
   getVendorOrders(vendorId: string, statuses?: string[]): Promise<Order[]>;
   getVendorOrdersByStatus(vendorId: string, status: string): Promise<Order[]>;
+  getVendorCompletedOrders(vendorId: string): Promise<Order[]>;
   getVendorDeliveredOrders(vendorId: string): Promise<Order[]>;
   acceptOrder(orderId: string, vendorNotes?: string): Promise<Order>;
   updateOrderStatusByVendor(orderId: string, status: string, notes?: string): Promise<Order>;
@@ -1485,7 +1486,29 @@ export class DatabaseStorage implements IStorage {
     })) as any as Order[];
   }
 
-  // Get vendor orders that have been delivered (fulfilled orders ready for payout)
+  // Get vendor orders that have been completed (fulfilled orders ready for payout)
+  async getVendorCompletedOrders(vendorId: string): Promise<Order[]> {
+    const completedOrders = await db.select()
+      .from(orders)
+      .where(
+        and(
+          eq(orders.vendorId, vendorId),
+          eq(orders.status, 'completed') // Look for completed orders (ready for payout)
+        )
+      )
+      .orderBy(desc(orders.updatedAt));
+
+    return completedOrders.map(order => ({
+      ...order,
+      totalAmount: parseFloat(order.totalAmount.toString()),
+      deliveryFee: parseFloat(order.deliveryFee?.toString() || '0'),
+      shippingAddress: order.deliveryAddress || '',
+      orderDate: order.createdAt?.toISOString() || new Date().toISOString(),
+      orderItems: []
+    })) as any as Order[];
+  }
+
+  // Get vendor orders that have been delivered (fulfilled orders ready for payout) - DEPRECATED, use getVendorCompletedOrders
   async getVendorDeliveredOrders(vendorId: string): Promise<Order[]> {
     const deliveredOrders = await db.select()
       .from(orders)
