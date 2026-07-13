@@ -856,10 +856,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const summary = await storage.getVendorEarningsSummary(vendorId);
 
       res.json({
-        totalProducts: stats.totalProducts || 0,
-        totalServices: stats.totalServices || 0,
-        totalOrders: stats.totalOrders || 0,
-        pendingOrders: stats.pendingOrders || 0,
+        totalProducts: parseInt(String(stats.totalProducts || 0), 10),
+        totalServices: parseInt(String(stats.totalServices || 0), 10),
+        totalOrders: parseInt(String(stats.totalOrders || 0), 10),
+        pendingOrders: parseInt(String(stats.pendingOrders || 0), 10),
         totalEarnings: summary.totalEarnings,
         availableBalance: summary.availableBalance,
         pendingBalance: summary.pendingBalance,
@@ -2874,6 +2874,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Failed to fetch completed orders' });
     }
   });
+
+  // Get vendor delivered orders (legacy path used by mobile vendor app)
+  app.get('/api/vendor/:vendorId/orders/delivered', isVendorAuthenticated, async (req, res) => {
+    try {
+      const { vendorId } = req.params;
+      const completedOrders = await storage.getVendorCompletedOrders(vendorId);
+      res.json(completedOrders);
+    } catch (error) {
+      console.error('Error fetching delivered orders:', error);
+      res.status(500).json({ message: 'Failed to fetch delivered orders' });
+    }
+  });
+
 
   // Get vendor fulfilled orders (ready for payout)
   app.get('/api/vendor/:vendorId/orders/fulfilled', isVendorAuthenticated, async (req, res) => {
