@@ -59,11 +59,12 @@ export default function VendorOrderManagement({ vendorId }: VendorOrderManagemen
     refetchOnWindowFocus: true, // Refresh when user returns to tab
   });
 
-  // Simplified order filtering for new workflow
-  const paidOrders = orders.filter(order => order.status === 'paid' || order.status === 'vendor_accepted');
-  const readyOrders = orders.filter(order => order.status === 'ready_for_pickup');
-  const cancelledOrders = orders.filter(order => order.status === 'cancelled');
-  const completedOrders = orders.filter(order => order.status === 'completed');
+  // Simplified order filtering for new workflow — exclude service orders (they go to Appointments tab)
+  const productOrders = orders.filter(order => !order.orderType || order.orderType !== 'service');
+  const paidOrders = productOrders.filter(order => order.status === 'paid' || order.status === 'vendor_accepted');
+  const readyOrders = productOrders.filter(order => order.status === 'ready_for_pickup');
+  const cancelledOrders = productOrders.filter(order => order.status === 'cancelled');
+  const completedOrders = productOrders.filter(order => order.status === 'completed');
 
   // Simplified vendor actions for new workflow
   const cancelOrder = async (orderId: string) => {

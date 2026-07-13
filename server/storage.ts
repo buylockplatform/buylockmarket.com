@@ -2014,13 +2014,14 @@ export class DatabaseStorage implements IStorage {
       let query = sql`
         SELECT 
           o.id, o.user_id, o.vendor_id, o.status, o.total_amount, o.delivery_address,
-          o.delivery_fee, o.payment_status, o.payment_method,
+          o.delivery_fee, o.payment_status, o.payment_method, o.order_type,
           o.notes, o.vendor_notes, o.tracking_number, o.estimated_delivery,
           o.vendor_accepted_at, o.created_at, o.updated_at,
           u.id as user_id, u.email as user_email, u.first_name, u.last_name
         FROM orders o
         LEFT JOIN users u ON o.user_id = u.id
         WHERE o.vendor_id = ${vendorId}
+          AND (o.order_type IS NULL OR o.order_type != 'service')
       `;
 
       if (statuses && statuses.length > 0) {
