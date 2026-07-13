@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -91,8 +92,9 @@ interface AppointmentManagementProps {
 }
 
 export default function AppointmentManagement({ vendorId }: AppointmentManagementProps) {
-  const [selectedAppointment, setSelectedAppointment] = useState<VendorAppointment | null>(null);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const { toast } = useToast();
 
   const [newStatus, setNewStatus] = useState<string>("");
   const queryClient = useQueryClient();
@@ -130,6 +132,8 @@ export default function AppointmentManagement({ vendorId }: AppointmentManagemen
     return transformedAppointment;
   }) as VendorAppointment[];
 
+  const selectedAppointment = transformedAppointments.find(a => a.id === selectedAppointmentId);
+
   // Mutation for updating appointment status
   const updateStatusMutation = useMutation({
     mutationFn: async ({ appointmentId, status, vendorNotes }: { 
@@ -139,9 +143,20 @@ export default function AppointmentManagement({ vendorId }: AppointmentManagemen
     }) => {
       return vendorApiRequest(`/api/vendor/tasks/${appointmentId}/status`, 'PATCH', { status, vendorNotes });
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: [`/api/vendor/tasks?vendorId=${vendorId}`] });
+      toast({
+        title: "Task Status Updated",
+        description: data?.message || "Appointment status updated successfully.",
+      });
     },
+    onError: (error: any) => {
+      toast({
+        title: "Status Update Failed",
+        description: error.message || "Failed to update appointment status.",
+        variant: "destructive",
+      });
+    }
   });
 
   const getStatusColor = (status: string) => {
@@ -210,7 +225,7 @@ export default function AppointmentManagement({ vendorId }: AppointmentManagemen
   };
 
   const handleViewDetails = (appointment: VendorAppointment) => {
-    setSelectedAppointment(appointment);
+    setSelectedAppointmentId(appointment.id);
     setShowDetails(true);
   };
 
