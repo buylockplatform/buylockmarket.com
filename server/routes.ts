@@ -2797,6 +2797,208 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Vendor Task Management API endpoints
+
+  // Get vendor's service appointments (tasks)
+  app.get('/api/vendor/tasks', isVendorAuthenticated, async (req, res) => {
+    try {
+      const { vendorId } = req.query;
+
+      if (!vendorId) {
+        return res.status(400).json({ message: "Vendor ID is required" });
+      }
+
+      // Get appointments assigned to this vendor
+      const appointments = await storage.getVendorAppointments(vendorId as string);
+
+      res.json(appointments);
+    } catch (error) {
+      console.error('Error fetching vendor tasks:', error);
+      res.status(500).json({ message: 'Failed to fetch vendor tasks' });
+    }
+  });
+
+  // Update service task status (appointments)
+  app.patch('/api/vendor/tasks/:appointmentId/status', isVendorAuthenticated, async (req, res) => {
+    try {
+      const { appointmentId } = req.params;
+      const { status, vendorNotes } = req.body;
+
+      // Valid service statuses for on-site visit workflow
+      const validStatuses = [
+        'pending_acceptance', 'accepted', 'arrived', 'in_progress',
+        'completed', 'cancelled', 'declined'
+      ];
+
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      // updateAppointmentStatus already syncs the order via its internal mapping
+      const updatedAppointment = await storage.updateAppointmentStatus(appointmentId, status, vendorNotes);
+
+      if (!updatedAppointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+
+      // ── Sync the linked order status explicitly (belt-and-suspenders) ──
+      // Map appointment status → order status
+      if (updatedAppointment.orderId) {
+        const appointmentToOrderStatus: Record<string, string> = {
+          accepted:      'vendor_accepted',
+          arrived:       'arrived',
+          in_progress:   'doing',
+          completed:     'completed',
+          cancelled:     'cancelled',
+          declined:      'cancelled',
+        };
+        const mappedOrderStatus = appointmentToOrderStatus[status];
+        if (mappedOrderStatus) {
+          try {
+            await storage.updateOrderStatus(updatedAppointment.orderId, mappedOrderStatus);
+            console.log(`✅ Order ${updatedAppointment.orderId} synced to status '${mappedOrderStatus}' from appointment status '${status}'`);
+          } catch (orderSyncError) {
+            console.error('Error syncing order status from appointment:', orderSyncError);
+          }
+        }
+
+        // Notify customer via FCM
+        try {
+          const order = await storage.getOrderById(updatedAppointment.orderId);
+          if (order) {
+            const customer = await storage.getUser(order.userId);
+            if (customer?.fcmToken) {
+              const msgMap: Record<string, string> = {
+                accepted:    "Your service booking has been confirmed! The provider will arrive on the scheduled date.",
+                arrived:     "Your service provider has arrived at your location.",
+                in_progress: "Your service is currently in progress.",
+                completed:   "Your service has been completed. Thank you!",
+                cancelled:   "Your service booking has been cancelled.",
+                declined:    "Your service booking was declined. Please contact support.",
+              };
+              const body = msgMap[status] ?? `Your service booking status changed to ${status}.`;
+              await sendPushNotification(customer.fcmToken, {
+                title: "Service Update",
+                body,
+                data: { orderId: updatedAppointment.orderId, appointmentId, status }
+              });
+            }
+          }
+        } catch (fcmError) {
+          console.error('FCM notification failed for appointment update:', fcmError);
+        }
+      }
+
+      res.json({
+        success: true,
+        appointment: updatedAppointment,
+        message: `Task status updated to ${status}`
+      });
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      res.status(500).json({ message: 'Failed to update task status' });
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────
+  // Vendor Branch Locations
+  // ─────────────────────────────────────────────────────────
+
+  // GET /api/vendor/locations — list branches for authenticated vendor
+  app.get('/api/vendor/locations', isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const vendorId = req.vendor.id;
+      const locations = await storage.getVendorLocations(vendorId);
+      res.json(locations);
+    } catch (error) {
+      console.error('Error fetching vendor locations:', error);
+      res.status(500).json({ message: 'Failed to fetch branch locations' });
+    }
+  });
+
+  // POST /api/vendor/locations — create a new branch
+  app.post('/api/vendor/locations', isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const vendorId = req.vendor.id;
+      const { branchName, address, city, latitude, longitude, supportsDelivery, supportsPickup, isActive } = req.body;
+
+      if (!branchName || !address) {
+        return res.status(400).json({ message: 'Branch name and address are required' });
+      }
+
+      const location = await storage.createVendorLocation({
+        vendorId,
+        branchName,
+        address,
+        city: city || null,
+        latitude: latitude != null ? latitude.toString() : null,
+        longitude: longitude != null ? longitude.toString() : null,
+        supportsDelivery: supportsDelivery !== false,
+        supportsPickup: supportsPickup !== false,
+        isActive: isActive !== false,
+      });
+
+      res.status(201).json(location);
+    } catch (error) {
+      console.error('Error creating vendor location:', error);
+      res.status(500).json({ message: 'Failed to create branch location' });
+    }
+  });
+
+  // PUT /api/vendor/locations/:id — update a branch
+  app.put('/api/vendor/locations/:id', isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const vendorId = req.vendor.id;
+      const { id } = req.params;
+
+      // Ensure the branch belongs to this vendor
+      const existing = await storage.getVendorLocations(vendorId);
+      const found = existing.find((l) => l.id === id);
+      if (!found) {
+        return res.status(404).json({ message: 'Branch location not found' });
+      }
+
+      const { branchName, address, city, latitude, longitude, supportsDelivery, supportsPickup, isActive } = req.body;
+
+      const updates: any = {};
+      if (branchName !== undefined) updates.branchName = branchName;
+      if (address !== undefined) updates.address = address;
+      if (city !== undefined) updates.city = city;
+      if (latitude !== undefined) updates.latitude = latitude != null ? latitude.toString() : null;
+      if (longitude !== undefined) updates.longitude = longitude != null ? longitude.toString() : null;
+      if (supportsDelivery !== undefined) updates.supportsDelivery = supportsDelivery;
+      if (supportsPickup !== undefined) updates.supportsPickup = supportsPickup;
+      if (isActive !== undefined) updates.isActive = isActive;
+
+      const location = await storage.updateVendorLocation(id, updates);
+      res.json(location);
+    } catch (error) {
+      console.error('Error updating vendor location:', error);
+      res.status(500).json({ message: 'Failed to update branch location' });
+    }
+  });
+
+  // DELETE /api/vendor/locations/:id — delete a branch
+  app.delete('/api/vendor/locations/:id', isVendorAuthenticated, async (req: any, res) => {
+    try {
+      const vendorId = req.vendor.id;
+      const { id } = req.params;
+
+      // Ensure branch belongs to this vendor
+      const existing = await storage.getVendorLocations(vendorId);
+      const found = existing.find((l) => l.id === id);
+      if (!found) {
+        return res.status(404).json({ message: 'Branch location not found' });
+      }
+
+      await storage.deleteVendorLocation(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting vendor location:', error);
+      res.status(500).json({ message: 'Failed to delete branch location' });
+    }
+  });
+
   // Get vendor profile by ID
   app.get('/api/vendor/:vendorId', isVendorAuthenticated, async (req, res) => {
     try {
@@ -6868,108 +7070,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // Vendor Task Management API endpoints
 
-  // Get vendor's service appointments (tasks)
-  app.get('/api/vendor/tasks', isVendorAuthenticated, async (req, res) => {
-    try {
-      const { vendorId } = req.query;
-
-      if (!vendorId) {
-        return res.status(400).json({ message: "Vendor ID is required" });
-      }
-
-      // Get appointments assigned to this vendor
-      const appointments = await storage.getVendorAppointments(vendorId as string);
-
-      res.json(appointments);
-    } catch (error) {
-      console.error('Error fetching vendor tasks:', error);
-      res.status(500).json({ message: 'Failed to fetch vendor tasks' });
-    }
-  });
-
-  // Update service task status (appointments)
-  app.patch('/api/vendor/tasks/:appointmentId/status', isVendorAuthenticated, async (req, res) => {
-    try {
-      const { appointmentId } = req.params;
-      const { status, vendorNotes } = req.body;
-
-      // Valid service statuses for on-site visit workflow
-      const validStatuses = [
-        'pending_acceptance', 'accepted', 'arrived', 'in_progress',
-        'completed', 'cancelled', 'declined'
-      ];
-
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({ message: "Invalid status" });
-      }
-
-      // updateAppointmentStatus already syncs the order via its internal mapping
-      const updatedAppointment = await storage.updateAppointmentStatus(appointmentId, status, vendorNotes);
-
-      if (!updatedAppointment) {
-        return res.status(404).json({ message: "Appointment not found" });
-      }
-
-      // ── Sync the linked order status explicitly (belt-and-suspenders) ──
-      // Map appointment status → order status
-      if (updatedAppointment.orderId) {
-        const appointmentToOrderStatus: Record<string, string> = {
-          accepted:      'vendor_accepted',
-          arrived:       'arrived',
-          in_progress:   'doing',
-          completed:     'completed',
-          cancelled:     'cancelled',
-          declined:      'cancelled',
-        };
-        const mappedOrderStatus = appointmentToOrderStatus[status];
-        if (mappedOrderStatus) {
-          try {
-            await storage.updateOrderStatus(updatedAppointment.orderId, mappedOrderStatus);
-            console.log(`✅ Order ${updatedAppointment.orderId} synced to status '${mappedOrderStatus}' from appointment status '${status}'`);
-          } catch (orderSyncError) {
-            console.error('Error syncing order status from appointment:', orderSyncError);
-          }
-        }
-
-        // Notify customer via FCM
-        try {
-          const order = await storage.getOrderById(updatedAppointment.orderId);
-          if (order) {
-            const customer = await storage.getUser(order.userId);
-            if (customer?.fcmToken) {
-              const msgMap: Record<string, string> = {
-                accepted:    "Your service booking has been confirmed! The provider will arrive on the scheduled date.",
-                arrived:     "Your service provider has arrived at your location.",
-                in_progress: "Your service is currently in progress.",
-                completed:   "Your service has been completed. Thank you!",
-                cancelled:   "Your service booking has been cancelled.",
-                declined:    "Your service booking was declined. Please contact support.",
-              };
-              const body = msgMap[status] ?? `Your service booking status changed to ${status}.`;
-              await sendPushNotification(customer.fcmToken, {
-                title: "Service Update",
-                body,
-                data: { orderId: updatedAppointment.orderId, appointmentId, status }
-              });
-            }
-          }
-        } catch (fcmError) {
-          console.error('FCM notification failed for appointment update:', fcmError);
-        }
-      }
-
-      res.json({
-        success: true,
-        appointment: updatedAppointment,
-        message: `Task status updated to ${status}`
-      });
-    } catch (error) {
-      console.error('Error updating task status:', error);
-      res.status(500).json({ message: 'Failed to update task status' });
-    }
-  });
 
 
 
@@ -7721,104 +7822,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // ─────────────────────────────────────────────────────────
-  // Vendor Branch Locations
-  // ─────────────────────────────────────────────────────────
 
-  // GET /api/vendor/locations — list branches for authenticated vendor
-  app.get('/api/vendor/locations', isVendorAuthenticated, async (req: any, res) => {
-    try {
-      const vendorId = req.vendor.id;
-      const locations = await storage.getVendorLocations(vendorId);
-      res.json(locations);
-    } catch (error) {
-      console.error('Error fetching vendor locations:', error);
-      res.status(500).json({ message: 'Failed to fetch branch locations' });
-    }
-  });
-
-  // POST /api/vendor/locations — create a new branch
-  app.post('/api/vendor/locations', isVendorAuthenticated, async (req: any, res) => {
-    try {
-      const vendorId = req.vendor.id;
-      const { branchName, address, city, latitude, longitude, supportsDelivery, supportsPickup, isActive } = req.body;
-
-      if (!branchName || !address) {
-        return res.status(400).json({ message: 'Branch name and address are required' });
-      }
-
-      const location = await storage.createVendorLocation({
-        vendorId,
-        branchName,
-        address,
-        city: city || null,
-        latitude: latitude != null ? latitude.toString() : null,
-        longitude: longitude != null ? longitude.toString() : null,
-        supportsDelivery: supportsDelivery !== false,
-        supportsPickup: supportsPickup !== false,
-        isActive: isActive !== false,
-      });
-
-      res.status(201).json(location);
-    } catch (error) {
-      console.error('Error creating vendor location:', error);
-      res.status(500).json({ message: 'Failed to create branch location' });
-    }
-  });
-
-  // PUT /api/vendor/locations/:id — update a branch
-  app.put('/api/vendor/locations/:id', isVendorAuthenticated, async (req: any, res) => {
-    try {
-      const vendorId = req.vendor.id;
-      const { id } = req.params;
-
-      // Ensure the branch belongs to this vendor
-      const existing = await storage.getVendorLocations(vendorId);
-      const found = existing.find((l) => l.id === id);
-      if (!found) {
-        return res.status(404).json({ message: 'Branch location not found' });
-      }
-
-      const { branchName, address, city, latitude, longitude, supportsDelivery, supportsPickup, isActive } = req.body;
-
-      const updates: any = {};
-      if (branchName !== undefined) updates.branchName = branchName;
-      if (address !== undefined) updates.address = address;
-      if (city !== undefined) updates.city = city;
-      if (latitude !== undefined) updates.latitude = latitude != null ? latitude.toString() : null;
-      if (longitude !== undefined) updates.longitude = longitude != null ? longitude.toString() : null;
-      if (supportsDelivery !== undefined) updates.supportsDelivery = supportsDelivery;
-      if (supportsPickup !== undefined) updates.supportsPickup = supportsPickup;
-      if (isActive !== undefined) updates.isActive = isActive;
-
-      const location = await storage.updateVendorLocation(id, updates);
-      res.json(location);
-    } catch (error) {
-      console.error('Error updating vendor location:', error);
-      res.status(500).json({ message: 'Failed to update branch location' });
-    }
-  });
-
-  // DELETE /api/vendor/locations/:id — delete a branch
-  app.delete('/api/vendor/locations/:id', isVendorAuthenticated, async (req: any, res) => {
-    try {
-      const vendorId = req.vendor.id;
-      const { id } = req.params;
-
-      // Ensure branch belongs to this vendor
-      const existing = await storage.getVendorLocations(vendorId);
-      const found = existing.find((l) => l.id === id);
-      if (!found) {
-        return res.status(404).json({ message: 'Branch location not found' });
-      }
-
-      await storage.deleteVendorLocation(id);
-      res.status(204).send();
-    } catch (error) {
-      console.error('Error deleting vendor location:', error);
-      res.status(500).json({ message: 'Failed to delete branch location' });
-    }
-  });
 
   // ── Rider location update ─────────────────────────────────
   app.post("/api/delivery/location", isUserAuthenticated, async (req: any, res) => {
