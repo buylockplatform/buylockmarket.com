@@ -12,6 +12,9 @@ const transporter = nodemailer.createTransport(
           user: process.env.SMTP_USER || 'hello@buylockmarket.com',
           pass: process.env.SMTP_PASS,
         },
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 10000,
       }
     : {
         service: 'gmail',
@@ -19,6 +22,9 @@ const transporter = nodemailer.createTransport(
           user: process.env.GMAIL_USER,
           pass: process.env.GMAIL_APP_PASSWORD,
         },
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 10000,
       }
 );
 
