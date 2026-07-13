@@ -145,9 +145,9 @@ export default function AdminDashboard() {
 
 
   return (
-    <div className="min-h-screen bg-[#FAFAFB] flex admin-portal-dashboard h-screen">
+    <div className="min-h-screen bg-[#FAFAFB] lg:flex lg:h-screen admin-portal-dashboard">
       {/* Sidebar */}
-      <div className="w-64 flex flex-col dashboard-sidebar h-screen overflow-hidden">
+      <div className="hidden lg:flex lg:w-64 lg:flex-col lg:h-screen lg:fixed lg:left-0 lg:top-0 dashboard-sidebar overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b border-[#F1F5F9] flex-shrink-0">
           <Link href="/admin-portal" className="flex items-center space-x-3 hover:bg-[#FAFAFB] p-2 rounded-xl transition-all duration-200">
@@ -199,7 +199,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden lg:ml-64">
         {/* Top Bar */}
         <div className="bg-white border-b border-[#F1F5F9] px-8 py-5 flex-shrink-0">
           <div className="flex justify-between items-center">

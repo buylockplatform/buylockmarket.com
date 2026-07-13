@@ -50,7 +50,7 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 lg:flex lg:h-screen">
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? "block" : "hidden"}`}>
         <div className="fixed inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
@@ -90,8 +90,8 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
         </div>
       </div>
 
-      {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:block lg:flex lg:flex-col">
+      {/* Desktop sidebar - Fixed position */}
+      <div className="hidden lg:flex lg:w-64 lg:flex-col lg:h-screen lg:fixed lg:left-0 lg:top-0">
         <div className="flex h-full flex-col bg-white shadow-lg overflow-hidden">
           <div className="flex h-16 items-center px-6 border-b flex-shrink-0">
             <Store className="w-8 h-8 text-buylock-primary mr-2" />
@@ -149,7 +149,7 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-64 flex flex-col h-screen">
+      <div className="flex-1 flex flex-col overflow-hidden lg:ml-64">
         {/* Top header */}
         <div className="sticky top-0 z-40 bg-white shadow-sm border-b lg:hidden flex-shrink-0">
           <div className="flex h-16 items-center justify-between px-4">
