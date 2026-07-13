@@ -36,12 +36,12 @@ export default function ServiceCategoryManagement() {
   // Fetch service categories
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ['/api/admin/service-categories'],
-    queryFn: () => apiRequest('/api/admin/service-categories', 'GET').then(res => res.json())
+    queryFn: () => apiRequest('/api/admin/service-categories', 'GET')
   });
 
   // Create category mutation
   const createCategoryMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('/api/admin/service-categories', 'POST', data).then(res => res.json()),
+    mutationFn: (data: any) => apiRequest('/api/admin/service-categories', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/service-categories'] });
       queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
@@ -63,8 +63,8 @@ export default function ServiceCategoryManagement() {
 
   // Update category mutation
   const updateCategoryMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string, data: any }) => 
-      apiRequest(`/api/admin/service-categories/${id}`, 'PUT', data).then(res => res.json()),
+    mutationFn: ({ id, data }: { id: string, data: any }) =>
+      apiRequest(`/api/admin/service-categories/${id}`, 'PUT', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/service-categories'] });
       queryClient.invalidateQueries({ queryKey: ['/api/categories'] });

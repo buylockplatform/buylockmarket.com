@@ -427,11 +427,11 @@ export default function VendorDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFB] flex vendor-portal-dashboard">
-      {/* Sidebar */}
-      <div className="w-64 flex flex-col dashboard-sidebar">
+    <div className="h-screen overflow-hidden bg-[#FAFAFB] flex vendor-portal-dashboard">
+      {/* Sidebar — fixed, independent scroll */}
+      <div className="fixed inset-y-0 left-0 w-64 flex flex-col dashboard-sidebar z-30">
         {/* Header */}
-        <div className="p-6 border-b border-[#F1F5F9]">
+        <div className="p-6 border-b border-[#F1F5F9] flex-shrink-0">
           <div className="flex items-center space-x-3">
             <div className="dashboard-sidebar-header-icon p-2.5">
               <Store className="w-6 h-6" />
@@ -443,8 +443,8 @@ export default function VendorDashboard() {
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="p-3.5 flex-1 space-y-1 overflow-y-auto">
+        {/* Navigation — scrollable independently */}
+        <nav className="p-3.5 flex-1 space-y-1 overflow-y-auto min-h-0">
           <ul className="space-y-1">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
@@ -467,8 +467,8 @@ export default function VendorDashboard() {
           </ul>
         </nav>
 
-        {/* Logout */}
-        <div className="p-4 border-t border-[#F1F5F9]">
+        {/* Logout — pinned to bottom */}
+        <div className="p-4 border-t border-[#F1F5F9] flex-shrink-0">
           <Button
             variant="outline"
             className="w-full justify-start border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 hover:border-red-100 rounded-xl transition-colors font-medium py-5"
@@ -480,10 +480,10 @@ export default function VendorDashboard() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        {/* Top Bar */}
-        <div className="bg-white border-b border-[#F1F5F9] px-8 py-5">
+      {/* Main Content — offset by sidebar width, independent scroll */}
+      <div className="flex-1 flex flex-col overflow-hidden ml-64">
+        {/* Top Bar — sticky within main area */}
+        <div className="bg-white border-b border-[#F1F5F9] px-8 py-5 flex-shrink-0">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 capitalize">
@@ -504,7 +504,8 @@ export default function VendorDashboard() {
           </div>
         </div>
 
-        {/* Content Area */}
+        {/* Content Area — independently scrollable */}
+        <div className="flex-1 overflow-y-auto">
         <div className="p-6">
           {activeSection === "dashboard" && (
             <div className="space-y-6">
@@ -1391,6 +1392,7 @@ export default function VendorDashboard() {
               </Card>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

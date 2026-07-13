@@ -448,3 +448,9 @@ body {
   color: #111827 !important;
 }
 
+/* Grouped sidebar navigation */
+.sidebar-group + .sidebar-group {
+  border-top: 1px solid #F1F5F9;
+  margin-top: 4px;
+  padding-top: 4px;
+}

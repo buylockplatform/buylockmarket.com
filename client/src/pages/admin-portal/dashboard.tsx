@@ -48,7 +48,15 @@ import {
   Truck,
   CreditCard,
   Wrench,
-  Globe
+  Globe,
+  ChevronDown,
+  ChevronRight,
+  LayoutDashboard,
+  ClipboardList,
+  Bike,
+  FileCheck,
+  Tag,
+  Layers
 } from "lucide-react";
 
 interface AdminData {
@@ -70,6 +78,23 @@ export default function AdminDashboard() {
     setLocation(`/admin-portal/dashboard/${section}`);
   };
   const [adminData, setAdminData] = useState<AdminData | null>(null);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    overview: true,
+    people: true,
+    requests: true,
+    catalogue: true,
+    categories: true,
+    ordersAppointments: true,
+    earnings: true,
+    delivery: true,
+    analytics: true,
+    disputes: true,
+    settings: true,
+  });
+
+  const toggleGroup = (group: string) => {
+    setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }));
+  };
 
   // Fetch real admin statistics
   const { data: realStats } = useQuery<{
@@ -105,30 +130,89 @@ export default function AdminDashboard() {
     setLocation("/admin-portal");
   };
 
-  const sidebarItems = [
-    { id: "dashboard", label: "Dashboard", icon: BarChart3 },
-    { id: "users", label: "Users", icon: Users },
-    { id: "vendors", label: "Vendors", icon: Store },
-    { id: "vendor-requests", label: "Vendor Requests", icon: CheckCircle },
-    { id: "appointments", label: "Manage Appointments", icon: Calendar },
-    { id: "products", label: "Products", icon: Package },
-    { id: "services", label: "Services", icon: Wrench },
-    { id: "service-categories", label: "Service Categories", icon: FolderOpen },
-    { id: "categories", label: "Categories", icon: FolderOpen },
-
-    { id: "orders", label: "Orders", icon: TrendingUp },
-    { id: "earnings", label: "Earnings Management", icon: DollarSign },
-    { id: "commission", label: "Commission Settings", icon: Settings },
-    { id: "deliveries", label: "Delivery", icon: Truck },
-    { id: "rider-fleet", label: "Rider Fleet", icon: Truck },
-    { id: "verify-riders", label: "Verify Riders", icon: CheckCircle },
-    { id: "rider-earnings", label: "Rider Earnings", icon: DollarSign },
-    { id: "courier-config", label: "Courier Configuration", icon: Settings },
-    { id: "logistics-settings", label: "Logistics Settings", icon: Truck },
-    { id: "analytics", label: "Analytics", icon: BarChart3 },
-    { id: "admin-analytics", label: "Advanced Analytics", icon: BarChart3 },
-    { id: "disputes", label: "Dispute Resolution", icon: AlertTriangle },
-    { id: "settings", label: "Settings", icon: Settings },
+  const sidebarGroups = [
+    {
+      id: "overview",
+      label: "Overview",
+      items: [
+        { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+      ],
+    },
+    {
+      id: "people",
+      label: "People",
+      items: [
+        { id: "users", label: "Users", icon: Users },
+        { id: "vendors", label: "Vendors", icon: Store },
+        { id: "rider-fleet", label: "Riders", icon: Bike },
+      ],
+    },
+    {
+      id: "requests",
+      label: "Requests",
+      items: [
+        { id: "vendor-requests", label: "Vendor Requests", icon: FileCheck },
+        { id: "verify-riders", label: "Rider Verification", icon: CheckCircle },
+      ],
+    },
+    {
+      id: "catalogue",
+      label: "Catalogue",
+      items: [
+        { id: "products", label: "Products", icon: Package },
+        { id: "services", label: "Services", icon: Wrench },
+      ],
+    },
+    {
+      id: "categories",
+      label: "Categories",
+      items: [
+        { id: "categories", label: "Product Categories", icon: FolderOpen },
+        { id: "service-categories", label: "Service Categories", icon: Tag },
+      ],
+    },
+    {
+      id: "ordersAppointments",
+      label: "Orders & Appointments",
+      items: [
+        { id: "orders", label: "Orders", icon: ClipboardList },
+        { id: "appointments", label: "Appointments", icon: Calendar },
+        { id: "disputes", label: "Disputes", icon: AlertTriangle },
+      ],
+    },
+    {
+      id: "earnings",
+      label: "Earnings",
+      items: [
+        { id: "earnings", label: "Platform Earnings", icon: DollarSign },
+        { id: "commission", label: "Commission Settings", icon: CreditCard },
+        { id: "rider-earnings", label: "Rider Earnings", icon: Bike },
+      ],
+    },
+    {
+      id: "delivery",
+      label: "Delivery & Logistics",
+      items: [
+        { id: "deliveries", label: "Delivery Tracking", icon: Truck },
+        { id: "courier-config", label: "Courier Config", icon: Settings },
+        { id: "logistics-settings", label: "Logistics Settings", icon: Layers },
+      ],
+    },
+    {
+      id: "analytics",
+      label: "Analytics",
+      items: [
+        { id: "analytics", label: "Analytics", icon: BarChart3 },
+        { id: "admin-analytics", label: "Advanced Analytics", icon: PieChart },
+      ],
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      items: [
+        { id: "settings", label: "General Settings", icon: Settings },
+      ],
+    },
   ];
 
   // Use real stats from API, with fallback to prevent crashes
@@ -146,8 +230,8 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#FAFAFB] lg:flex lg:h-screen admin-portal-dashboard">
-      {/* Sidebar */}
-      <div className="hidden lg:flex lg:w-64 lg:flex-col lg:h-screen lg:fixed lg:left-0 lg:top-0 dashboard-sidebar overflow-hidden">
+      {/* Sidebar — fixed, independent scroll */}
+      <div className="hidden lg:flex lg:w-64 lg:flex-col lg:h-screen lg:fixed lg:left-0 lg:top-0 dashboard-sidebar">
         {/* Header */}
         <div className="p-6 border-b border-[#F1F5F9] flex-shrink-0">
           <Link href="/admin-portal" className="flex items-center space-x-3 hover:bg-[#FAFAFB] p-2 rounded-xl transition-all duration-200">
@@ -161,28 +245,53 @@ export default function AdminDashboard() {
           </Link>
         </div>
 
-        {/* Navigation */}
-        <nav className="p-3.5 flex-1 space-y-1 overflow-y-auto">
-          <ul className="space-y-1">
-            {sidebarItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <li key={item.id}>
-                  <button
-                    onClick={() => navigateTo(item.id)}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors dashboard-sidebar-btn ${
-                      activeSection === item.id
-                        ? "dashboard-sidebar-btn-active"
-                        : "dashboard-sidebar-btn-inactive"
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span className="font-medium">{item.label}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+        {/* Navigation — scrollable independently */}
+        <nav className="flex-1 overflow-y-auto min-h-0 py-2">
+          {sidebarGroups.map((group) => {
+            const isOpen = openGroups[group.id] !== false;
+            const hasActive = group.items.some(item => item.id === activeSection);
+            return (
+              <div key={group.id} className="mb-1">
+                {/* Group Header */}
+                <button
+                  onClick={() => toggleGroup(group.id)}
+                  className={`w-full flex items-center justify-between px-4 py-2 text-left transition-all duration-150 ${
+                    hasActive ? "text-[#FF5A1F]" : "text-gray-400"
+                  } hover:text-gray-600`}
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-widest">{group.label}</span>
+                  {isOpen
+                    ? <ChevronDown className="w-3 h-3" />
+                    : <ChevronRight className="w-3 h-3" />
+                  }
+                </button>
+
+                {/* Group Items */}
+                {isOpen && (
+                  <ul className="px-2 space-y-0.5 mb-2">
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <li key={`${group.id}-${item.id}`}>
+                          <button
+                            onClick={() => navigateTo(item.id)}
+                            className={`w-full flex items-center space-x-3 px-3 py-2.5 text-left transition-colors dashboard-sidebar-btn ${
+                              activeSection === item.id
+                                ? "dashboard-sidebar-btn-active"
+                                : "dashboard-sidebar-btn-inactive"
+                            }`}
+                          >
+                            <Icon className="w-4 h-4 flex-shrink-0" />
+                            <span className="font-medium text-sm">{item.label}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Logout */}
@@ -205,31 +314,54 @@ export default function AdminDashboard() {
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 capitalize">
-                {isVendorDetail ? "Vendor Detail" : activeSection}
+                {isVendorDetail ? "Vendor Detail" : ({
+                  "dashboard": "Dashboard",
+                  "users": "Users",
+                  "vendors": "Vendors",
+                  "rider-fleet": "Riders",
+                  "vendor-requests": "Vendor Requests",
+                  "verify-riders": "Rider Verification",
+                  "products": "Products",
+                  "services": "Services",
+                  "categories": "Product Categories",
+                  "service-categories": "Service Categories",
+                  "orders": "Orders",
+                  "appointments": "Appointments",
+                  "disputes": "Disputes",
+                  "earnings": "Platform Earnings",
+                  "commission": "Commission Settings",
+                  "rider-earnings": "Rider Earnings",
+                  "deliveries": "Delivery Tracking",
+                  "courier-config": "Courier Configuration",
+                  "logistics-settings": "Logistics Settings",
+                  "analytics": "Analytics",
+                  "admin-analytics": "Advanced Analytics",
+                  "settings": "General Settings",
+                } as Record<string, string>)[activeSection] || activeSection}
               </h2>
               <p className="text-gray-600">
                 {activeSection === "dashboard" && "Overview of platform performance and metrics"}
                 {activeSection === "users" && "Manage customer accounts and user activity"}
                 {activeSection === "vendors" && !isVendorDetail && "Manage vendor accounts and verification"}
                 {activeSection === "vendors" && isVendorDetail && "View vendor profile, orders, documents, and account controls"}
-                {activeSection === "vendor-requests" && "Review vendor applications and requests"}
+                {activeSection === "vendor-requests" && "Review vendor applications and approval requests"}
+                {activeSection === "verify-riders" && "Review and approve or reject rider verification applications"}
                 {activeSection === "appointments" && "Monitor service bookings and appointment status"}
                 {activeSection === "products" && "Monitor and manage all products in the marketplace"}
                 {activeSection === "services" && "Monitor and manage all services offered by providers"}
                 {activeSection === "categories" && "Manage product categories, subcategories, brands, and filtering attributes"}
+                {activeSection === "service-categories" && "Manage service categories and subcategories"}
                 {activeSection === "orders" && "Monitor and manage customer orders, cart items, and fulfillment"}
-                {activeSection === "payouts" && "Manage vendor disbursements and payout requests"}
+                {activeSection === "disputes" && "Review and resolve customer disputes and refund requests"}
+                {activeSection === "earnings" && "Platform-wide earnings overview and vendor payout management"}
                 {activeSection === "commission" && "Configure platform and vendor commission percentages"}
+                {activeSection === "rider-earnings" && "Manage rider earnings, approvals, and M-Pesa payouts"}
                 {activeSection === "deliveries" && "Comprehensive delivery tracking and management"}
                 {activeSection === "rider-fleet" && "View and manage all delivery riders in your fleet"}
-                {activeSection === "verify-riders" && "Review and approve or reject rider applications"}
-                {activeSection === "rider-earnings" && "Manage rider earnings, approvals, and M-Pesa payouts"}
                 {activeSection === "courier-config" && "Configure delivery providers and courier settings"}
                 {activeSection === "logistics-settings" && "Delivery fee formula, surge pricing and fulfillment rules"}
-                {activeSection === "verticals" && "Manage top-level market verticals to organise products, services, and discovery feeds"}
                 {activeSection === "analytics" && "Detailed platform analytics and insights"}
                 {activeSection === "admin-analytics" && "Advanced metrics dashboard with real-time KPIs"}
-                {activeSection === "disputes" && "Review and resolve customer disputes and refund requests"}
                 {activeSection === "settings" && "System configuration and admin settings"}
               </p>
             </div>

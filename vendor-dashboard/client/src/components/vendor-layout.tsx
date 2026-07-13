@@ -92,13 +92,13 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
 
       {/* Desktop sidebar - Fixed position */}
       <div className="hidden lg:flex lg:w-64 lg:flex-col lg:h-screen lg:fixed lg:left-0 lg:top-0">
-        <div className="flex h-full flex-col bg-white shadow-lg overflow-hidden">
+        <div className="flex h-full flex-col bg-white shadow-lg">
           <div className="flex h-16 items-center px-6 border-b flex-shrink-0">
             <Store className="w-8 h-8 text-buylock-primary mr-2" />
             <span className="text-xl font-bold text-gray-900">BuyLock</span>
           </div>
-          
-          <nav className="flex-1 px-4 py-6 overflow-y-auto">
+          {/* Navigation — scrollable independently */}
+          <nav className="flex-1 px-4 py-6 overflow-y-auto min-h-0">
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;
