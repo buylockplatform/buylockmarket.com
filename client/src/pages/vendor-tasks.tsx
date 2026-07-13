@@ -141,32 +141,24 @@ export default function VendorTasks() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending_acceptance':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'accepted':
-        return 'bg-blue-100 text-blue-800';
-      case 'in_progress':
-        return 'bg-purple-100 text-purple-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'pending_acceptance': return 'bg-yellow-100 text-yellow-800';
+      case 'accepted':           return 'bg-blue-100 text-blue-800';
+      case 'arrived':            return 'bg-indigo-100 text-indigo-800';
+      case 'in_progress':        return 'bg-purple-100 text-purple-800';
+      case 'completed':          return 'bg-green-100 text-green-800';
+      case 'cancelled':          return 'bg-red-100 text-red-800';
+      default:                   return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending_acceptance':
-        return <AlertCircle className="w-4 h-4" />;
-      case 'accepted':
-      case 'in_progress':
-        return <Clock className="w-4 h-4" />;
-      case 'completed':
-        return <CheckCircle className="w-4 h-4" />;
-      default:
-        return <AlertCircle className="w-4 h-4" />;
+      case 'pending_acceptance': return <AlertCircle className="w-4 h-4" />;
+      case 'accepted':           return <CheckCircle className="w-4 h-4" />;
+      case 'arrived':            return <MapPin className="w-4 h-4" />;
+      case 'in_progress':        return <Clock className="w-4 h-4" />;
+      case 'completed':          return <CheckCircle className="w-4 h-4" />;
+      default:                   return <AlertCircle className="w-4 h-4" />;
     }
   };
 
@@ -353,10 +345,11 @@ export default function VendorTasks() {
                             <SelectValue placeholder="Select new status" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="accepted">Accept Task</SelectItem>
-                            <SelectItem value="in_progress">Mark In Progress</SelectItem>
-                            <SelectItem value="completed">Mark Completed</SelectItem>
-                            <SelectItem value="cancelled">Cancel Task</SelectItem>
+                            <SelectItem value="accepted">✅ Accept Booking</SelectItem>
+                            <SelectItem value="arrived">📍 Mark Arrived</SelectItem>
+                            <SelectItem value="in_progress">🔧 Start Service</SelectItem>
+                            <SelectItem value="completed">✔️ Mark Completed</SelectItem>
+                            <SelectItem value="cancelled">❌ Cancel</SelectItem>
                           </SelectContent>
                         </Select>
 

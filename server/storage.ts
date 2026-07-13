@@ -1851,16 +1851,10 @@ export class DatabaseStorage implements IStorage {
         case 'accepted':
           orderStatus = 'vendor_accepted';
           break;
-        case 'starting_job':
-          orderStatus = 'vendor_accepted';
+        case 'arrived':
+          orderStatus = 'arrived';
           break;
         case 'in_progress':
-          orderStatus = 'doing';
-          break;
-        case 'delayed':
-          orderStatus = 'doing';
-          break;
-        case 'almost_done':
           orderStatus = 'doing';
           break;
         case 'completed':
@@ -1897,24 +1891,13 @@ export class DatabaseStorage implements IStorage {
   // Helper method to format status for tracking
   private formatStatusForTracking(status: string): string {
     switch (status) {
-      case 'pending_acceptance':
-        return 'Pending Acceptance';
-      case 'accepted':
-        return 'Service Accepted';
-      case 'starting_job':
-        return 'Starting Service';
-      case 'in_progress':
-        return 'Service In Progress';
-      case 'delayed':
-        return 'Service Delayed';
-      case 'almost_done':
-        return 'Service Almost Complete';
-      case 'completed':
-        return 'Service Completed';
-      case 'declined':
-        return 'Service Declined';
-      case 'cancelled':
-        return 'Service Cancelled';
+      case 'pending_acceptance': return 'Awaiting Confirmation';
+      case 'accepted':           return 'Booking Confirmed';
+      case 'arrived':            return 'Vendor Arrived';
+      case 'in_progress':        return 'Service In Progress';
+      case 'completed':          return 'Service Completed';
+      case 'declined':           return 'Booking Declined';
+      case 'cancelled':          return 'Booking Cancelled';
       default:
         return status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
     }
@@ -1923,26 +1906,14 @@ export class DatabaseStorage implements IStorage {
   // Helper method to get default status description
   private getStatusDescription(status: string): string {
     switch (status) {
-      case 'pending_acceptance':
-        return 'Service booking is awaiting vendor acceptance.';
-      case 'accepted':
-        return 'Vendor has accepted the service booking.';
-      case 'starting_job':
-        return 'Vendor is preparing to start the service.';
-      case 'in_progress':
-        return 'Service is currently being performed.';
-      case 'delayed':
-        return 'Service has been delayed but will be completed.';
-      case 'almost_done':
-        return 'Service is almost complete.';
-      case 'completed':
-        return 'Service has been completed successfully.';
-      case 'declined':
-        return 'Vendor has declined this service booking.';
-      case 'cancelled':
-        return 'Service booking has been cancelled.';
-      default:
-        return `Service status updated to ${status}.`;
+      case 'pending_acceptance': return 'Service booking is awaiting vendor confirmation.';
+      case 'accepted':           return 'Your booking is confirmed. The vendor will arrive on the scheduled date and time.';
+      case 'arrived':            return 'The service provider has arrived at your location.';
+      case 'in_progress':        return 'The service is currently being performed at your location.';
+      case 'completed':          return 'Service has been completed successfully.';
+      case 'declined':           return 'Vendor has declined this service booking.';
+      case 'cancelled':          return 'Service booking has been cancelled.';
+      default:                   return `Service status updated to ${status}.`;
     }
   }
 

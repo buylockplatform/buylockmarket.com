@@ -30,15 +30,13 @@ export default function TrackOrder() {
 
   const isService = order?.orderType === "service";
 
-  // Milestones for Service/Laundry vertical
+  // Milestones for on-site Service vertical
   const serviceMilestones = [
-    { label: "Order Placed", status: "pending", desc: "Awaiting shop confirmation" },
-    { label: "Rider Picked Up", status: "pickup", desc: "Courier transporting garments to shop" },
-    { label: "Laundry Processing", status: "processing", desc: "Items are being washed & folded" },
-    { label: "Ready for Delivery", status: "ready", desc: "Garments clean and awaiting courier" },
-    { label: "Out for Delivery", status: "delivering", desc: "Rider is returning items to your home" },
-    { label: "Delivered", status: "delivered", desc: "Order delivered" },
-    { label: "Completed", status: "completed", desc: "Order marked complete" },
+    { label: "Order Placed", status: "pending", desc: "Awaiting service provider confirmation" },
+    { label: "Booking Confirmed", status: "accepted", desc: "Provider has accepted your booking" },
+    { label: "Vendor Arrived", status: "arrived", desc: "Service provider has arrived at your location" },
+    { label: "In Progress", status: "in_progress", desc: "Service is currently being carried out" },
+    { label: "Completed", status: "completed", desc: "Service has been completed" },
   ];
 
   // Milestones for Standard Product vertical
@@ -59,16 +57,26 @@ export default function TrackOrder() {
     if (!order) return 0;
     const status = order.status?.toLowerCase() || "pending";
 
-    // Map order status fields to milestone index
-    if (status === "pending" || status === "placed" || status === "paid" || status === "pending_acceptance") return 0;
-    if (status === "confirmed" || status === "accepted" || status === "vendor_accepted" || status === "pickup") return 1;
-    if (status === "ready_for_pickup" || status === "ready") return 2;
-    if (status === "dispatched" || status === "passed_to_delivery" || status === "processing" || status === "packed" || status === "doing" || status === "picked_up") return 3;
-    if (status === "in_delivery" || status === "shipping" || status === "shipped" || status === "out_for_delivery" || status === "delivering") return 4;
-    if (status === "delivered") return 5;
-    if (status === "completed" || status === "fulfilled") return 6;
-    return 0;
-  }, [order]);
+    if (isService) {
+      // Service: 0=placed, 1=confirmed/accepted, 2=arrived, 3=in_progress, 4=completed
+      if (status === "pending" || status === "paid" || status === "pending_acceptance") return 0;
+      if (status === "accepted" || status === "vendor_accepted") return 1;
+      if (status === "arrived") return 2;
+      if (status === "in_progress" || status === "doing" || status === "starting_job") return 3;
+      if (status === "completed" || status === "fulfilled") return 4;
+      return 0;
+    } else {
+      // Product milestones mapping
+      if (status === "pending" || status === "placed" || status === "paid" || status === "pending_acceptance") return 0;
+      if (status === "confirmed" || status === "accepted" || status === "vendor_accepted" || status === "pickup") return 1;
+      if (status === "ready_for_pickup" || status === "ready") return 2;
+      if (status === "dispatched" || status === "passed_to_delivery" || status === "processing" || status === "packed" || status === "doing" || status === "picked_up") return 3;
+      if (status === "in_delivery" || status === "shipping" || status === "shipped" || status === "out_for_delivery" || status === "delivering") return 4;
+      if (status === "delivered") return 5;
+      if (status === "completed" || status === "fulfilled") return 6;
+      return 0;
+    }
+  }, [order, isService]);
 
   // Total items cost helper
   const formatPrice = (price: string | number) => {

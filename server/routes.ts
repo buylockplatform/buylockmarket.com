@@ -6850,10 +6850,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { appointmentId } = req.params;
       const { status, vendorNotes } = req.body;
 
-      // Valid service statuses for comprehensive workflow
+      // Valid service statuses for on-site visit workflow
       const validStatuses = [
-        'pending_acceptance', 'accepted', 'starting_job', 'in_progress',
-        'delayed', 'almost_done', 'completed', 'cancelled', 'declined'
+        'pending_acceptance', 'accepted', 'arrived', 'in_progress',
+        'completed', 'cancelled', 'declined'
       ];
 
       if (!validStatuses.includes(status)) {
@@ -6871,14 +6871,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Map appointment status → order status
       if (updatedAppointment.orderId) {
         const appointmentToOrderStatus: Record<string, string> = {
-          accepted:       'vendor_accepted',
-          starting_job:   'doing',
-          in_progress:    'doing',
-          delayed:        'doing',
-          almost_done:    'doing',
-          completed:      'completed',
-          cancelled:      'cancelled',
-          declined:       'cancelled',
+          accepted:      'vendor_accepted',
+          arrived:       'arrived',
+          in_progress:   'doing',
+          completed:     'completed',
+          cancelled:     'cancelled',
+          declined:      'cancelled',
         };
         const mappedOrderStatus = appointmentToOrderStatus[status];
         if (mappedOrderStatus) {
@@ -6897,13 +6895,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const customer = await storage.getUser(order.userId);
             if (customer?.fcmToken) {
               const msgMap: Record<string, string> = {
-                accepted:     "Your service booking has been accepted!",
-                starting_job: "The service provider is on their way.",
-                in_progress:  "Your service is currently in progress.",
-                almost_done:  "Your service is almost done!",
-                completed:    "Your service has been completed. Please confirm receipt.",
-                cancelled:    "Your service booking has been cancelled.",
-                declined:     "Your service booking was declined. Please contact support.",
+                accepted:    "Your service booking has been confirmed! The provider will arrive on the scheduled date.",
+                arrived:     "Your service provider has arrived at your location.",
+                in_progress: "Your service is currently in progress.",
+                completed:   "Your service has been completed. Thank you!",
+                cancelled:   "Your service booking has been cancelled.",
+                declined:    "Your service booking was declined. Please contact support.",
               };
               const body = msgMap[status] ?? `Your service booking status changed to ${status}.`;
               await sendPushNotification(customer.fcmToken, {

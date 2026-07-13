@@ -42,7 +42,7 @@ interface VendorAppointment {
   state: string;
   notes?: string;
   totalAmount: number;
-  status: 'pending_acceptance' | 'accepted' | 'starting_job' | 'in_progress' | 'delayed' | 'almost_done' | 'completed' | 'declined' | 'cancelled';
+  status: 'pending_acceptance' | 'accepted' | 'arrived' | 'in_progress' | 'completed' | 'declined' | 'cancelled';
   vendorNotes?: string;
   bookingDate: string;
   updatedAt: string;
@@ -51,22 +51,18 @@ interface VendorAppointment {
 // Helper function to get available status options based on current status
 const getAvailableStatusOptions = (currentStatus: string) => {
   const allOptions = {
-    'starting_job': <Play className="w-4 h-4" />,
+    'arrived':     <MapPin className="w-4 h-4" />,
     'in_progress': <Wrench className="w-4 h-4" />,
-    'delayed': <AlertTriangle className="w-4 h-4" />,
-    'almost_done': <Clock className="w-4 h-4" />,
-    'completed': <CheckCircle className="w-4 h-4" />
+    'completed':   <CheckCircle className="w-4 h-4" />
   };
 
-  const statusFlow = {
-    'accepted': ['starting_job', 'completed'],
-    'starting_job': ['in_progress', 'delayed', 'completed'],
-    'in_progress': ['almost_done', 'delayed', 'completed'],
-    'delayed': ['in_progress', 'completed'],
-    'almost_done': ['completed', 'in_progress']
+  const statusFlow: Record<string, string[]> = {
+    'accepted':    ['arrived', 'in_progress', 'completed'],
+    'arrived':     ['in_progress', 'completed'],
+    'in_progress': ['completed'],
   };
 
-  const availableStatuses = statusFlow[currentStatus as keyof typeof statusFlow] || [];
+  const availableStatuses = statusFlow[currentStatus] || [];
   
   return availableStatuses.map(status => ({
     value: status,
@@ -77,19 +73,17 @@ const getAvailableStatusOptions = (currentStatus: string) => {
 
 // Helper function to get status label
 const getStatusLabel = (status: string) => {
-  const labels = {
-    'pending': 'Pending',
-    'pending_acceptance': 'Pending Acceptance',
-    'accepted': 'Accepted',
-    'starting_job': 'Starting Job',
-    'in_progress': 'In Progress',
-    'delayed': 'Delayed',
-    'almost_done': 'Almost Done',
-    'completed': 'Completed',
-    'declined': 'Declined',
-    'cancelled': 'Cancelled'
+  const labels: Record<string, string> = {
+    'pending':            'Pending',
+    'pending_acceptance': 'Awaiting Acceptance',
+    'accepted':           'Booking Confirmed',
+    'arrived':            'Vendor Arrived',
+    'in_progress':        'In Progress',
+    'completed':          'Completed',
+    'declined':           'Declined',
+    'cancelled':          'Cancelled'
   };
-  return labels[status as keyof typeof labels] || status;
+  return labels[status] || status;
 };
 
 interface AppointmentManagementProps {
@@ -154,29 +148,25 @@ export default function AppointmentManagement({ vendorId }: AppointmentManagemen
     switch (status) {
       case 'pending': 
       case 'pending_acceptance': return 'bg-yellow-100 text-yellow-800';
-      case 'accepted': return 'bg-blue-100 text-blue-800';
-      case 'starting_job': return 'bg-indigo-100 text-indigo-800';
-      case 'in_progress': return 'bg-purple-100 text-purple-800';
-      case 'delayed': return 'bg-orange-100 text-orange-800';
-      case 'almost_done': return 'bg-teal-100 text-teal-800';
-      case 'completed': return 'bg-green-100 text-green-800';
+      case 'accepted':           return 'bg-blue-100 text-blue-800';
+      case 'arrived':            return 'bg-indigo-100 text-indigo-800';
+      case 'in_progress':        return 'bg-purple-100 text-purple-800';
+      case 'completed':          return 'bg-green-100 text-green-800';
       case 'declined': 
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'cancelled':          return 'bg-red-100 text-red-800';
+      default:                   return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending': case 'pending_acceptance': return <Clock className="w-4 h-4" />;
-      case 'accepted': return <CheckCircle className="w-4 h-4" />;
-      case 'starting_job': return <Play className="w-4 h-4" />;
+      case 'accepted':    return <CheckCircle className="w-4 h-4" />;
+      case 'arrived':     return <MapPin className="w-4 h-4" />;
       case 'in_progress': return <Wrench className="w-4 h-4" />;
-      case 'delayed': return <AlertTriangle className="w-4 h-4" />;
-      case 'almost_done': return <Clock className="w-4 h-4" />;
-      case 'completed': return <CheckCircle className="w-4 h-4" />;
+      case 'completed':   return <CheckCircle className="w-4 h-4" />;
       case 'declined': case 'cancelled': return <XCircle className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
+      default:            return <Clock className="w-4 h-4" />;
     }
   };
 
@@ -335,7 +325,7 @@ export default function AppointmentManagement({ vendorId }: AppointmentManagemen
                     disabled={updateStatusMutation.isPending}
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    {updateStatusMutation.isPending ? "Accepting..." : "Accept Appointment"}
+                    {updateStatusMutation.isPending ? "Accepting..." : "Accept Booking"}
                   </Button>
                   <Button 
                     variant="outline"
@@ -344,7 +334,7 @@ export default function AppointmentManagement({ vendorId }: AppointmentManagemen
                     disabled={updateStatusMutation.isPending}
                   >
                     <XCircle className="w-4 h-4 mr-2" />
-                    {updateStatusMutation.isPending ? "Declining..." : "Decline Appointment"}
+                    {updateStatusMutation.isPending ? "Declining..." : "Decline Booking"}
                   </Button>
                 </div>
               )}
@@ -355,21 +345,46 @@ export default function AppointmentManagement({ vendorId }: AppointmentManagemen
                     className="bg-indigo-600 hover:bg-indigo-700"
                     onClick={() => updateStatusMutation.mutate({
                       appointmentId: selectedAppointment.id,
-                      status: 'starting_job',
+                      status: 'arrived',
                       vendorNotes: ''
                     })}
                     disabled={updateStatusMutation.isPending}
                   >
-                    <Play className="w-4 h-4 mr-2" />
-                    Start Job
+                    <MapPin className="w-4 h-4 mr-2" />
+                    Mark Arrived
+                  </Button>
+                  <Button 
+                    className="bg-purple-600 hover:bg-purple-700"
+                    onClick={() => updateStatusMutation.mutate({
+                      appointmentId: selectedAppointment.id,
+                      status: 'in_progress',
+                      vendorNotes: ''
+                    })}
+                    disabled={updateStatusMutation.isPending}
+                  >
+                    <Wrench className="w-4 h-4 mr-2" />
+                    Start Service
+                  </Button>
+                </div>
+              )}
+
+              {selectedAppointment.status === 'arrived' && (
+                <div className="flex flex-wrap gap-3">
+                  <Button 
+                    className="bg-purple-600 hover:bg-purple-700"
+                    onClick={() => updateStatusMutation.mutate({
+                      appointmentId: selectedAppointment.id,
+                      status: 'in_progress',
+                      vendorNotes: ''
+                    })}
+                    disabled={updateStatusMutation.isPending}
+                  >
+                    <Wrench className="w-4 h-4 mr-2" />
+                    Start Service
                   </Button>
                   <Button 
                     className="bg-green-600 hover:bg-green-700"
-                    onClick={() => updateStatusMutation.mutate({
-                      appointmentId: selectedAppointment.id,
-                      status: 'completed',
-                      vendorNotes: ''
-                    })}
+                    onClick={() => handleCompleteAppointment(selectedAppointment.id)}
                     disabled={updateStatusMutation.isPending}
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
@@ -378,57 +393,18 @@ export default function AppointmentManagement({ vendorId }: AppointmentManagemen
                 </div>
               )}
 
-              {/* Status Update Section - Available for accepted appointments and beyond */}
-              {!['pending', 'declined', 'cancelled', 'completed'].includes(selectedAppointment.status) && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Update Status</label>
-                    <Select value={newStatus} onValueChange={setNewStatus}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select new status..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getAvailableStatusOptions(selectedAppointment.status).map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="flex items-center gap-2">
-                              {option.icon}
-                              {option.label}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {newStatus && (
-                    <Button 
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                      onClick={() => {
-                        updateStatusMutation.mutate({
-                          appointmentId: selectedAppointment.id,
-                          status: newStatus,
-                          vendorNotes: ''
-                        });
-                        setNewStatus(""); // Reset selection
-                      }}
-                      disabled={updateStatusMutation.isPending}
-                    >
-                      {updateStatusMutation.isPending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Updating...
-                        </>
-                      ) : (
-                        <>
-                          Update to {getStatusLabel(newStatus)}
-                        </>
-                      )}
-                    </Button>
-                  )}
+              {selectedAppointment.status === 'in_progress' && (
+                <div className="flex flex-wrap gap-3">
+                  <Button 
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => handleCompleteAppointment(selectedAppointment.id)}
+                    disabled={updateStatusMutation.isPending}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    {updateStatusMutation.isPending ? "Completing..." : "Mark Completed"}
+                  </Button>
                 </div>
               )}
-
-
             </CardContent>
           </Card>
         </div>
