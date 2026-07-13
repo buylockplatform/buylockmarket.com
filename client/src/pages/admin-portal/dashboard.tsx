@@ -145,11 +145,11 @@ export default function AdminDashboard() {
 
 
   return (
-    <div className="min-h-screen bg-[#FAFAFB] flex admin-portal-dashboard">
+    <div className="min-h-screen bg-[#FAFAFB] flex admin-portal-dashboard h-screen">
       {/* Sidebar */}
-      <div className="w-64 flex flex-col dashboard-sidebar">
+      <div className="w-64 flex flex-col dashboard-sidebar h-screen overflow-hidden">
         {/* Header */}
-        <div className="p-6 border-b border-[#F1F5F9]">
+        <div className="p-6 border-b border-[#F1F5F9] flex-shrink-0">
           <Link href="/admin-portal" className="flex items-center space-x-3 hover:bg-[#FAFAFB] p-2 rounded-xl transition-all duration-200">
             <div className="dashboard-sidebar-header-icon p-2.5">
               <Shield className="w-6 h-6" />
@@ -186,7 +186,7 @@ export default function AdminDashboard() {
         </nav>
 
         {/* Logout */}
-        <div className="p-4 border-t border-[#F1F5F9]">
+        <div className="p-4 border-t border-[#F1F5F9] flex-shrink-0">
           <Button
             variant="outline"
             className="w-full justify-start border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 hover:border-red-100 rounded-xl transition-colors font-medium py-5"
@@ -199,9 +199,9 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar */}
-        <div className="bg-white border-b border-[#F1F5F9] px-8 py-5">
+        <div className="bg-white border-b border-[#F1F5F9] px-8 py-5 flex-shrink-0">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 capitalize">
@@ -240,7 +240,8 @@ export default function AdminDashboard() {
         </div>
 
         {/* Content Area */}
-        <div className="p-6">
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-6">
           {activeSection === "dashboard" && (
             <div className="space-y-6">
               {/* Stats Cards */}
@@ -448,6 +449,7 @@ export default function AdminDashboard() {
           {activeSection === "disputes" && <DisputeResolution />}
 
           {activeSection === "settings" && <AdminSettingsPanel />}
+        </div>
         </div>
       </div>
     </div>

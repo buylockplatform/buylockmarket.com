@@ -91,14 +91,14 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:block">
-        <div className="flex h-full flex-col bg-white shadow-lg">
-          <div className="flex h-16 items-center px-6 border-b">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:block lg:flex lg:flex-col">
+        <div className="flex h-full flex-col bg-white shadow-lg overflow-hidden">
+          <div className="flex h-16 items-center px-6 border-b flex-shrink-0">
             <Store className="w-8 h-8 text-buylock-primary mr-2" />
             <span className="text-xl font-bold text-gray-900">BuyLock</span>
           </div>
           
-          <nav className="flex-1 px-4 py-6">
+          <nav className="flex-1 px-4 py-6 overflow-y-auto">
             {navigation.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;
@@ -120,7 +120,7 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
           </nav>
 
           {/* Vendor info and logout */}
-          <div className="border-t p-4">
+          <div className="border-t p-4 flex-shrink-0">
             <div className="flex items-center mb-3">
               <div className="w-10 h-10 bg-buylock-primary text-white rounded-full flex items-center justify-center">
                 <Store className="w-5 h-5" />
@@ -149,9 +149,9 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className="lg:pl-64 flex flex-col h-screen">
         {/* Top header */}
-        <div className="sticky top-0 z-40 bg-white shadow-sm border-b lg:hidden">
+        <div className="sticky top-0 z-40 bg-white shadow-sm border-b lg:hidden flex-shrink-0">
           <div className="flex h-16 items-center justify-between px-4">
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
               <Menu className="w-5 h-5" />
@@ -165,9 +165,11 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
         </div>
 
         {/* Page content */}
-        <main className="py-6">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {children}
+        <main className="flex-1 overflow-y-auto">
+          <div className="py-6">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              {children}
+            </div>
           </div>
         </main>
       </div>
