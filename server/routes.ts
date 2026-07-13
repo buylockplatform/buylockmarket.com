@@ -1876,7 +1876,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const user = await storage.getUser(existingOrder.userId);
             const service = await storage.getServiceById(firstItem.serviceId!);
 
-            // Create appointment for the service booking
+            // Create appointment for the service booking with safe fallbacks
             await storage.createAppointment({
               customerId: existingOrder.userId,
               vendorId: existingOrder.vendorId,
@@ -1884,12 +1884,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               serviceName: service?.name || 'Service',
               customerName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Customer',
               customerEmail: user?.email || 'customer@example.com',
-              customerPhone: '0712345678', // Default phone, should be collected during booking
+              customerPhone: user?.phone || '0712345678',
               appointmentDate: firstItem.appointmentDate ? new Date(firstItem.appointmentDate).toISOString() : new Date().toISOString(),
-              appointmentTime: firstItem.appointmentTime!,
-              address: existingOrder.deliveryAddress,
-              city: 'Nairobi', // Default city, should be collected during booking
-              state: 'Nairobi County', // Default state, should be collected during booking
+              appointmentTime: firstItem.appointmentTime || '09:00',
+              address: existingOrder.deliveryAddress || 'Address not provided',
+              city: existingOrder.deliveryCity || 'Nairobi',
+              state: existingOrder.deliverySuburb || 'Nairobi County',
               notes: existingOrder.notes || '',
               totalAmount: existingOrder.totalAmount.toString(),
               status: 'pending_acceptance',
@@ -5006,7 +5006,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const user = await storage.getUser(existingOrder.userId);
                 const service = await storage.getServiceById(firstItem.serviceId!);
 
-                // Create appointment for the service booking
+                // Create appointment for the service booking with safe fallbacks
                 await storage.createAppointment({
                   customerId: existingOrder.userId,
                   vendorId: existingOrder.vendorId,
@@ -5014,12 +5014,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   serviceName: service?.name || 'Service',
                   customerName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Customer',
                   customerEmail: user?.email || 'customer@example.com',
-                  customerPhone: '0712345678', // Default phone, should be collected during booking
-                  appointmentDate: (firstItem as any).appointmentDate!,
-                  appointmentTime: (firstItem as any).appointmentTime!,
-                  address: existingOrder.deliveryAddress,
-                  city: 'Nairobi', // Default city, should be collected during booking
-                  state: 'Nairobi County', // Default state, should be collected during booking
+                  customerPhone: user?.phone || '0712345678',
+                  appointmentDate: firstItem.appointmentDate ? new Date(firstItem.appointmentDate).toISOString() : new Date().toISOString(),
+                  appointmentTime: firstItem.appointmentTime || '09:00',
+                  address: existingOrder.deliveryAddress || 'Address not provided',
+                  city: existingOrder.deliveryCity || 'Nairobi',
+                  state: existingOrder.deliverySuburb || 'Nairobi County',
                   notes: existingOrder.notes || '',
                   totalAmount: existingOrder.totalAmount.toString(),
                   status: 'pending_acceptance',
@@ -5161,6 +5161,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
               locationCoordinates: item.locationCoordinates,
               detailedInstructions: item.detailedInstructions
             });
+          }
+
+          // Create appointment entry for service orders
+          if (orderType === 'service' && vendorItems.length > 0) {
+            try {
+              const firstItem = vendorItems[0];
+              const user = await storage.getUser(userId);
+              const service = await storage.getServiceById(firstItem.serviceId!);
+
+              // Create appointment for the service booking with safe fallbacks
+              await storage.createAppointment({
+                customerId: userId,
+                vendorId: vendorId.toString(),
+                serviceId: firstItem.serviceId!,
+                serviceName: service?.name || 'Service',
+                customerName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Customer',
+                customerEmail: user?.email || 'customer@example.com',
+                customerPhone: user?.phone || '0712345678',
+                appointmentDate: firstItem.appointmentDate ? new Date(firstItem.appointmentDate).toISOString() : new Date().toISOString(),
+                appointmentTime: firstItem.appointmentTime || '09:00',
+                address: order.deliveryAddress || 'Address not provided',
+                city: order.deliveryCity || 'Nairobi',
+                state: order.deliverySuburb || 'Nairobi County',
+                notes: order.notes || '',
+                totalAmount: order.totalAmount.toString(),
+                status: 'pending_acceptance',
+                orderId: order.id // Link appointment to order for sync
+              });
+              console.log(`✅ Created appointment for service order ${order.id}`);
+            } catch (appErr) {
+              console.error(`❌ Failed to create appointment for service order ${order.id}:`, appErr);
+            }
           }
 
           await storage.generateTrackingNumber(order.id);
