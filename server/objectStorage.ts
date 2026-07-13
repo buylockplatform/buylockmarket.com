@@ -20,9 +20,21 @@ function initializeStorageClient(): Storage {
     );
   }
 
-  // Support both base64-encoded credentials (for Railway/production)
-  // and JSON file path (for local development)
-  if (process.env.GCS_CREDENTIALS_BASE64) {
+  // Support GCS_SERVICE_ACCOUNT JSON string directly, base64 credentials, or key path
+  if (process.env.GCS_SERVICE_ACCOUNT) {
+    try {
+      const credentials = JSON.parse(process.env.GCS_SERVICE_ACCOUNT);
+      if (credentials.private_key) {
+        credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+      }
+      return new Storage({
+        projectId,
+        credentials,
+      });
+    } catch (e: any) {
+      throw new Error(`Failed to parse GCS_SERVICE_ACCOUNT: ${e.message}`);
+    }
+  } else if (process.env.GCS_CREDENTIALS_BASE64) {
     const credentialsJson = Buffer.from(
       process.env.GCS_CREDENTIALS_BASE64,
       "base64"
@@ -40,7 +52,7 @@ function initializeStorageClient(): Storage {
     });
   } else {
     throw new Error(
-      "Either GCS_CREDENTIALS_BASE64 or GCS_CREDENTIALS_PATH must be set"
+      "Either GCS_SERVICE_ACCOUNT, GCS_CREDENTIALS_BASE64, or GCS_CREDENTIALS_PATH must be set"
     );
   }
 }

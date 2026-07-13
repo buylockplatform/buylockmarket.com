@@ -1,13 +1,11 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { ObjectUploader } from "@/components/ObjectUploader";
 import { LocationPicker } from "@/components/LocationPicker";
-import type { UploadResult } from "@uppy/core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,9 +15,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, FileText, CheckCircle, Building2, User, Info } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import {
+  Upload, FileText, CheckCircle, Building2, User, Info,
+  Loader2, AlertCircle, X,
+} from "lucide-react";
 
-// Create conditional schema based on vendor type
+// ---------- Zod schema ----------
 const vendorRegistrationSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -34,13 +36,8 @@ const vendorRegistrationSchema = z.object({
   }),
   nationalIdNumber: z.string().regex(/^\d{8}$/, "National ID must be 8 digits"),
   taxPinNumber: z.string().optional(),
-  // Location fields
-  businessLatitude: z.number({
-    required_error: "Please select your business location on the map",
-  }),
-  businessLongitude: z.number({
-    required_error: "Please select your business location on the map",
-  }),
+  businessLatitude: z.number({ required_error: "Please select your business location on the map" }),
+  businessLongitude: z.number({ required_error: "Please select your business location on the map" }),
   locationDescription: z.string().min(1, "Location description is required"),
 }).refine(
   (data) => {
@@ -57,20 +54,31 @@ const vendorRegistrationSchema = z.object({
 
 type VendorRegistrationForm = z.infer<typeof vendorRegistrationSchema>;
 
-interface DocumentUploadState {
-  nationalId: string | null;
-  taxCertificate: string | null;
-}
-
 interface LocationData {
   latitude: number;
   longitude: number;
   description: string;
 }
 
+interface UploadState {
+  url: string | null;
+  progress: number;   // 0-100
+  uploading: boolean;
+  error: string | null;
+  fileName: string | null;
+}
+
+const emptyUpload = (): UploadState => ({
+  url: null,
+  progress: 0,
+  uploading: false,
+  error: null,
+  fileName: null,
+});
+
 const businessCategories = [
   "Electronics & Technology",
-  "Home & Garden Services", 
+  "Home & Garden Services",
   "Food & Beverages",
   "Fashion & Clothing",
   "Health & Beauty",
@@ -79,15 +87,110 @@ const businessCategories = [
   "Construction & Maintenance",
   "Education & Training",
   "Entertainment",
-  "Other"
+  "Other",
 ];
 
+// ---------- Simple FileUploadBox ----------
+interface FileUploadBoxProps {
+  label: string;
+  hint?: string;
+  accept?: string;
+  maxSizeMB?: number;
+  state: UploadState;
+  onUpload: (file: File) => void;
+  onClear: () => void;
+}
+
+function FileUploadBox({
+  label, hint, accept = "application/pdf", maxSizeMB = 10,
+  state, onUpload, onClear,
+}: FileUploadBoxProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      alert(`File is too large. Maximum size is ${maxSizeMB} MB.`);
+      return;
+    }
+    onUpload(file);
+    // Reset input so same file can be re-selected after clearing
+    e.target.value = "";
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-gray-700">{label}</label>
+
+      {/* Drop-zone / trigger area */}
+      <div
+        onClick={() => !state.uploading && !state.url && inputRef.current?.click()}
+        className={`
+          relative flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed
+          transition-all cursor-pointer
+          ${state.url
+            ? "border-green-400 bg-green-50 cursor-default"
+            : state.error
+              ? "border-red-400 bg-red-50"
+              : "border-gray-300 bg-gray-50 hover:border-orange-400 hover:bg-orange-50"
+          }
+        `}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept={accept}
+          className="hidden"
+          onChange={handleChange}
+          disabled={state.uploading || !!state.url}
+        />
+
+        {state.uploading ? (
+          <>
+            <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+            <p className="text-sm text-gray-600">Uploading… {state.progress}%</p>
+            <Progress value={state.progress} className="w-full h-2" />
+          </>
+        ) : state.url ? (
+          <>
+            <CheckCircle className="w-8 h-8 text-green-500" />
+            <p className="text-sm font-medium text-green-700">Uploaded successfully</p>
+            <p className="text-xs text-gray-500 truncate max-w-full">{state.fileName}</p>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onClear(); }}
+              className="absolute top-2 right-2 p-1 rounded-full bg-white shadow hover:bg-red-50 text-gray-400 hover:text-red-500"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </>
+        ) : state.error ? (
+          <>
+            <AlertCircle className="w-8 h-8 text-red-500" />
+            <p className="text-sm text-red-600">{state.error}</p>
+            <p className="text-xs text-gray-500">Click to try again</p>
+          </>
+        ) : (
+          <>
+            <Upload className="w-8 h-8 text-gray-400" />
+            <p className="text-sm text-gray-600">Click to select a PDF</p>
+            <p className="text-xs text-gray-400">Max {maxSizeMB} MB</p>
+          </>
+        )}
+      </div>
+
+      {hint && <p className="text-xs text-gray-500">{hint}</p>}
+    </div>
+  );
+}
+
+// ---------- Main Component ----------
 export default function VendorRegistration() {
   const { toast } = useToast();
-  const [documentUrls, setDocumentUrls] = useState<DocumentUploadState>({
-    nationalId: null,
-    taxCertificate: null,
-  });
+
+  const [nationalIdUpload, setNationalIdUpload] = useState<UploadState>(emptyUpload());
+  const [taxCertUpload, setTaxCertUpload] = useState<UploadState>(emptyUpload());
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
   const [isLocationConfirmed, setIsLocationConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -114,24 +217,70 @@ export default function VendorRegistration() {
 
   const watchVendorType = form.watch("vendorType");
 
+  // ---------- Location ----------
   const handleLocationSelect = (location: LocationData) => {
     setSelectedLocation(location);
     setIsLocationConfirmed(true);
     form.setValue("businessLatitude", location.latitude);
     form.setValue("businessLongitude", location.longitude);
     form.setValue("locationDescription", location.description);
-    toast({
-      title: "Location Selected",
-      description: "Business location has been confirmed",
-    });
+    toast({ title: "Location Selected", description: "Business location has been confirmed" });
   };
 
+  // ---------- File upload helper ----------
+  const uploadFile = async (
+    file: File,
+    setter: React.Dispatch<React.SetStateAction<UploadState>>
+  ) => {
+    setter({ url: null, progress: 0, uploading: true, error: null, fileName: file.name });
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      // Simulate progress (XHR gives real progress; fetch doesn't)
+      const xhr = new XMLHttpRequest();
+
+      await new Promise<void>((resolve, reject) => {
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            setter((prev) => ({ ...prev, progress: pct }));
+          }
+        });
+
+        xhr.addEventListener("load", () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              setter({ url: data.url, progress: 100, uploading: false, error: null, fileName: file.name });
+              resolve();
+            } catch {
+              reject(new Error("Invalid server response"));
+            }
+          } else {
+            let msg = "Upload failed";
+            try { msg = JSON.parse(xhr.responseText).message ?? msg; } catch { }
+            reject(new Error(msg));
+          }
+        });
+
+        xhr.addEventListener("error", () => reject(new Error("Network error during upload")));
+        xhr.open("POST", "/api/upload/file");
+        xhr.send(formData);
+      });
+    } catch (err: any) {
+      setter((prev) => ({ ...prev, uploading: false, error: err.message ?? "Upload failed" }));
+    }
+  };
+
+  // ---------- Submit ----------
   const registerMutation = useMutation({
-    mutationFn: async (data: VendorRegistrationForm & DocumentUploadState) => {
+    mutationFn: async (data: VendorRegistrationForm) => {
       return await apiRequest("/api/vendor/register", "POST", {
         ...data,
-        nationalIdUrl: data.nationalId,
-        taxCertificateUrl: data.taxCertificate,
+        nationalIdUrl: nationalIdUpload.url,
+        taxCertificateUrl: taxCertUpload.url,
       });
     },
     onSuccess: () => {
@@ -139,19 +288,12 @@ export default function VendorRegistration() {
         title: "Registration Successful",
         description: "Your vendor application has been submitted and is pending admin approval.",
       });
-      // Reset form and state
       form.reset();
-      setDocumentUrls({
-        nationalId: null,
-        taxCertificate: null,
-      });
+      setNationalIdUpload(emptyUpload());
+      setTaxCertUpload(emptyUpload());
       setSelectedLocation(null);
       setIsLocationConfirmed(false);
-      
-      // Redirect to vendor login page after 2 seconds
-      setTimeout(() => {
-        window.location.href = '/vendor-dashboard/login';
-      }, 2000);
+      setTimeout(() => { window.location.href = "/vendor-dashboard/login"; }, 2000);
     },
     onError: (error: any) => {
       toast({
@@ -162,109 +304,67 @@ export default function VendorRegistration() {
     },
   });
 
-  const getUploadParameters = async (_file: any) => {
-    const response = await apiRequest("/api/objects/upload", "POST");
-    return {
-      method: "PUT" as const,
-      url: response.uploadURL,
-    };
-  };
-
-  const handleDocumentUpload = (documentType: keyof DocumentUploadState) => (
-    result: UploadResult<Record<string, unknown>, Record<string, unknown>>
-  ) => {
-    if (result.successful && result.successful.length > 0) {
-      const uploadedFile = result.successful[0];
-      setDocumentUrls(prev => ({
-        ...prev,
-        [documentType]: uploadedFile.uploadURL,
-      }));
-      toast({
-        title: "Document Uploaded",
-        description: `${documentType.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} uploaded successfully`,
-      });
-    }
-  };
-
   const onSubmit = async (data: VendorRegistrationForm) => {
-    // Validate required documents based on vendor type
-    if (!documentUrls.nationalId) {
-      toast({
-        title: "Missing Document",
-        description: "Please upload your National ID document",
-        variant: "destructive",
-      });
+    if (!nationalIdUpload.url) {
+      toast({ title: "Missing Document", description: "Please upload your National ID document", variant: "destructive" });
       return;
     }
-
-    if (data.vendorType === "registered" && !documentUrls.taxCertificate) {
-      toast({
-        title: "Missing Document",
-        description: "Tax certificate is required for registered vendors",
-        variant: "destructive",
-      });
+    if (data.vendorType === "registered" && !taxCertUpload.url) {
+      toast({ title: "Missing Document", description: "Tax certificate is required for registered vendors", variant: "destructive" });
       return;
     }
-
     if (!selectedLocation) {
-      toast({
-        title: "Location Required",
-        description: "Please select your business location on the map",
-        variant: "destructive",
-      });
+      toast({ title: "Location Required", description: "Please select your business location on the map", variant: "destructive" });
       return;
     }
-
     setIsSubmitting(true);
     try {
-      await registerMutation.mutateAsync({
-        ...data,
-        ...documentUrls,
-      });
+      await registerMutation.mutateAsync(data);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const allRequiredDocumentsUploaded = () => {
+  const allRequiredComplete = () => {
     const hasLocation = selectedLocation && isLocationConfirmed;
     if (watchVendorType === "registered") {
-      return documentUrls.nationalId && documentUrls.taxCertificate && hasLocation;
+      return nationalIdUpload.url && taxCertUpload.url && hasLocation;
     }
-    return documentUrls.nationalId && hasLocation;
+    return nationalIdUpload.url && hasLocation;
   };
 
+  // ---------- Render ----------
   return (
     <div className="min-h-screen bg-gradient-to-tr from-[#FFF4E6] via-[#FAFAFB] to-[#FAFAFB] py-12 px-4">
       <div className="max-w-2xl mx-auto">
         <Card className="rounded-2xl border-[#F1F5F9] shadow-[0_15px_45px_rgba(15,23,42,0.06)] bg-white overflow-hidden p-2">
           <CardHeader className="pb-4">
-            <CardTitle className="text-2xl font-extrabold text-center text-gray-900 tracking-tight">Vendor Registration</CardTitle>
+            <CardTitle className="text-2xl font-extrabold text-center text-gray-900 tracking-tight">
+              Vendor Registration
+            </CardTitle>
             <CardDescription className="text-center text-gray-500 mt-1">
               Join the BuyLock marketplace and start selling your products and services
             </CardDescription>
             <div className="text-center pt-2">
               <p className="text-sm text-gray-500">
                 Already have an account?{" "}
-                <a 
-                  href="/vendor-dashboard/login" 
-                  className="text-[#FF5A1F] hover:text-[#e64e17] font-semibold transition-colors"
-                >
+                <a href="/vendor-dashboard/login" className="text-[#FF5A1F] hover:text-[#e64e17] font-semibold transition-colors">
                   Login here
                 </a>
               </p>
             </div>
           </CardHeader>
+
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                {/* Vendor Type Selection */}
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+
+                {/* ── Vendor Type ── */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-primary" />
-                    Vendor Type Selection
+                    <Building2 className="h-5 w-5 text-primary" /> Vendor Type
                   </h3>
-                  
+
                   <FormField
                     control={form.control}
                     name="vendorType"
@@ -272,11 +372,7 @@ export default function VendorRegistration() {
                       <FormItem>
                         <FormLabel>Choose your vendor type *</FormLabel>
                         <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            value={field.value}
-                            className="grid grid-cols-1 gap-4"
-                          >
+                          <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-1 gap-4">
                             <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-muted/50">
                               <RadioGroupItem value="registered" id="registered" />
                               <Label htmlFor="registered" className="flex-1 cursor-pointer">
@@ -284,9 +380,7 @@ export default function VendorRegistration() {
                                   <Building2 className="h-5 w-5 text-primary" />
                                   <div>
                                     <div className="font-medium">Registered Business</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      Provide all business details including National ID and Tax Certificate
-                                    </div>
+                                    <div className="text-sm text-muted-foreground">National ID + Tax Certificate required</div>
                                   </div>
                                 </div>
                               </Label>
@@ -297,10 +391,8 @@ export default function VendorRegistration() {
                                 <div className="flex items-center gap-3">
                                   <User className="h-5 w-5 text-primary" />
                                   <div>
-                                    <div className="font-medium">Individual/Non-Registered</div>
-                                    <div className="text-sm text-muted-foreground">
-                                      Only National ID required - ideal for individual sellers
-                                    </div>
+                                    <div className="font-medium">Individual / Non-Registered</div>
+                                    <div className="text-sm text-muted-foreground">National ID only – ideal for individual sellers</div>
                                   </div>
                                 </div>
                               </Label>
@@ -316,276 +408,180 @@ export default function VendorRegistration() {
                     <Alert>
                       <Info className="h-4 w-4" />
                       <AlertDescription>
-                        {watchVendorType === "registered" 
-                          ? "As a registered business, you'll need to provide your Tax PIN and upload both National ID and Tax Certificate documents."
-                          : "As an individual vendor, you only need to provide your National ID number and upload the National ID document."
-                        }
+                        {watchVendorType === "registered"
+                          ? "As a registered business, you'll need your Tax PIN and both National ID and Tax Certificate documents."
+                          : "As an individual vendor, only your National ID number and document scan are required."}
                       </AlertDescription>
                     </Alert>
                   )}
                 </div>
 
-                {/* Business Information */}
+                {/* ── Business Information ── */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Business Information</h3>
-                  
-                  <FormField
-                    control={form.control}
-                    name="businessName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Business Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter your business name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
-                  <FormField
-                    control={form.control}
-                    name="businessCategory"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Business Category *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select your business category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {businessCategories.map((category) => (
-                              <SelectItem key={category} value={category}>
-                                {category}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <FormField control={form.control} name="businessName" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Business Name *</FormLabel>
+                      <FormControl><Input placeholder="Enter your business name" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Business Description</FormLabel>
+                  <FormField control={form.control} name="businessCategory" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Business Category *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <Textarea 
-                            placeholder="Describe your business and services" 
-                            className="min-h-[100px]"
-                            {...field} 
-                          />
+                          <SelectTrigger><SelectValue placeholder="Select your business category" /></SelectTrigger>
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                        <SelectContent>
+                          {businessCategories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="description" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Business Description</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Describe your business and services" className="min-h-[100px]" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                 </div>
 
-                {/* Contact Information */}
+                {/* ── Contact Information ── */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Contact Information</h3>
-                  
-                  <FormField
-                    control={form.control}
-                    name="contactName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Contact Person Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter contact person name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email Address *</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="Enter email address" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <FormField control={form.control} name="contactName" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Person Name *</FormLabel>
+                      <FormControl><Input placeholder="Enter contact person name" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter phone number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <FormField control={form.control} name="email" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email Address *</FormLabel>
+                      <FormControl><Input type="email" placeholder="Enter email address" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
-                  <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Business Address *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter business address" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <FormField control={form.control} name="phone" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number *</FormLabel>
+                      <FormControl><Input placeholder="+254 7XX XXX XXX" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password *</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="Create a password" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <FormField control={form.control} name="address" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Business Address *</FormLabel>
+                      <FormControl><Input placeholder="Enter business address" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="password" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password *</FormLabel>
+                      <FormControl><Input type="password" placeholder="Create a password (min. 6 chars)" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                 </div>
 
-                {/* Identity and Tax Information */}
+                {/* ── Identity & Tax ── */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Identity & Tax Information</h3>
-                  
-                  <FormField
-                    control={form.control}
-                    name="nationalIdNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>National ID Number *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="12345678 (8 digits)" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <h3 className="text-lg font-semibold">Identity &amp; Tax Information</h3>
+
+                  <FormField control={form.control} name="nationalIdNumber" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>National ID Number *</FormLabel>
+                      <FormControl><Input placeholder="12345678 (8 digits)" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
                   {watchVendorType === "registered" && (
-                    <FormField
-                      control={form.control}
-                      name="taxPinNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tax PIN Number *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="A000000000X" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <FormField control={form.control} name="taxPinNumber" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tax PIN Number *</FormLabel>
+                        <FormControl><Input placeholder="A000000000X" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                   )}
                 </div>
 
-                {/* Business Location */}
-                <LocationPicker 
+                {/* ── Business Location ── */}
+                <LocationPicker
                   onLocationSelect={handleLocationSelect}
                   initialLocation={selectedLocation || undefined}
                   className="w-full"
                 />
 
-                {/* Document Uploads */}
+                {/* ── Document Uploads ── */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Required Documents (PDF Only)</h3>
-                  
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" /> Required Documents (PDF only)
+                  </h3>
+
                   <div className={`grid grid-cols-1 gap-4 ${watchVendorType === "registered" ? "md:grid-cols-2" : ""}`}>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">National ID (Front & Back Combined) *</label>
-                      <ObjectUploader
-                        maxNumberOfFiles={1}
-                        maxFileSize={10485760} // 10MB
-                        allowedFileTypes={['application/pdf']}
-                        onGetUploadParameters={getUploadParameters}
-                        onComplete={handleDocumentUpload('nationalId')}
-                        buttonClassName={`w-full ${documentUrls.nationalId ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          {documentUrls.nationalId ? (
-                            <>
-                              <CheckCircle className="w-4 h-4" />
-                              <span>Uploaded</span>
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="w-4 h-4" />
-                              <span>Upload PDF</span>
-                            </>
-                          )}
-                        </div>
-                      </ObjectUploader>
-                      <p className="text-xs text-gray-500">
-                        Please combine both front and back pages into a single PDF document.
-                      </p>
-                    </div>
+                    <FileUploadBox
+                      label="National ID (Front & Back Combined) *"
+                      hint="Please combine both sides into a single PDF. Max 10 MB."
+                      accept="application/pdf"
+                      maxSizeMB={10}
+                      state={nationalIdUpload}
+                      onUpload={(file) => uploadFile(file, setNationalIdUpload)}
+                      onClear={() => setNationalIdUpload(emptyUpload())}
+                    />
 
                     {watchVendorType === "registered" && (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Tax Certificate *</label>
-                        <ObjectUploader
-                          maxNumberOfFiles={1}
-                          maxFileSize={5242880} // 5MB
-                          allowedFileTypes={['application/pdf']}
-                          onGetUploadParameters={getUploadParameters}
-                          onComplete={handleDocumentUpload('taxCertificate')}
-                          buttonClassName={`w-full ${documentUrls.taxCertificate ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                        >
-                          <div className="flex items-center justify-center gap-2">
-                            {documentUrls.taxCertificate ? (
-                              <>
-                                <CheckCircle className="w-4 h-4" />
-                                <span>Uploaded</span>
-                              </>
-                            ) : (
-                              <>
-                                <Upload className="w-4 h-4" />
-                                <span>Upload PDF</span>
-                              </>
-                            )}
-                          </div>
-                        </ObjectUploader>
-                      </div>
+                      <FileUploadBox
+                        label="Tax Certificate *"
+                        hint="Upload your KRA tax compliance certificate. Max 5 MB."
+                        accept="application/pdf"
+                        maxSizeMB={5}
+                        state={taxCertUpload}
+                        onUpload={(file) => uploadFile(file, setTaxCertUpload)}
+                        onClear={() => setTaxCertUpload(emptyUpload())}
+                      />
                     )}
                   </div>
 
                   <div className="text-sm text-blue-800 bg-blue-50/60 border border-blue-100/80 rounded-2xl p-5 shadow-sm">
                     <FileText className="w-4 h-4 inline mr-2 text-blue-600" />
-                    {watchVendorType === "registered" 
-                      ? "Please combine both sides of your national ID into a single PDF file, and upload your tax certificate as a separate PDF. Maximum file size: 10MB for National ID, 5MB for tax certificate."
-                      : "Please combine both sides of your national ID into a single PDF file. Maximum file size: 10MB."
-                    }
+                    {watchVendorType === "registered"
+                      ? "Combine both sides of your National ID into one PDF and upload your KRA Tax Certificate separately."
+                      : "Combine both sides of your National ID into a single PDF. Maximum file size: 10 MB."}
                   </div>
                 </div>
 
-                {/* Submit Button */}
-                <Button 
-                  type="submit" 
-                  className="w-full bg-[#FF5A1F] hover:bg-[#e64e17] text-white font-semibold rounded-[14px] py-6 shadow-sm hover:shadow-[0_8px_24px_rgba(255,90,31,0.3)] transition-all hover:-translate-y-0.5 flex items-center justify-center border-none mt-4" 
-                  disabled={isSubmitting || !allRequiredDocumentsUploaded()}
+                {/* ── Submit ── */}
+                <Button
+                  type="submit"
+                  className="w-full bg-[#FF5A1F] hover:bg-[#e64e17] text-white font-semibold rounded-[14px] py-6 shadow-sm hover:shadow-[0_8px_24px_rgba(255,90,31,0.3)] transition-all hover:-translate-y-0.5 flex items-center justify-center border-none mt-4"
+                  disabled={isSubmitting || !allRequiredComplete()}
                 >
-                  {isSubmitting ? "Registering..." : "Register as Vendor"}
+                  {isSubmitting
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Registering…</>
+                    : "Register as Vendor"
+                  }
                 </Button>
 
-                {!allRequiredDocumentsUploaded() && (
+                {!allRequiredComplete() && (
                   <p className="text-xs text-red-500 font-semibold text-center mt-2">
                     Please upload all required documents and confirm your business location before submitting
                   </p>

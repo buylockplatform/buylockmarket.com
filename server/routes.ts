@@ -165,6 +165,13 @@ import { randomBytes } from "crypto";
 import { sortByDistance, filterByRadius, getDefaultKenyaLocation, calculateDistance, type Coordinates } from "./geoUtils";
 import { seedDatabase } from "./seedDatabase";
 import rateLimit from "express-rate-limit";
+import multer from "multer";
+
+// Multer: memory storage for direct GCS uploads
+const memUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB hard limit
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize Paystack SDK (only if credentials available)
@@ -3149,6 +3156,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting upload URL:", error);
       res.status(500).json({ message: "Failed to get upload URL" });
+    }
+  });
+
+  // Direct file upload endpoint (no Uppy/signed URL required)
+  // Accepts multipart/form-data with a single 'file' field.
+  // Returns { url: string } with the public GCS URL.
+  app.post('/api/upload/file', memUpload.single('file'), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      const { originalname, mimetype, buffer } = req.file;
+      const ext = originalname.split('.').pop() ?? 'bin';
+      const key = `uploads/${randomBytes(16).toString('hex')}.${ext}`;
+      const objectStorageService = new ObjectStorageService();
+      const publicUrl = await objectStorageService.uploadBuffer(buffer, key, mimetype);
+      res.json({ url: publicUrl });
+    } catch (error: any) {
+      console.error("Direct file upload error:", error);
+      res.status(500).json({ message: error.message ?? "Upload failed" });
     }
   });
 

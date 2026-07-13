@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
@@ -28,7 +27,6 @@ import {
   Minus,
   User,
   Award,
-  Navigation,
   FileText
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -38,6 +36,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { ServicePriceDisplay } from "@/components/ServicePriceDisplay";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { ImageGallery } from "@/components/ImageGallery";
+import { LocationAutocomplete } from "@/components/LocationAutocomplete";
 import type { Service } from "@shared/schema";
 
 export default function ServiceDetail() {
@@ -51,7 +50,6 @@ export default function ServiceDetail() {
   const [appointmentDate, setAppointmentDate] = useState<Date>();
   const [appointmentTime, setAppointmentTime] = useState("");
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
@@ -61,41 +59,6 @@ export default function ServiceDetail() {
     queryKey: ["/api/services", slug],
     enabled: !!slug,
   });
-
-  // Location functions
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      toast({
-        title: "Location not supported",
-        description: "Your browser doesn't support location services",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoadingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setLocationCoordinates(`${latitude},${longitude}`);
-        setServiceLocation(`Location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-        setIsLoadingLocation(false);
-        
-        toast({
-          title: "Location captured",
-          description: "Your current location has been set for the service",
-        });
-      },
-      (error) => {
-        setIsLoadingLocation(false);
-        toast({
-          title: "Location access denied",
-          description: "Please enter your address manually or allow location access",
-          variant: "destructive",
-        });
-      }
-    );
-  };
 
   const addToCartMutation = useMutation({
     mutationFn: async () => {
@@ -439,40 +402,31 @@ export default function ServiceDetail() {
                 <div className="space-y-3">
                   <Label className="text-base font-semibold flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
-                    Service Location
+                    Service Location *
                   </Label>
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Enter your complete address..."
-                        value={serviceLocation}
-                        onChange={(e) => setServiceLocation(e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={getCurrentLocation}
-                        disabled={isLoadingLocation}
-                        className="shrink-0"
-                      >
-                        {isLoadingLocation ? (
-                          "Getting..."
-                        ) : (
-                          <>
-                            <Navigation className="w-4 h-4 mr-1" />
-                            Pin Location
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                    {locationCoordinates && (
-                      <p className="text-xs text-green-600">
-                        ✓ Location pinned: {locationCoordinates}
-                      </p>
-                    )}
-                  </div>
+                  <LocationAutocomplete
+                    label=""
+                    placeholder="Search your service address in Kenya..."
+                    defaultValue={serviceLocation}
+                    required
+                    onLocationSelect={(location) => {
+                      setServiceLocation(location.address);
+                      setLocationCoordinates(
+                        location.latitude && location.longitude
+                          ? `${location.latitude},${location.longitude}`
+                          : ""
+                      );
+                    }}
+                  />
+                  {locationCoordinates && (
+                    <p className="text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Location confirmed with coordinates
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    Search and select from the dropdown to auto-confirm your location
+                  </p>
                 </div>
 
                 {/* Detailed Instructions */}
