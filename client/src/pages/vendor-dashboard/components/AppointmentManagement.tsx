@@ -79,6 +79,7 @@ const getAvailableStatusOptions = (currentStatus: string) => {
 const getStatusLabel = (status: string) => {
   const labels = {
     'pending': 'Pending',
+    'pending_acceptance': 'Pending Acceptance',
     'accepted': 'Accepted',
     'starting_job': 'Starting Job',
     'in_progress': 'In Progress',
@@ -117,8 +118,7 @@ export default function AppointmentManagement({ vendorId }: AppointmentManagemen
       appointmentDate: app.appointmentDate ? new Date(app.appointmentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       bookingDate: app.bookingDate ? new Date(app.bookingDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       updatedAt: app.updatedAt ? new Date(app.updatedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-      // Map pending_acceptance to pending for UI consistency
-      status: app.status === 'pending_acceptance' ? 'pending' : app.status as VendorAppointment['status'],
+      status: app.status as VendorAppointment['status'],
       // Ensure required fields
       customerId: app.customerId || (app as any).customer_id || '',
       serviceId: app.serviceId || (app as any).service_id || '',

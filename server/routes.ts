@@ -6860,18 +6860,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid status" });
       }
 
+      // updateAppointmentStatus already syncs the order via its internal mapping
       const updatedAppointment = await storage.updateAppointmentStatus(appointmentId, status, vendorNotes);
 
       if (!updatedAppointment) {
         return res.status(404).json({ message: "Appointment not found" });
       }
 
-      // Also update the corresponding order status for customer visibility
-      try {
-        await storage.updateOrderStatus(appointmentId, status);
-      } catch (error) {
-        console.error('Error updating order status:', error);
-        // Continue even if order update fails, appointment update is primary
+      // ── Sync the linked order status explicitly (belt-and-suspenders) ──
+      // Map appointment status → order status
+      if (updatedAppointment.orderId) {
+        const appointmentToOrderStatus: Record<string, string> = {
+          accepted:       'vendor_accepted',
+          starting_job:   'doing',
+          in_progress:    'doing',
+          delayed:        'doing',
+          almost_done:    'doing',
+          completed:      'completed',
+          cancelled:      'cancelled',
+          declined:       'cancelled',
+        };
+        const mappedOrderStatus = appointmentToOrderStatus[status];
+        if (mappedOrderStatus) {
+          try {
+            await storage.updateOrderStatus(updatedAppointment.orderId, mappedOrderStatus);
+            console.log(`✅ Order ${updatedAppointment.orderId} synced to status '${mappedOrderStatus}' from appointment status '${status}'`);
+          } catch (orderSyncError) {
+            console.error('Error syncing order status from appointment:', orderSyncError);
+          }
+        }
+
+        // Notify customer via FCM
+        try {
+          const order = await storage.getOrderById(updatedAppointment.orderId);
+          if (order) {
+            const customer = await storage.getUser(order.userId);
+            if (customer?.fcmToken) {
+              const msgMap: Record<string, string> = {
+                accepted:     "Your service booking has been accepted!",
+                starting_job: "The service provider is on their way.",
+                in_progress:  "Your service is currently in progress.",
+                almost_done:  "Your service is almost done!",
+                completed:    "Your service has been completed. Please confirm receipt.",
+                cancelled:    "Your service booking has been cancelled.",
+                declined:     "Your service booking was declined. Please contact support.",
+              };
+              const body = msgMap[status] ?? `Your service booking status changed to ${status}.`;
+              await sendPushNotification(customer.fcmToken, {
+                title: "Service Update",
+                body,
+                data: { orderId: updatedAppointment.orderId, appointmentId, status }
+              });
+            }
+          }
+        } catch (fcmError) {
+          console.error('FCM notification failed for appointment update:', fcmError);
+        }
       }
 
       res.json({

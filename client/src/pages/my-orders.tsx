@@ -207,8 +207,10 @@ export default function MyOrders() {
       case "pending": 
       case "pending_acceptance": return "bg-yellow-100 text-yellow-800";
       case "confirmed":
-      case "accepted": return "bg-blue-100 text-blue-800";
-      case "starting_job": return "bg-indigo-100 text-indigo-800";
+      case "accepted":
+      case "vendor_accepted": return "bg-blue-100 text-blue-800";
+      case "starting_job":
+      case "doing": return "bg-indigo-100 text-indigo-800";
       case "in_progress": return "bg-purple-100 text-purple-800";
       case "delayed": return "bg-orange-100 text-orange-800";
       case "almost_done": return "bg-teal-100 text-teal-800";
@@ -225,8 +227,10 @@ export default function MyOrders() {
       case "pending": 
       case "pending_acceptance": return <Clock className="w-4 h-4" />;
       case "confirmed":
-      case "accepted": return <CheckCircle className="w-4 h-4" />;
-      case "starting_job": return <Play className="w-4 h-4" />;
+      case "accepted":
+      case "vendor_accepted": return <CheckCircle className="w-4 h-4" />;
+      case "starting_job":
+      case "doing": return <Play className="w-4 h-4" />;
       case "in_progress": return <Wrench className="w-4 h-4" />;
       case "delayed": return <AlertTriangle className="w-4 h-4" />;
       case "almost_done": return <Clock className="w-4 h-4" />;
@@ -241,10 +245,12 @@ export default function MyOrders() {
   const getStatusLabel = (status: string | null) => {
     switch (status?.toLowerCase()) {
       case "pending": return "Pending";
-      case "pending_acceptance": return "Pending Acceptance";
+      case "pending_acceptance": return "Awaiting Vendor";
       case "confirmed": return "Confirmed";
       case "accepted": return "Accepted";
+      case "vendor_accepted": return "Vendor Accepted";
       case "starting_job": return "Starting Job";
+      case "doing": return "In Progress";
       case "in_progress": return "In Progress";
       case "delayed": return "Delayed";
       case "almost_done": return "Almost Done";
