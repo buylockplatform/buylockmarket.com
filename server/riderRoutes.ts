@@ -11,9 +11,11 @@ import {
   paymentRequests,
   riderDocuments,
   riderDocumentTypes,
+  vendors,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+
 import { generateTokens, verifyToken, extractBearerToken } from "./jwtUtils";
 import { sendPushNotification } from "./firebaseAdmin";
 import { sendUserPasswordResetEmail } from "./emailService";
@@ -303,10 +305,15 @@ router.get("/api/delivery/orders/:personId", isRiderAuthenticated, async (req: a
         customerFirstName: users.firstName,
         customerLastName: users.lastName,
         customerPhone: users.phone,
+        // Vendor info
+        vendorName: vendors.businessName,
+        vendorPhone: vendors.phone,
+        vendorAddress: vendors.address,
       })
       .from(deliveryJobs)
       .leftJoin(orders, eq(deliveryJobs.orderId, orders.id))
       .leftJoin(users, eq(orders.userId, users.id))
+      .leftJoin(vendors, eq(orders.vendorId, vendors.id))
       .where(eq(deliveryJobs.deliveryPersonId, personId))
       .orderBy(desc(deliveryJobs.createdAt));
 
@@ -335,6 +342,9 @@ router.get("/api/delivery/orders/:personId", isRiderAuthenticated, async (req: a
         deliveryAddress: j.deliveryAddress,
         deliveryFee: j.deliveryFee,
         vendorId: j.vendorId,
+        vendorName: j.vendorName,
+        vendorPhone: j.vendorPhone,
+        vendorAddress: j.vendorAddress,
         customerName,
         customerPhone,
       };
@@ -366,9 +376,14 @@ router.get("/api/delivery/available-jobs", isRiderAuthenticated, async (req: any
         orderNumber: orders.id,
         totalAmount: orders.totalAmount,
         deliveryFee: orders.deliveryFee,
+        vendorId: orders.vendorId,
+        vendorName: vendors.businessName,
+        vendorPhone: vendors.phone,
+        vendorAddress: vendors.address,
       })
       .from(deliveryJobs)
       .leftJoin(orders, eq(deliveryJobs.orderId, orders.id))
+      .leftJoin(vendors, eq(orders.vendorId, vendors.id))
       .where(
         // Only show truly open jobs: unassigned ASSIGNING or jobs waiting for THIS rider's acceptance
         and(
@@ -391,6 +406,9 @@ router.get("/api/delivery/available-jobs", isRiderAuthenticated, async (req: any
         distance,
         type: j.jobType,
         orderNumber: j.orderNumber?.slice(-8).toUpperCase() ?? "N/A",
+        vendorName: j.vendorName,
+        vendorPhone: j.vendorPhone,
+        vendorAddress: j.vendorAddress,
       };
     });
 

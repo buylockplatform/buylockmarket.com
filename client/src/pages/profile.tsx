@@ -423,6 +423,17 @@ export default function Profile() {
                       </Button>
                     </div>
                   )}
+                  {!isEditing && (
+                    <div className="flex justify-end pt-4">
+                      <Button
+                        onClick={() => setIsEditing(true)}
+                        className="bg-buylock-primary hover:bg-buylock-primary/90 text-white"
+                      >
+                        <Edit3 className="w-4 h-4 mr-2" />
+                        Edit Profile
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
