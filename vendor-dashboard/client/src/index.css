@@ -22,8 +22,8 @@
   --accent-foreground: 240 5.9% 10%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
+  --border: 240 5.9% 75%;
+  --input: 240 5.9% 75%;
   --ring: var(--buylock-primary);
   --radius: 0.5rem;
 }

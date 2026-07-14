@@ -42,8 +42,8 @@
   --accent-foreground: var(--buylock-charcoal);
   --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: var(--buylock-white);
-  --border: hsl(0, 0%, 90%);
-  --input: var(--buylock-gray);
+  --border: #E2E8F0;
+  --input: #CBD5E1;
   --ring: var(--buylock-orange);
   
   /* Chart colors using brand palette */
