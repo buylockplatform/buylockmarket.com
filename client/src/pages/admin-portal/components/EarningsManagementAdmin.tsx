@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { adminApiRequest, queryClient, getAdminQueryFn } from "@/lib/queryClient";
 import type { PayoutRequest as BasePayoutRequest, Vendor, VendorEarning } from "@shared/schema";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Progress } from "@/components/ui/progress";
 import { 
   DollarSign, 
   TrendingUp, 
@@ -25,7 +26,9 @@ import {
   ArrowUpDown,
   AlertCircle,
   CreditCard,
-  RefreshCw
+  RefreshCw,
+  Zap,
+  PartyPopper
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -69,6 +72,18 @@ export default function EarningsManagementAdmin() {
   const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Batch settlement state
+  const [showSettlementConfirm, setShowSettlementConfirm] = useState(false);
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [batchProcessing, setBatchProcessing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState(0);
+  const [batchCurrentVendor, setBatchCurrentVendor] = useState("");
+  const [batchResults, setBatchResults] = useState<Array<{ vendorName: string; amount: string; status: 'paid' | 'failed' }>>([]);
+  const [batchCurrentIndex, setBatchCurrentIndex] = useState(0);
+  const [batchTotal, setBatchTotal] = useState(0);
+  const abortRef = useRef(false);
 
   // Fetch platform earnings overview
   const { data: platformEarnings, isLoading: platformLoading } = useQuery<PlatformEarnings>({
@@ -178,9 +193,61 @@ export default function EarningsManagementAdmin() {
   });
 
   const handleRunSettlement = () => {
-    if (confirm("Are you sure you want to run the weekly settlement? This will automatically queue payout requests for all eligible vendors with outstanding balances.")) {
-      settlementMutation.mutate();
+    setShowSettlementConfirm(true);
+  };
+
+  const handleConfirmSettlement = async () => {
+    setShowSettlementConfirm(false);
+    const pendingPayouts = payoutRequests.filter(req => req.status === 'pending');
+    if (pendingPayouts.length === 0) {
+      toast({ title: "No Pending Payouts", description: "There are no pending payouts to process." });
+      return;
     }
+
+    abortRef.current = false;
+    setBatchTotal(pendingPayouts.length);
+    setBatchCurrentIndex(0);
+    setBatchProgress(0);
+    setBatchResults([]);
+    setBatchCurrentVendor("");
+    setBatchProcessing(true);
+    setShowProgressModal(true);
+
+    const results: Array<{ vendorName: string; amount: string; status: 'paid' | 'failed' }> = [];
+
+    for (let i = 0; i < pendingPayouts.length; i++) {
+      if (abortRef.current) break;
+      const req = pendingPayouts[i];
+      const vendorName = req.businessName || req.vendorName || 'Unknown Vendor';
+      setBatchCurrentIndex(i + 1);
+      setBatchCurrentVendor(vendorName);
+      setBatchProgress(Math.round((i / pendingPayouts.length) * 100));
+
+      try {
+        await adminApiRequest(`/api/admin/payout-requests/${req.id}/approve`, 'POST', { adminNotes: 'Batch settlement by admin' });
+        results.push({ vendorName, amount: req.requestedAmount?.toString() ?? '0', status: 'paid' });
+      } catch (err: any) {
+        results.push({ vendorName, amount: req.requestedAmount?.toString() ?? '0', status: 'failed' });
+      }
+
+      setBatchResults([...results]);
+      // Small delay for engaging UI
+      await new Promise(r => setTimeout(r, 600));
+    }
+
+    setBatchProgress(100);
+    setBatchProcessing(false);
+
+    // Invalidate caches
+    queryClient.invalidateQueries({ queryKey: ['/api/admin/payout-requests'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/admin/vendor-earnings'] });
+    refetchPayouts();
+
+    // Transition to success modal
+    setTimeout(() => {
+      setShowProgressModal(false);
+      setShowSuccessModal(true);
+    }, 800);
   };
 
   const formatPrice = (amount: string | number) => {
@@ -219,8 +286,106 @@ export default function EarningsManagementAdmin() {
     );
   }
 
+  const pendingPayouts = payoutRequests.filter(req => req.status === 'pending');
+  const totalPendingAmount = pendingPayouts.reduce((sum, r) => sum + parseFloat(r.requestedAmount?.toString() || '0'), 0);
+
   return (
     <div className="space-y-6">
+      {/* Settlement Confirmation Modal */}
+      <Dialog open={showSettlementConfirm} onOpenChange={setShowSettlementConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-buylock-primary" />
+              Run Weekly Settlement
+            </DialogTitle>
+            <DialogDescription>
+              This will process all <strong>{pendingPayouts.length} pending payout requests</strong> totalling <strong>{formatPrice(totalPendingAmount)}</strong> one by one through Paystack.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="my-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm text-amber-800 font-medium">⚠ This action cannot be undone. Each vendor will be paid out immediately upon approval.</p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowSettlementConfirm(false)}>Cancel</Button>
+            <Button className="bg-buylock-primary hover:bg-buylock-primary/90 text-white" onClick={handleConfirmSettlement}>
+              <Zap className="w-4 h-4 mr-2" /> Process {pendingPayouts.length} Payouts
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Processing Progress Modal */}
+      <Dialog open={showProgressModal} onOpenChange={() => {}}>
+        <DialogContent className="max-w-lg" onPointerDownOutside={e => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className={`w-5 h-5 text-buylock-primary ${batchProcessing ? 'animate-spin' : ''}`} />
+              Processing Payouts
+            </DialogTitle>
+            <DialogDescription>
+              Processing {batchCurrentIndex} of {batchTotal} payouts...
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 my-2">
+            <Progress value={batchProgress} className="h-3" />
+            {batchCurrentVendor && (
+              <p className="text-sm text-gray-600 flex items-center gap-2">
+                <RefreshCw className="w-3 h-3 animate-spin text-buylock-primary" />
+                Paying out: <span className="font-semibold">{batchCurrentVendor}</span>
+              </p>
+            )}
+            <div className="max-h-48 overflow-y-auto space-y-2">
+              {batchResults.map((r, i) => (
+                <div key={i} className={`flex items-center justify-between p-2 rounded-lg text-sm ${ r.status === 'paid' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                  <span className="flex items-center gap-2">
+                    {r.status === 'paid' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                    {r.vendorName}
+                  </span>
+                  <span className="font-semibold">{formatPrice(r.amount)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Modal */}
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-700">
+              <PartyPopper className="w-6 h-6" /> Settlement Complete!
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-green-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-green-700">{batchResults.filter(r => r.status === 'paid').length}</p>
+                <p className="text-xs text-green-600">Paid Out</p>
+              </div>
+              <div className="bg-red-50 rounded-lg p-3 text-center">
+                <p className="text-2xl font-bold text-red-700">{batchResults.filter(r => r.status === 'failed').length}</p>
+                <p className="text-xs text-red-600">Failed</p>
+              </div>
+            </div>
+            <div className="max-h-52 overflow-y-auto space-y-2">
+              {batchResults.map((r, i) => (
+                <div key={i} className={`flex items-center justify-between p-2 rounded-lg text-sm ${r.status === 'paid' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                  <span className="flex items-center gap-2">
+                    {r.status === 'paid' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                    {r.vendorName}
+                  </span>
+                  <span className="font-semibold">{formatPrice(r.amount)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button className="w-full" onClick={() => setShowSuccessModal(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900" data-testid="text-earnings-title">Earnings Management</h1>
         <Badge variant="outline" className="text-sm" data-testid="badge-page-description">
@@ -408,14 +573,10 @@ export default function EarningsManagementAdmin() {
                 size="sm"
                 className="bg-buylock-primary hover:bg-buylock-primary/90 text-white"
                 onClick={() => handleRunSettlement()}
-                disabled={settlementMutation.isPending}
+                disabled={batchProcessing || pendingPayouts.length === 0}
               >
-                {settlementMutation.isPending ? (
-                  <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                )}
-                Run Weekly Settlement
+                <Zap className="w-4 h-4 mr-2" />
+                Run Settlement ({pendingPayouts.length})
               </Button>
             </CardHeader>
             <CardContent>
@@ -424,10 +585,9 @@ export default function EarningsManagementAdmin() {
                   <RefreshCw className="w-8 h-8 mx-auto mb-4 text-gray-400 animate-spin" />
                   <p className="text-gray-500">Loading payout requests...</p>
                 </div>
-              ) : payoutRequests.filter(req => req.status === 'pending').length > 0 ? (
+              ) : pendingPayouts.length > 0 ? (
                 <div className="space-y-4">
-                  {payoutRequests
-                    .filter(req => req.status === 'pending')
+                  {pendingPayouts
                     .map((request) => (
                       <div key={request.id} className="flex items-center justify-between p-4 border rounded-lg bg-orange-50" data-testid={`card-payout-request-${request.id}`}>
                         <div className="flex items-center space-x-4">
