@@ -344,8 +344,30 @@ export default function VendorRequests() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      {application.nationalIdUrl && (
+                    <div className="flex items-center flex-wrap gap-2">
+                      {(application as any).nationalIdFrontUrl && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => window.open(`/api/admin/vendor-documents/${application.id}/nationalIdFront`, '_blank')}
+                          className="flex items-center gap-2"
+                        >
+                          <Download className="w-3 h-3" />
+                          NID Front
+                        </Button>
+                      )}
+                      {(application as any).nationalIdBackUrl && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => window.open(`/api/admin/vendor-documents/${application.id}/nationalIdBack`, '_blank')}
+                          className="flex items-center gap-2"
+                        >
+                          <Download className="w-3 h-3" />
+                          NID Back
+                        </Button>
+                      )}
+                      {!((application as any).nationalIdFrontUrl) && application.nationalIdUrl && (
                         <Button 
                           size="sm" 
                           variant="outline"

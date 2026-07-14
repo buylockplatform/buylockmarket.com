@@ -932,7 +932,9 @@ export const vendors = pgTable("vendors", {
   // Identity and Tax Information (conditionally required based on vendor type)
   nationalIdNumber: varchar("national_id_number").notNull(),
   taxPinNumber: varchar("tax_pin_number"), // Only required for registered vendors
-  nationalIdUrl: varchar("national_id_url"), // PDF URL for national ID document
+  nationalIdUrl: varchar("national_id_url"), // PDF URL for national ID document (legacy)
+  nationalIdFrontUrl: varchar("national_id_front_url"), // Image URL for national ID front
+  nationalIdBackUrl: varchar("national_id_back_url"), // Image URL for national ID back
   taxCertificateUrl: varchar("tax_certificate_url"), // PDF URL for tax certificate (only for registered vendors)
 
   // Location Information (required for proximity-based services and customer matching)

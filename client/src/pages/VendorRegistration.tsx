@@ -174,7 +174,7 @@ function FileUploadBox({
         ) : (
           <>
             <Upload className="w-8 h-8 text-gray-400" />
-            <p className="text-sm text-gray-600">Click to select a PDF</p>
+            <p className="text-sm text-gray-600">Click to select a file</p>
             <p className="text-xs text-gray-400">Max {maxSizeMB} MB</p>
           </>
         )}
@@ -189,7 +189,8 @@ function FileUploadBox({
 export default function VendorRegistration() {
   const { toast } = useToast();
 
-  const [nationalIdUpload, setNationalIdUpload] = useState<UploadState>(emptyUpload());
+  const [nationalIdFrontUpload, setNationalIdFrontUpload] = useState<UploadState>(emptyUpload());
+  const [nationalIdBackUpload, setNationalIdBackUpload] = useState<UploadState>(emptyUpload());
   const [taxCertUpload, setTaxCertUpload] = useState<UploadState>(emptyUpload());
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
   const [isLocationConfirmed, setIsLocationConfirmed] = useState(false);
@@ -279,7 +280,8 @@ export default function VendorRegistration() {
     mutationFn: async (data: VendorRegistrationForm) => {
       return await apiRequest("/api/vendor/register", "POST", {
         ...data,
-        nationalIdUrl: nationalIdUpload.url,
+        nationalIdFrontUrl: nationalIdFrontUpload.url,
+        nationalIdBackUrl: nationalIdBackUpload.url,
         taxCertificateUrl: taxCertUpload.url,
       });
     },
@@ -289,7 +291,8 @@ export default function VendorRegistration() {
         description: "Your vendor application has been submitted and is pending admin approval.",
       });
       form.reset();
-      setNationalIdUpload(emptyUpload());
+      setNationalIdFrontUpload(emptyUpload());
+      setNationalIdBackUpload(emptyUpload());
       setTaxCertUpload(emptyUpload());
       setSelectedLocation(null);
       setIsLocationConfirmed(false);
@@ -305,8 +308,12 @@ export default function VendorRegistration() {
   });
 
   const onSubmit = async (data: VendorRegistrationForm) => {
-    if (!nationalIdUpload.url) {
-      toast({ title: "Missing Document", description: "Please upload your National ID document", variant: "destructive" });
+    if (!nationalIdFrontUpload.url) {
+      toast({ title: "Missing Document", description: "Please upload your National ID front image", variant: "destructive" });
+      return;
+    }
+    if (!nationalIdBackUpload.url) {
+      toast({ title: "Missing Document", description: "Please upload your National ID back image", variant: "destructive" });
       return;
     }
     if (data.vendorType === "registered" && !taxCertUpload.url) {
@@ -327,10 +334,11 @@ export default function VendorRegistration() {
 
   const allRequiredComplete = () => {
     const hasLocation = selectedLocation && isLocationConfirmed;
+    const hasNid = nationalIdFrontUpload.url && nationalIdBackUpload.url;
     if (watchVendorType === "registered") {
-      return nationalIdUpload.url && taxCertUpload.url && hasLocation;
+      return hasNid && taxCertUpload.url && hasLocation;
     }
-    return nationalIdUpload.url && hasLocation;
+    return hasNid && hasLocation;
   };
 
   // ---------- Render ----------
@@ -534,38 +542,48 @@ export default function VendorRegistration() {
                 {/* ── Document Uploads ── */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" /> Required Documents (PDF only)
+                    <FileText className="h-5 w-5 text-primary" /> Required Documents
                   </h3>
 
-                  <div className={`grid grid-cols-1 gap-4 ${watchVendorType === "registered" ? "md:grid-cols-2" : ""}`}>
+                  {/* National ID – Front & Back as separate images */}
+                  <p className="text-sm font-medium text-gray-700">National ID Photos *</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FileUploadBox
-                      label="National ID (Front & Back Combined) *"
-                      hint="Please combine both sides into a single PDF. Max 10 MB."
-                      accept="application/pdf"
+                      label="National ID – Front *"
+                      hint="Clear photo of the front side. Max 10 MB."
+                      accept="image/*"
                       maxSizeMB={10}
-                      state={nationalIdUpload}
-                      onUpload={(file) => uploadFile(file, setNationalIdUpload)}
-                      onClear={() => setNationalIdUpload(emptyUpload())}
+                      state={nationalIdFrontUpload}
+                      onUpload={(file) => uploadFile(file, setNationalIdFrontUpload)}
+                      onClear={() => setNationalIdFrontUpload(emptyUpload())}
                     />
-
-                    {watchVendorType === "registered" && (
-                      <FileUploadBox
-                        label="Tax Certificate *"
-                        hint="Upload your KRA tax compliance certificate. Max 5 MB."
-                        accept="application/pdf"
-                        maxSizeMB={5}
-                        state={taxCertUpload}
-                        onUpload={(file) => uploadFile(file, setTaxCertUpload)}
-                        onClear={() => setTaxCertUpload(emptyUpload())}
-                      />
-                    )}
+                    <FileUploadBox
+                      label="National ID – Back *"
+                      hint="Clear photo of the back side. Max 10 MB."
+                      accept="image/*"
+                      maxSizeMB={10}
+                      state={nationalIdBackUpload}
+                      onUpload={(file) => uploadFile(file, setNationalIdBackUpload)}
+                      onClear={() => setNationalIdBackUpload(emptyUpload())}
+                    />
                   </div>
+
+                  {watchVendorType === "registered" && (
+                    <FileUploadBox
+                      label="Tax Certificate (KRA) *"
+                      hint="Upload your KRA tax compliance certificate (PDF or image). Max 5 MB."
+                      accept="application/pdf,image/*"
+                      maxSizeMB={5}
+                      state={taxCertUpload}
+                      onUpload={(file) => uploadFile(file, setTaxCertUpload)}
+                      onClear={() => setTaxCertUpload(emptyUpload())}
+                    />
+                  )}
 
                   <div className="text-sm text-blue-800 bg-blue-50/60 border border-blue-100/80 rounded-2xl p-5 shadow-sm">
                     <FileText className="w-4 h-4 inline mr-2 text-blue-600" />
-                    {watchVendorType === "registered"
-                      ? "Combine both sides of your National ID into one PDF and upload your KRA Tax Certificate separately."
-                      : "Combine both sides of your National ID into a single PDF. Maximum file size: 10 MB."}
+                    Upload clear photos of both sides of your National ID.
+                    {watchVendorType === "registered" && " Registered vendors must also upload a KRA Tax Certificate."}
                   </div>
                 </div>
 

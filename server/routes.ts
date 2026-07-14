@@ -893,16 +893,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         businessLatitude,
         businessLongitude,
         locationDescription,
-        nationalIdUrl,
+        nationalIdFrontUrl,
+        nationalIdBackUrl,
         taxCertificateUrl
       } = req.body;
 
       // Basic validation
       if (!email || !password || !businessName || !contactName || !businessCategory ||
-        !nationalIdNumber || !nationalIdUrl || !vendorType ||
+        !nationalIdNumber || !nationalIdFrontUrl || !nationalIdBackUrl || !vendorType ||
         !businessLatitude || !businessLongitude || !locationDescription) {
         return res.status(400).json({
-          message: "Missing required fields: email, password, businessName, contactName, businessCategory, vendorType, nationalIdNumber, location coordinates, location description, and national ID document"
+          message: "Missing required fields: email, password, businessName, contactName, businessCategory, vendorType, nationalIdNumber, location coordinates, location description, and national ID front/back photos"
         });
       }
 
@@ -976,7 +977,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         businessLatitude: lat.toString(),
         businessLongitude: lng.toString(),
         locationDescription,
-        nationalIdUrl,
+        nationalIdFrontUrl,
+        nationalIdBackUrl,
         taxCertificateUrl: vendorType === 'registered' ? taxCertificateUrl : null,
         verificationStatus: 'pending',
         // Add bank details if provided
@@ -6464,8 +6466,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { vendorId, documentType } = req.params;
 
-      // Validate document type
-      if (!['nationalId', 'taxCertificate'].includes(documentType)) {
+      // Validate document type - support new front/back image fields and legacy
+      const validTypes = ['nationalId', 'nationalIdFront', 'nationalIdBack', 'taxCertificate'];
+      if (!validTypes.includes(documentType)) {
         return res.status(400).json({ message: "Invalid document type" });
       }
 
@@ -6475,17 +6478,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Vendor not found" });
       }
 
-      const documentUrl = documentType === 'nationalId' ? vendor.nationalIdUrl : vendor.taxCertificateUrl;
+      let documentUrl: string | null = null;
+      if (documentType === 'nationalIdFront') {
+        documentUrl = (vendor as any).nationalIdFrontUrl || null;
+      } else if (documentType === 'nationalIdBack') {
+        documentUrl = (vendor as any).nationalIdBackUrl || null;
+      } else if (documentType === 'nationalId') {
+        // legacy - fallback to old nationalIdUrl
+        documentUrl = vendor.nationalIdUrl || null;
+      } else {
+        documentUrl = vendor.taxCertificateUrl || null;
+      }
+
       if (!documentUrl) {
         return res.status(404).json({ message: "Document not found" });
       }
 
-      // Extract object path from the URL
+      // If it's a fully public GCS URL, redirect directly so the browser renders the image
+      if (documentUrl.startsWith("https://storage.googleapis.com/")) {
+        return res.redirect(documentUrl);
+      }
+
+      // Otherwise try to serve through object storage
       const objectStorageService = new ObjectStorageService();
       const objectPath = objectStorageService.normalizeObjectEntityPath(documentUrl);
 
       if (!objectPath.startsWith('/objects/')) {
-        return res.status(400).json({ message: "Invalid document path" });
+        // Might be a direct public URL with a different pattern – redirect anyway
+        return res.redirect(documentUrl);
       }
 
       // Get the file from object storage and serve it
@@ -6500,6 +6520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to serve document" });
     }
   });
+
 
   app.get('/api/admin/vendor-applications/:id', async (req, res) => {
     try {
