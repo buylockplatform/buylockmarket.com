@@ -265,15 +265,6 @@ export default function Profile() {
                     <User className="w-5 h-5" />
                     <span>Personal Information</span>
                   </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsEditing(!isEditing)}
-                    className="text-white hover:bg-white/20"
-                    data-testid="button-edit-profile"
-                  >
-                    {isEditing ? <X className="w-4 h-4" /> : <Edit3 className="w-4 h-4" />}
-                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
@@ -281,35 +272,23 @@ export default function Profile() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="firstName">First Name</Label>
-                      {isEditing ? (
-                        <Input
-                          id="firstName"
-                          value={formData.firstName || ''}
-                          onChange={(e) => handleInputChange('firstName', e.target.value)}
-                          className="mt-1"
-                          data-testid="input-firstName"
-                        />
-                      ) : (
-                        <p className="mt-1 p-2 bg-gray-50 rounded border" data-testid="text-firstName">
-                          {formData.firstName || 'Not set'}
-                        </p>
-                      )}
+                      <Input
+                        id="firstName"
+                        value={formData.firstName || ''}
+                        onChange={(e) => handleInputChange('firstName', e.target.value)}
+                        className="mt-1"
+                        data-testid="input-firstName"
+                      />
                     </div>
                     <div>
                       <Label htmlFor="lastName">Last Name</Label>
-                      {isEditing ? (
-                        <Input
-                          id="lastName"
-                          value={formData.lastName || ''}
-                          onChange={(e) => handleInputChange('lastName', e.target.value)}
-                          className="mt-1"
-                          data-testid="input-lastName"
-                        />
-                      ) : (
-                        <p className="mt-1 p-2 bg-gray-50 rounded border" data-testid="text-lastName">
-                          {formData.lastName || 'Not set'}
-                        </p>
-                      )}
+                      <Input
+                        id="lastName"
+                        value={formData.lastName || ''}
+                        onChange={(e) => handleInputChange('lastName', e.target.value)}
+                        className="mt-1"
+                        data-testid="input-lastName"
+                      />
                     </div>
                   </div>
 
@@ -318,9 +297,14 @@ export default function Profile() {
                       <Mail className="w-4 h-4" />
                       <span>Email Address</span>
                     </Label>
-                    <p className="mt-1 p-2 bg-gray-50 rounded border text-gray-600" data-testid="text-email">
-                      {user?.email} (cannot be changed)
-                    </p>
+                    <Input
+                      id="email"
+                      value={user?.email || ''}
+                      disabled
+                      className="mt-1 bg-gray-100 text-gray-500 cursor-not-allowed border"
+                      data-testid="input-email"
+                    />
+                    <span className="text-xs text-gray-400 mt-1 block">(cannot be changed)</span>
                   </div>
 
                   <div>
@@ -328,20 +312,14 @@ export default function Profile() {
                       <Phone className="w-4 h-4" />
                       <span>Phone Number</span>
                     </Label>
-                    {isEditing ? (
-                      <Input
-                        id="phone"
-                        value={formData.phone || ''}
-                        onChange={(e) => handleInputChange('phone', e.target.value)}
-                        placeholder="+254712345678"
-                        className="mt-1"
-                        data-testid="input-phone"
-                      />
-                    ) : (
-                      <p className="mt-1 p-2 bg-gray-50 rounded border" data-testid="text-phone">
-                        {formData.phone || 'Not set'}
-                      </p>
-                    )}
+                    <Input
+                      id="phone"
+                      value={formData.phone || ''}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                      placeholder="+254712345678"
+                      className="mt-1"
+                      data-testid="input-phone"
+                    />
                   </div>
 
                   <div>
@@ -349,91 +327,53 @@ export default function Profile() {
                       <MapPin className="w-4 h-4" />
                       <span>Address</span>
                     </Label>
-                    {isEditing ? (
-                      <Textarea
-                        id="address"
-                        value={formData.address || ''}
-                        onChange={(e) => handleInputChange('address', e.target.value)}
-                        placeholder="Your address"
-                        className="mt-1"
-                        rows={2}
-                        data-testid="input-address"
-                      />
-                    ) : (
-                      <p className="mt-1 p-2 bg-gray-50 rounded border" data-testid="text-address">
-                        {formData.address || 'Not set'}
-                      </p>
-                    )}
+                    <Textarea
+                      id="address"
+                      value={formData.address || ''}
+                      onChange={(e) => handleInputChange('address', e.target.value)}
+                      placeholder="Your address"
+                      className="mt-1"
+                      rows={2}
+                      data-testid="input-address"
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="city">City</Label>
-                      {isEditing ? (
-                        <Input
-                          id="city"
-                          value={formData.city || ''}
-                          onChange={(e) => handleInputChange('city', e.target.value)}
-                          placeholder="Nairobi"
-                          className="mt-1"
-                          data-testid="input-city"
-                        />
-                      ) : (
-                        <p className="mt-1 p-2 bg-gray-50 rounded border" data-testid="text-city">
-                          {formData.city || 'Not set'}
-                        </p>
-                      )}
+                      <Input
+                        id="city"
+                        value={formData.city || ''}
+                        onChange={(e) => handleInputChange('city', e.target.value)}
+                        placeholder="Nairobi"
+                        className="mt-1"
+                        data-testid="input-city"
+                      />
                     </div>
                     <div>
                       <Label htmlFor="country">Country</Label>
-                      {isEditing ? (
-                        <Input
-                          id="country"
-                          value={formData.country || ''}
-                          onChange={(e) => handleInputChange('country', e.target.value)}
-                          placeholder="Kenya"
-                          className="mt-1"
-                          data-testid="input-country"
-                        />
-                      ) : (
-                        <p className="mt-1 p-2 bg-gray-50 rounded border" data-testid="text-country">
-                          {formData.country || 'Not set'}
-                        </p>
-                      )}
+                      <Input
+                        id="country"
+                        value={formData.country || ''}
+                        onChange={(e) => handleInputChange('country', e.target.value)}
+                        placeholder="Kenya"
+                        className="mt-1"
+                        data-testid="input-country"
+                      />
                     </div>
                   </div>
 
-                  {isEditing && (
-                    <div className="flex space-x-2 pt-4">
-                      <Button
-                        onClick={handleSaveProfile}
-                        disabled={updateProfileMutation.isPending}
-                        className="bg-buylock-primary hover:bg-buylock-primary/90"
-                        data-testid="button-save-profile"
-                      >
-                        <Save className="w-4 h-4 mr-2" />
-                        {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setIsEditing(false)}
-                        data-testid="button-cancel-edit"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  )}
-                  {!isEditing && (
-                    <div className="flex justify-end pt-4">
-                      <Button
-                        onClick={() => setIsEditing(true)}
-                        className="bg-buylock-primary hover:bg-buylock-primary/90 text-white"
-                      >
-                        <Edit3 className="w-4 h-4 mr-2" />
-                        Edit Profile
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex justify-end pt-4">
+                    <Button
+                      onClick={handleSaveProfile}
+                      disabled={updateProfileMutation.isPending}
+                      className="bg-buylock-primary hover:bg-buylock-primary/90 text-white"
+                      data-testid="button-save-profile"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -447,80 +387,56 @@ export default function Profile() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
-                {!showPasswordForm ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-600 mb-4">Update your password to keep your account secure.</p>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="currentPassword">Current Password</Label>
+                    <Input
+                      id="currentPassword"
+                      type="password"
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      className="mt-1"
+                      data-testid="input-currentPassword"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="newPassword">New Password</Label>
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                      className="mt-1"
+                      placeholder="At least 8 characters"
+                      data-testid="input-newPassword"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      className="mt-1"
+                      data-testid="input-confirmPassword"
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-4">
                     <Button
-                      onClick={() => setShowPasswordForm(true)}
-                      variant="outline"
-                      className="border-buylock-secondary text-buylock-secondary hover:bg-buylock-secondary hover:text-white"
-                      data-testid="button-change-password"
+                      onClick={handleChangePassword}
+                      disabled={changePasswordMutation.isPending}
+                      className="bg-buylock-secondary hover:bg-buylock-secondary/90 text-white"
+                      data-testid="button-save-password"
                     >
-                      <EyeOff className="w-4 h-4 mr-2" />
-                      Change Password
+                      <Save className="w-4 h-4 mr-2" />
+                      {changePasswordMutation.isPending ? "Updating..." : "Update Password"}
                     </Button>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="currentPassword">Current Password</Label>
-                      <Input
-                        id="currentPassword"
-                        type="password"
-                        value={passwordData.currentPassword}
-                        onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                        className="mt-1"
-                        data-testid="input-currentPassword"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="newPassword">New Password</Label>
-                      <Input
-                        id="newPassword"
-                        type="password"
-                        value={passwordData.newPassword}
-                        onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                        className="mt-1"
-                        placeholder="At least 8 characters"
-                        data-testid="input-newPassword"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        value={passwordData.confirmPassword}
-                        onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                        className="mt-1"
-                        data-testid="input-confirmPassword"
-                      />
-                    </div>
-
-                    <div className="flex space-x-2 pt-4">
-                      <Button
-                        onClick={handleChangePassword}
-                        disabled={changePasswordMutation.isPending}
-                        className="bg-buylock-secondary hover:bg-buylock-secondary/90"
-                        data-testid="button-save-password"
-                      >
-                        {changePasswordMutation.isPending ? "Changing..." : "Change Password"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setShowPasswordForm(false);
-                          setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-                        }}
-                        data-testid="button-cancel-password"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                </div>
               </CardContent>
             </Card>
           </div>
