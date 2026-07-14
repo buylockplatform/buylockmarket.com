@@ -145,7 +145,7 @@ export async function registerVendorRoutes(app: Express): Promise<Server> {
 
       await vendorStorage.createPasswordResetToken(vendor.id, token, expiresAt);
 
-      const baseUrl = process.env.VENDOR_BASE_URL || `http://localhost:${process.env.VENDOR_PORT || 5001}`;
+      const baseUrl = process.env.VENDOR_BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://buylockmarket.com/vendor-dashboard' : 'http://localhost:8080/vendor-dashboard');
       const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
       await sendPasswordResetEmail(vendor.email, vendor.contactName, resetUrl);

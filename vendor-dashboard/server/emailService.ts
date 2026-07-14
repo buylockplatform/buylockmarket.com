@@ -1,12 +1,29 @@
 import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
+const getTransporter = () => {
+  if (process.env.SENDGRID_API_KEY) {
+    return nodemailer.createTransport({
+      host: "smtp.sendgrid.net",
+      port: 465,
+      secure: true,
+      auth: {
+        user: "apikey",
+        pass: process.env.SENDGRID_API_KEY,
+      },
+    });
+  }
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+};
+
+const getSenderEmail = () => {
+  return process.env.SMTP_USER || process.env.GMAIL_USER || 'hello@buylockmarket.com';
+};
 
 export async function sendPasswordResetEmail(
   vendorEmail: string,
@@ -14,8 +31,9 @@ export async function sendPasswordResetEmail(
   resetUrl: string
 ): Promise<boolean> {
   try {
+    const transporter = getTransporter();
     await transporter.sendMail({
-      from: `"BuyLock Vendor" <${process.env.GMAIL_USER}>`,
+      from: `"BuyLock Vendor" <${getSenderEmail()}>`,
       to: vendorEmail,
       subject: "Reset Your BuyLock Vendor Password",
       html: `

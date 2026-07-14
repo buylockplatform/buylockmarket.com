@@ -338,7 +338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
       vendorResetTokens.set(token, { vendorId: vendor.id, expiresAt });
 
-      const baseUrl = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+      const baseUrl = process.env.APP_BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://buylockmarket.com' : 'http://localhost:8080');
       const resetUrl = `${baseUrl}/vendor-dashboard/reset-password?token=${token}`;
 
       await sendVendorPasswordResetEmail({
@@ -624,7 +624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
       userResetTokens.set(token, { userId: user.id, expiresAt });
 
-      const baseUrl = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+      const baseUrl = process.env.APP_BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://buylockmarket.com' : 'http://localhost:8080');
       const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
       const userName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;

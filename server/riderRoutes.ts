@@ -205,7 +205,7 @@ router.post("/api/auth/forgot-password", async (req: Request, res: Response) => 
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     riderResetTokens.set(token, { userId: rider.id, expiresAt });
 
-    const baseUrl = process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+    const baseUrl = process.env.APP_BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://buylockmarket.com' : 'http://localhost:8080');
     const resetUrl = `${baseUrl}/delivery/reset-password?token=${token}`;
     const riderName = (rider as any).fullName || (rider as any).firstName || rider.email;
 
