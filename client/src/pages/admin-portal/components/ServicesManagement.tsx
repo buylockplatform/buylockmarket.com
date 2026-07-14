@@ -110,6 +110,27 @@ export default function ServicesManagement() {
     },
   });
 
+  // Toggle service featured status mutation
+  const toggleFeaturedMutation = useMutation({
+    mutationFn: async ({ serviceId, isFeatured }: { serviceId: string; isFeatured: boolean }) => {
+      return apiRequest("PUT", `/api/admin/services/${serviceId}/featured`, { isFeatured });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/services'] });
+      toast({
+        title: "Success",
+        description: "Service featured status updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update featured status",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Filter services based on status
   const approvedServices = (services as Service[]).filter(service => service.adminApproved);
   const pendingServices = (services as Service[]).filter(service => !service.adminApproved);
@@ -187,6 +208,13 @@ export default function ServicesManagement() {
     toggleApprovalMutation.mutate({
       serviceId: service.id,
       approved: !service.adminApproved
+    });
+  };
+
+  const handleToggleFeatured = (service: Service) => {
+    toggleFeaturedMutation.mutate({
+      serviceId: service.id,
+      isFeatured: !service.isFeatured
     });
   };
 
@@ -680,15 +708,27 @@ export default function ServicesManagement() {
                             </Badge>
                           </td>
                           <td className="py-3 px-4">
-                            <div className="flex items-center space-x-2">
-                              <Switch
-                                checked={service.adminApproved}
-                                onCheckedChange={() => handleToggleApproval(service)}
-                                disabled={toggleApprovalMutation.isPending}
-                              />
-                              <span className="text-xs text-gray-500">
-                                {service.adminApproved ? 'Approved' : 'Pending'}
-                              </span>
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center space-x-2">
+                                <Switch
+                                  checked={service.adminApproved}
+                                  onCheckedChange={() => handleToggleApproval(service)}
+                                  disabled={toggleApprovalMutation.isPending}
+                                />
+                                <span className="text-xs text-gray-500">
+                                  {service.adminApproved ? 'Approved' : 'Pending'}
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-2 border-l pl-4 border-gray-200">
+                                <Switch
+                                  checked={service.isFeatured}
+                                  onCheckedChange={() => handleToggleFeatured(service)}
+                                  disabled={toggleFeaturedMutation.isPending}
+                                />
+                                <span className="text-xs text-gray-500">
+                                  {service.isFeatured ? 'Featured' : 'Not Featured'}
+                                </span>
+                              </div>
                             </div>
                           </td>
                           <td className="py-3 px-4">

@@ -54,7 +54,7 @@ export default function Landing() {
               <h2 className="bl-section-title">Featured Products</h2>
               <p className="bl-section-sub mt-1">Handpicked products just for you</p>
             </div>
-            <Link href="/products">
+            <Link href="/shop?product_type=products">
               <Button variant="ghost" className="text-[#FF5A1F] font-semibold text-sm hover:underline p-0 hidden sm:flex items-center gap-1">
                 View all products →
               </Button>
@@ -119,7 +119,7 @@ export default function Landing() {
               <h2 className="bl-section-title">Popular Services</h2>
               <p className="bl-section-sub mt-1">Professional services to meet your needs</p>
             </div>
-            <Link href="/services">
+            <Link href="/shop?product_type=services">
               <Button variant="ghost" className="text-[#FF5A1F] font-semibold text-sm hover:underline p-0 hidden sm:flex items-center gap-1">
                 View all services →
               </Button>

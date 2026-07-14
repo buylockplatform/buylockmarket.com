@@ -6704,6 +6704,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Toggle product featured status
+  app.put('/api/admin/products/:id/featured', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isFeatured } = req.body;
+
+      const product = await storage.updateProductFeatured(id, isFeatured);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      res.json(product);
+    } catch (error) {
+      console.error("Error updating product featured status:", error);
+      res.status(500).json({ message: "Failed to update product featured status" });
+    }
+  });
+
   // Get all services for admin management
   app.get('/api/admin/services', async (req, res) => {
     try {
@@ -6730,6 +6748,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating service approval:", error);
       res.status(500).json({ message: "Failed to update service approval" });
+    }
+  });
+
+  // Toggle service featured status
+  app.put('/api/admin/services/:id/featured', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isFeatured } = req.body;
+
+      const service = await storage.updateServiceFeatured(id, isFeatured);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+
+      res.json(service);
+    } catch (error) {
+      console.error("Error updating service featured status:", error);
+      res.status(500).json({ message: "Failed to update service featured status" });
     }
   });
 

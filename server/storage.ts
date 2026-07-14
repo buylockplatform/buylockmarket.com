@@ -330,8 +330,10 @@ export interface IStorage {
   // Admin product and service management
   getAllProducts(): Promise<Product[]>;
   updateProductApproval(id: string, approved: boolean): Promise<Product | undefined>;
+  updateProductFeatured(id: string, isFeatured: boolean): Promise<Product | undefined>;
   getAllServices(): Promise<Service[]>;
   updateServiceApproval(id: string, approved: boolean): Promise<Service | undefined>;
+  updateServiceFeatured(id: string, isFeatured: boolean): Promise<Service | undefined>;
 
   // Vendor branch locations
   getVendorLocations(vendorId: string): Promise<MerchantLocation[]>;
@@ -2992,6 +2994,34 @@ export class DatabaseStorage implements IStorage {
       return service;
     } catch (error) {
       console.error("Error updating service approval:", error);
+      return undefined;
+    }
+  }
+
+  async updateProductFeatured(id: string, isFeatured: boolean): Promise<Product | undefined> {
+    try {
+      const [product] = await db
+        .update(products)
+        .set({ isFeatured: isFeatured, updatedAt: new Date() })
+        .where(eq(products.id, id))
+        .returning();
+      return product;
+    } catch (error) {
+      console.error("Error updating product featured status:", error);
+      return undefined;
+    }
+  }
+
+  async updateServiceFeatured(id: string, isFeatured: boolean): Promise<Service | undefined> {
+    try {
+      const [service] = await db
+        .update(services)
+        .set({ isFeatured: isFeatured, updatedAt: new Date() })
+        .where(eq(services.id, id))
+        .returning();
+      return service;
+    } catch (error) {
+      console.error("Error updating service featured status:", error);
       return undefined;
     }
   }

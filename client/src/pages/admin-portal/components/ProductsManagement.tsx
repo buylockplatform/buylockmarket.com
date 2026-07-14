@@ -110,6 +110,27 @@ export default function ProductsManagement() {
     },
   });
 
+  // Toggle product featured status mutation
+  const toggleFeaturedMutation = useMutation({
+    mutationFn: async ({ productId, isFeatured }: { productId: string; isFeatured: boolean }) => {
+      return apiRequest("PUT", `/api/admin/products/${productId}/featured`, { isFeatured });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/products'] });
+      toast({
+        title: "Success",
+        description: "Product featured status updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update featured status",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Filter products based on status
   const approvedProducts = (products as Product[]).filter(product => product.adminApproved);
   const pendingProducts = (products as Product[]).filter(product => !product.adminApproved);
@@ -193,6 +214,13 @@ export default function ProductsManagement() {
     toggleApprovalMutation.mutate({
       productId: product.id,
       approved: !product.adminApproved
+    });
+  };
+
+  const handleToggleFeatured = (product: Product) => {
+    toggleFeaturedMutation.mutate({
+      productId: product.id,
+      isFeatured: !product.isFeatured
     });
   };
 
@@ -652,6 +680,14 @@ export default function ProductsManagement() {
                             checked={product.adminApproved}
                             onCheckedChange={() => handleToggleApproval(product)}
                             disabled={toggleApprovalMutation.isPending}
+                          />
+                        </div>
+                        <div className="flex items-center space-x-2 border-l pl-4 border-gray-200">
+                          <span className="text-xs text-gray-500">Featured:</span>
+                          <Switch
+                            checked={product.isFeatured}
+                            onCheckedChange={() => handleToggleFeatured(product)}
+                            disabled={toggleFeaturedMutation.isPending}
                           />
                         </div>
                         <Button 
