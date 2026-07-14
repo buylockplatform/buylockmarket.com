@@ -4263,7 +4263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           adminNotes,
           paystackTransferId: transferResult.transferId,
           paystackTransferCode: transferResult.transferCode,
-          transferStatus: 'success',
+          transferStatus: transferResult.status === 'otp' ? 'otp_pending' : 'success',
           completedAt: new Date(),
           actualPaidAmount: payoutAmount.toString()
         });

@@ -355,7 +355,7 @@ export class PaystackService {
     bankCode?: string;
     accountNumber: string;
     accountName: string;
-  }, amount: number, reason?: string, payoutRequestId?: string): Promise<{ transferId: string; transferCode: string }> {
+  }, amount: number, reason?: string, payoutRequestId?: string): Promise<{ transferId: string; transferCode: string; status?: string }> {
     // Check if we're in demo mode (development environment)
     const isDemoMode = process.env.NODE_ENV === 'development' || process.env.PAYSTACK_DEMO_MODE === 'true';
     
@@ -427,7 +427,8 @@ export class PaystackService {
 
     return {
       transferId: transfer.id.toString(),
-      transferCode: transfer.transfer_code
+      transferCode: transfer.transfer_code,
+      status: transfer.status
     };
   }
 }
