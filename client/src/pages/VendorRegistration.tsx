@@ -571,8 +571,8 @@ export default function VendorRegistration() {
                   {watchVendorType === "registered" && (
                     <FileUploadBox
                       label="Tax Certificate (KRA) *"
-                      hint="Upload your KRA tax compliance certificate (PDF or image). Max 5 MB."
-                      accept="application/pdf,image/*"
+                      hint="Upload a photo of your KRA tax compliance certificate. Max 5 MB."
+                      accept="image/*"
                       maxSizeMB={5}
                       state={taxCertUpload}
                       onUpload={(file) => uploadFile(file, setTaxCertUpload)}
