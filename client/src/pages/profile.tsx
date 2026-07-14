@@ -45,9 +45,10 @@ export default function Profile() {
     isDefault: false
   });
 
-  const { data: user, isLoading } = useQuery<UserProfile>({
+  const { data: responseData, isLoading } = useQuery<{ success: boolean; user: UserProfile }>({
     queryKey: ["/api/user/me"],
   });
+  const user = responseData?.user;
 
   const [formData, setFormData] = useState<Partial<UserProfile>>({});
 
