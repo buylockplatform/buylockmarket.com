@@ -1,10 +1,9 @@
-import { useState, useCallback } from "react";
-import { ObjectUploader } from "@/components/ObjectUploader";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { X, Upload, Image as ImageIcon, Eye } from "lucide-react";
-import type { UploadResult } from "@uppy/core";
-import { vendorApiRequest } from "@/lib/queryClient";
+import { X, Upload, Image as ImageIcon, Eye, Loader2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
 
 interface MultipleImageUploaderProps {
   images: string[];
@@ -14,6 +13,12 @@ interface MultipleImageUploaderProps {
   description?: string;
 }
 
+interface UploadingFile {
+  id: string;
+  name: string;
+  progress: number;
+}
+
 export default function MultipleImageUploader({
   images,
   onImagesChange,
@@ -21,83 +26,125 @@ export default function MultipleImageUploader({
   label = "Product Images",
   description = "Upload high-quality images of your product. First image will be the main image."
 }: MultipleImageUploaderProps) {
-  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
 
-  const handleGetUploadParameters = useCallback(async () => {
-    try {
-      const response = await fetch('/api/objects/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to get upload URL');
-      }
-      
-      const data = await response.json();
-      return {
-        method: 'PUT' as const,
-        url: data.uploadURL,
-      };
-    } catch (error) {
-      console.error('Error getting upload parameters:', error);
-      throw error;
-    }
-  }, []);
+  const uploadSingleFile = async (file: File): Promise<string> => {
+    const fileId = Math.random().toString(36).substring(7);
+    
+    // Add to local uploading state
+    setUploadingFiles(prev => [...prev, { id: fileId, name: file.name, progress: 0 }]);
 
-  const handleUploadComplete = useCallback(async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    try {
-      setUploading(false);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return new Promise<string>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
       
-      if (result.successful && result.successful.length > 0) {
-        const uploadedFiles = result.successful;
-        const newImageUrls: string[] = [];
-        
-        // Process each uploaded file
-        for (const file of uploadedFiles) {
-          if (file.uploadURL) {
-            // Convert the upload URL to object path
-            const objectPath = convertUploadUrlToObjectPath(file.uploadURL);
-            
-            try {
-              // Set ACL policy for the uploaded image using vendor authentication
-              const aclData = await vendorApiRequest('/api/vendor/images', 'PUT', { 
-                imageURL: file.uploadURL 
-              });
-              
-              newImageUrls.push(aclData.objectPath);
-            } catch (error) {
-              console.error('Failed to set ACL for image:', file.uploadURL, error);
-              // Fallback to direct URL if ACL setting fails
-              newImageUrls.push(objectPath);
-            }
-          }
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          setUploadingFiles(prev => 
+            prev.map(f => f.id === fileId ? { ...f, progress: pct } : f)
+          );
         }
-        
-        // Add new images to the existing list
-        const updatedImages = [...images, ...newImageUrls].slice(0, maxImages);
-        onImagesChange(updatedImages);
-      }
-    } catch (error) {
-      console.error('Error processing upload:', error);
-      setUploading(false);
-    }
-  }, [images, onImagesChange, maxImages]);
+      });
 
-  const convertUploadUrlToObjectPath = (uploadUrl: string): string => {
-    try {
-      const url = new URL(uploadUrl);
-      const pathParts = url.pathname.split('/');
-      if (pathParts.length >= 3) {
-        // Extract the object ID from the upload URL
-        const objectId = pathParts[pathParts.length - 1];
-        return `/objects/uploads/${objectId}`;
+      xhr.addEventListener("load", () => {
+        // Remove from uploading list
+        setUploadingFiles(prev => prev.filter(f => f.id !== fileId));
+        
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.url) {
+              resolve(data.url);
+            } else {
+              reject(new Error("Invalid response from server"));
+            }
+          } catch {
+            reject(new Error("Failed to parse server response"));
+          }
+        } else {
+          let errorMsg = "Upload failed";
+          try {
+            errorMsg = JSON.parse(xhr.responseText).message || errorMsg;
+          } catch {}
+          reject(new Error(errorMsg));
+        }
+      });
+
+      xhr.addEventListener("error", () => {
+        setUploadingFiles(prev => prev.filter(f => f.id !== fileId));
+        reject(new Error("Network error during file upload"));
+      });
+
+      xhr.open("POST", "/api/upload/file");
+      xhr.send(formData);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Filter by slot capacity
+    const remainingSlots = maxImages - images.length;
+    if (files.length > remainingSlots) {
+      toast({
+        title: "Limit Exceeded",
+        description: `You can only upload up to ${remainingSlots} more image(s).`,
+        variant: "destructive"
+      });
+    }
+
+    const filesToUpload = files.slice(0, remainingSlots);
+    const uploadPromises = filesToUpload.map(async (file) => {
+      // Basic validation
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "File Too Large",
+          description: `${file.name} exceeds the 5MB limit.`,
+          variant: "destructive"
+        });
+        return null;
       }
-      return uploadUrl;
-    } catch {
-      return uploadUrl;
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Invalid Format",
+          description: `${file.name} is not an image file.`,
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      try {
+        const url = await uploadSingleFile(file);
+        return url;
+      } catch (err: any) {
+        toast({
+          title: "Upload Failed",
+          description: `Failed to upload ${file.name}: ${err.message}`,
+          variant: "destructive"
+        });
+        return null;
+      }
+    });
+
+    const newUrls = (await Promise.all(uploadPromises)).filter((url): url is string => url !== null);
+    
+    if (newUrls.length > 0) {
+      onImagesChange([...images, ...newUrls].slice(0, maxImages));
+      toast({
+        title: "Success",
+        description: `Successfully uploaded ${newUrls.length} image(s).`
+      });
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -114,6 +161,7 @@ export default function MultipleImageUploader({
   };
 
   const remainingSlots = maxImages - images.length;
+  const isUploading = uploadingFiles.length > 0;
 
   return (
     <div className="space-y-4">
@@ -161,7 +209,7 @@ export default function MultipleImageUploader({
               
               {/* Main Image Badge */}
               {index === 0 && (
-                <div className="absolute top-2 left-2 bg-buylock-primary text-white text-xs px-2 py-1 rounded">
+                <div className="absolute top-2 left-2 bg-[#FF5A1F] text-white text-xs px-2 py-1 rounded">
                   Main
                 </div>
               )}
@@ -194,24 +242,52 @@ export default function MultipleImageUploader({
         </div>
       )}
 
+      {/* Uploading Files Status */}
+      {uploadingFiles.length > 0 && (
+        <div className="space-y-2 border border-orange-100 bg-orange-50/50 p-4 rounded-xl">
+          <p className="text-xs font-semibold text-orange-800 flex items-center gap-1.5">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading image(s) to secure storage...
+          </p>
+          {uploadingFiles.map((file) => (
+            <div key={file.id} className="space-y-1">
+              <div className="flex justify-between text-xs text-gray-600">
+                <span className="truncate max-w-[200px]">{file.name}</span>
+                <span>{file.progress}%</span>
+              </div>
+              <Progress value={file.progress} className="h-1.5" />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Upload Button */}
       {remainingSlots > 0 && (
-        <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-buylock-primary transition-colors">
+        <div 
+          onClick={() => !isUploading && fileInputRef.current?.click()}
+          className={`flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#FF5A1F] hover:bg-orange-50/20 transition-all cursor-pointer ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            multiple
+            accept="image/*"
+            className="hidden"
+            disabled={isUploading}
+          />
           <ImageIcon className="w-8 h-8 text-gray-400 mb-2" />
-          <p className="text-sm text-gray-500 mb-4 text-center">
+          <p className="text-sm text-gray-500 mb-4 text-center font-medium">
             Upload up to {remainingSlots} more image{remainingSlots > 1 ? 's' : ''}
           </p>
           
-          <ObjectUploader
-            maxNumberOfFiles={remainingSlots}
-            maxFileSize={5242880} // 5MB
-            onGetUploadParameters={handleGetUploadParameters}
-            onComplete={handleUploadComplete}
-            buttonClassName="bg-buylock-primary hover:bg-buylock-primary/90"
+          <Button 
+            type="button" 
+            className="bg-[#FF5A1F] hover:bg-[#e64e17] text-white rounded-xl shadow-sm"
+            disabled={isUploading}
           >
             <Upload className="w-4 h-4 mr-2" />
-            {uploading ? 'Uploading...' : 'Upload Images'}
-          </ObjectUploader>
+            Select & Upload Images
+          </Button>
         </div>
       )}
 
@@ -222,8 +298,8 @@ export default function MultipleImageUploader({
           <li>• Use high-quality images (at least 800x800 pixels)</li>
           <li>• Maximum file size: 5MB per image</li>
           <li>• Supported formats: JPG, PNG, WebP</li>
-          <li>• First image will be used as the main product image</li>
-          <li>• Show different angles and features of your product</li>
+          <li>• First image will be used as the main product/service image</li>
+          <li>• Show different angles and features of your item</li>
         </ul>
       </div>
 
