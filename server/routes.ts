@@ -8106,7 +8106,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─────────────────────────────────────────────────────────
 
 
-  // Seed database on startup for development
+  // Seed database on startup for development (commented out to run only via npm run db:seed)
+  /*
   if (process.env.NODE_ENV === "development") {
     try {
       await seedDatabase();
@@ -8115,6 +8116,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("❌ Failed to seed database:", error);
     }
   }
+  */
 
   const httpServer = createServer(app);
   return httpServer;

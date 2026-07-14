@@ -16,9 +16,19 @@ import {
 import bcrypt from "bcrypt";
 
 export async function seedDatabase() {
-  console.log("🌱 Seeding BuyLock database...");
-
   try {
+    // Check if database is already seeded
+    const existingProducts = await db.select().from(products).limit(1);
+    if (existingProducts.length > 0 && process.env.FORCE_SEED !== "true") {
+      console.log("⚡ Database already seeded (found existing products). Skipping seeding. (Set FORCE_SEED=true to override)");
+      return {
+        vendorId: '74bf6c33-7f09-4844-903d-72bff3849c95',
+        vendorEmail: "vendor@buylock.com"
+      };
+    }
+
+    console.log("🌱 Seeding BuyLock database...");
+
     // 1. Create categories first
     console.log("📁 Creating categories...");
 
