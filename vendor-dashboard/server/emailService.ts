@@ -36,6 +36,17 @@ export async function sendPasswordResetEmail(
       from: `"BuyLock Vendor" <${getSenderEmail()}>`,
       to: vendorEmail,
       subject: "Reset Your BuyLock Vendor Password",
+      headers: {
+        'X-SMTPAPI': JSON.stringify({
+          filters: {
+            clicktrack: {
+              settings: {
+                enable: 0
+              }
+            }
+          }
+        })
+      },
       html: `
         <!DOCTYPE html>
         <html>

@@ -49,6 +49,15 @@ async function sendMailWrapper(options: {
         from: options.from,
         subject: options.subject,
         html: options.html,
+        trackingSettings: {
+          clickTracking: {
+            enable: false,
+            enableText: false
+          },
+          openTracking: {
+            enable: false
+          }
+        }
       };
       if (options.text) {
         mailData.text = options.text;
