@@ -3113,25 +3113,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Ensure vendor exists in users table (for foreign key constraint)
       await storage.ensureUserExists(vendor.id, vendor.email, vendor.businessName || 'Vendor');
 
-      // Map images array to imageUrls if needed
-      if ((!productData.imageUrls || productData.imageUrls === null) && Array.isArray(productData.images)) {
-        productData.imageUrls = productData.images;
-      }
-      if ((!productData.imageUrl || productData.imageUrl === null) && Array.isArray(productData.imageUrls) && productData.imageUrls.length > 0) {
-        productData.imageUrl = productData.imageUrls[0];
-      }
-
-      // Clean up null/undefined keys from payload to avoid overriding DB/drizzle defaults
-      const cleanedData = { ...productData };
-      Object.keys(cleanedData).forEach(key => {
-        if (cleanedData[key] === null || cleanedData[key] === undefined) {
-          delete cleanedData[key];
-        }
-      });
-
       // Add vendor ID and defaults
       const product = await storage.createProduct({
-        ...cleanedData,
+        ...productData,
         vendorId: vendor.id,
         rating: "0.00",
         reviewCount: 0,
@@ -3140,9 +3124,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.status(201).json(product);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error creating vendor product:", error);
-      res.status(500).json({ message: error.message ?? "Failed to create product" });
+      res.status(500).json({ message: "Failed to create product" });
     }
   });
 
@@ -3259,25 +3243,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Ensure vendor exists in users table (for foreign key constraint)
       await storage.ensureUserExists(vendor.id, vendor.email, vendor.businessName || 'Vendor');
 
-      // Map images array to imageUrls if needed
-      if ((!serviceData.imageUrls || serviceData.imageUrls === null) && Array.isArray(serviceData.images)) {
-        serviceData.imageUrls = serviceData.images;
-      }
-      if ((!serviceData.imageUrl || serviceData.imageUrl === null) && Array.isArray(serviceData.imageUrls) && serviceData.imageUrls.length > 0) {
-        serviceData.imageUrl = serviceData.imageUrls[0];
-      }
-
-      // Clean up null/undefined keys from payload to avoid overriding DB/drizzle defaults
-      const cleanedData = { ...serviceData };
-      Object.keys(cleanedData).forEach(key => {
-        if (cleanedData[key] === null || cleanedData[key] === undefined) {
-          delete cleanedData[key];
-        }
-      });
-
       // Add provider ID and defaults
       const service = await storage.createService({
-        ...cleanedData,
+        ...serviceData,
         providerId: vendor.id,
         rating: "0.00",
         reviewCount: 0,
@@ -3286,9 +3254,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.status(201).json(service);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error creating vendor service:", error);
-      res.status(500).json({ message: error.message ?? "Failed to create service" });
+      res.status(500).json({ message: "Failed to create service" });
     }
   });
 
