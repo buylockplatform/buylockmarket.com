@@ -12,6 +12,7 @@ import {
   Search, 
   Eye, 
   CheckCircle, 
+  XCircle,
   AlertTriangle, 
   Clock,
   Calendar,
@@ -47,6 +48,8 @@ interface VendorApplication {
 export default function VendorRequests() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [rejectDialogId, setRejectDialogId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -85,16 +88,16 @@ export default function VendorRequests() {
 
   // Reject vendor application
   const rejectMutation = useMutation({
-    mutationFn: async (applicationId: string) => {
-      await apiRequest(`/api/admin/vendor-applications/${applicationId}/reject`, 'PUT', { 
-        reason: 'Application rejected by admin' 
-      });
+    mutationFn: async ({ applicationId, reason }: { applicationId: string; reason: string }) => {
+      await apiRequest(`/api/admin/vendor-applications/${applicationId}/reject`, 'PUT', { reason });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/vendor-applications'] });
+      setRejectDialogId(null);
+      setRejectReason("");
       toast({
-        title: "Success",
-        description: "Vendor application rejected",
+        title: "Application Rejected",
+        description: "Vendor has been notified via SMS with the rejection reason.",
       });
     },
     onError: () => {
@@ -110,8 +113,14 @@ export default function VendorRequests() {
     approveMutation.mutate(applicationId);
   };
 
-  const handleRejectRequest = async (applicationId: string) => {
-    rejectMutation.mutate(applicationId);
+  const handleRejectRequest = (applicationId: string) => {
+    setRejectDialogId(applicationId);
+    setRejectReason("");
+  };
+
+  const confirmReject = () => {
+    if (!rejectDialogId) return;
+    rejectMutation.mutate({ applicationId: rejectDialogId, reason: rejectReason || 'Application did not meet our requirements.' });
   };
 
   const getStatusColor = (status: string) => {
@@ -421,6 +430,44 @@ export default function VendorRequests() {
           )}
         </CardContent>
       </Card>
+
+      {/* Rejection Reason Dialog */}
+      {rejectDialogId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <XCircle className="w-6 h-6 text-red-500" />
+              <h3 className="text-lg font-semibold text-gray-900">Reject Vendor Application</h3>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              The rejection reason will be sent to the vendor via <strong>SMS</strong>. Please be clear and helpful.
+            </p>
+            <textarea
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400"
+              rows={4}
+              placeholder="e.g. Your National ID documents are unclear. Please re-submit with clearer photos."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+            />
+            <div className="flex gap-3 mt-4 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => { setRejectDialogId(null); setRejectReason(""); }}
+                disabled={rejectMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmReject}
+                disabled={rejectMutation.isPending}
+              >
+                {rejectMutation.isPending ? "Rejecting..." : "Reject & Send SMS"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

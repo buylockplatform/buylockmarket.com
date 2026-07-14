@@ -6538,18 +6538,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Vendor application not found" });
       }
 
+      const vendorName = application.contactName || application.businessName || 'Vendor';
+
       // Send approval notification email
       try {
         await sendVendorAccountApprovedNotification({
           vendorEmail: application.email,
-          vendorName: application.contactName,
+          vendorName,
           businessName: application.businessName,
           loginUrl: "https://buylockmarket.com/vendor-dashboard/login"
         });
         console.log(`✅ Vendor account approved notification sent to ${application.email}`);
       } catch (emailError) {
         console.error("Failed to send approval notification email:", emailError);
-        // Continue with approval even if email fails
+      }
+
+      // Send SMS notification
+      if (application.phone) {
+        try {
+          const { uwaziiService } = await import('./uwaziiService');
+          const smsText = `Hi ${vendorName}, congratulations! Your Buylock vendor account for "${application.businessName}" has been approved. Log in at https://buylockmarket.com/vendor-dashboard/login to start selling. Welcome aboard!`;
+          const smsResult = await uwaziiService.sendSMS(application.phone, smsText);
+          if (smsResult.success) {
+            console.log(`✅ Vendor approval SMS sent to ${application.phone}`);
+          } else {
+            console.warn(`⚠️ Vendor approval SMS failed for ${application.phone}:`, smsResult.error);
+          }
+        } catch (smsError) {
+          console.error('Failed to send vendor approval SMS:', smsError);
+        }
       }
 
       res.json(application);
@@ -6568,13 +6585,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Vendor application not found" });
       }
 
-      // Send rejection notification email
-      try {
-        // TODO: Implement rejection email notification if needed
-        console.log(`Vendor rejection notification would be sent to ${application.email} (reason: ${reason})`);
-      } catch (emailError) {
-        console.error("Failed to send rejection notification email:", emailError);
-        // Continue with rejection even if email fails
+      const vendorName = application.contactName || application.businessName || 'Vendor';
+      const rejectionReason = reason || 'Your application did not meet our requirements at this time.';
+
+      // Send SMS notification
+      if (application.phone) {
+        try {
+          const { uwaziiService } = await import('./uwaziiService');
+          const smsText = `Hi ${vendorName}, unfortunately your Buylock vendor application for "${application.businessName}" was not approved. Reason: ${rejectionReason}. You may re-apply after addressing the issue(s). Contact support@buylockmarket.com for assistance.`;
+          const smsResult = await uwaziiService.sendSMS(application.phone, smsText);
+          if (smsResult.success) {
+            console.log(`✅ Vendor rejection SMS sent to ${application.phone}`);
+          } else {
+            console.warn(`⚠️ Vendor rejection SMS failed for ${application.phone}:`, smsResult.error);
+          }
+        } catch (smsError) {
+          console.error('Failed to send vendor rejection SMS:', smsError);
+        }
       }
 
       res.json(application);
