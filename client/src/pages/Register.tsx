@@ -142,7 +142,7 @@ export default function Register() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number (Optional)</Label>
+                <Label htmlFor="phone">Phone Number</Label>
                 <Input
                   id="phone"
                   name="phone"
@@ -150,6 +150,7 @@ export default function Register() {
                   placeholder="Enter your phone number"
                   value={formData.phone}
                   onChange={handleChange}
+                  required
                   data-testid="input-phone"
                 />
               </div>
