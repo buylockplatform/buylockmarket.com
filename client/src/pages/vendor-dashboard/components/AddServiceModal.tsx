@@ -321,18 +321,6 @@ export default function AddServiceModal({ vendorId }: AddServiceModalProps) {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <Label htmlFor="featured">Featured Service</Label>
-                  <p className="text-sm text-gray-500">Display this service prominently on the homepage</p>
-                </div>
-                <Switch
-                  id="featured"
-                  checked={formData.isFeatured}
-                  onCheckedChange={(checked) => handleInputChange('isFeatured', checked)}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
                   <Label htmlFor="active">Active Status</Label>
                   <p className="text-sm text-gray-500">Make this service available for booking</p>
                 </div>

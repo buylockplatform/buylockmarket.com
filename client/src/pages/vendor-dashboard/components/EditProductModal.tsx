@@ -322,15 +322,6 @@ export default function EditProductModal({ vendorId, product }: EditProductModal
               <div className="flex items-center space-x-6">
                 <div className="flex items-center space-x-2">
                   <Switch
-                    id="isFeatured"
-                    checked={formData.isFeatured}
-                    onCheckedChange={(checked) => handleInputChange('isFeatured', checked)}
-                  />
-                  <Label htmlFor="isFeatured">Featured Product</Label>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Switch
                     id="isActive"
                     checked={formData.isActive}
                     onCheckedChange={(checked) => handleInputChange('isActive', checked)}

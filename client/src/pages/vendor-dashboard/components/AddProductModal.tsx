@@ -328,18 +328,6 @@ export default function AddProductModal({ vendorId }: AddProductModalProps) {
             
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Label htmlFor="featured">Featured Product</Label>
-                <p className="text-sm text-gray-500">Display this product prominently on the homepage</p>
-              </div>
-              <Switch
-                id="featured"
-                checked={formData.isFeatured}
-                onCheckedChange={(checked) => handleInputChange('isFeatured', checked)}
-              />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
                 <Label htmlFor="active">Active Status</Label>
                 <p className="text-sm text-gray-500">Make this product available for purchase</p>
               </div>
