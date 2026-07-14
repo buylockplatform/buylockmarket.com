@@ -42,12 +42,12 @@ const vendorRegistrationSchema = z.object({
 }).refine(
   (data) => {
     if (data.vendorType === "registered") {
-      return data.taxPinNumber && /^A\d{9}[A-Z]$/.test(data.taxPinNumber);
+      return !!(data.taxPinNumber && data.taxPinNumber.trim().length > 0);
     }
     return true;
   },
   {
-    message: "Tax PIN is required for registered vendors and must be in format A000000000X",
+    message: "Tax PIN is required for registered vendors",
     path: ["taxPinNumber"],
   }
 );

@@ -919,11 +919,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             message: "Registered vendors must provide tax PIN and tax certificate document"
           });
         }
-
-        // Validate tax PIN format (Kenyan format: A followed by 9 digits followed by letter)
-        if (!/^A\d{9}[A-Z]$/.test(taxPinNumber)) {
-          return res.status(400).json({ message: "Tax PIN must be in format A000000000X" });
-        }
       }
 
       if (password.length < 6) {
