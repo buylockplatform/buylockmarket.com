@@ -51,6 +51,8 @@ interface Vendor {
   nationalIdNumber?: string;
   taxPinNumber?: string;
   nationalIdUrl?: string;
+  nationalIdFrontUrl?: string;
+  nationalIdBackUrl?: string;
   taxCertificateUrl?: string;
   verificationStatus: "pending" | "verified" | "rejected";
   verificationNotes?: string;
@@ -264,12 +266,37 @@ function KycPanel({ vendor }: { vendor: Vendor }) {
           <div className="space-y-1">
             <p className="font-medium text-gray-700">National ID</p>
             <p className="text-gray-500">No.: {vendor.nationalIdNumber || "—"}</p>
-            <KycDocumentViewer url={vendor.nationalIdUrl || ""} label="National ID" />
+            <div className="flex flex-col space-y-1.5 mt-1">
+              {vendor.nationalIdFrontUrl ? (
+                <KycDocumentViewer url={`/api/admin/vendor-documents/${vendor.id}/nationalIdFront`} label="ID Card - Front" />
+              ) : null}
+              {vendor.nationalIdBackUrl ? (
+                <KycDocumentViewer url={`/api/admin/vendor-documents/${vendor.id}/nationalIdBack`} label="ID Card - Back" />
+              ) : null}
+              {vendor.nationalIdUrl ? (
+                <KycDocumentViewer url={`/api/admin/vendor-documents/${vendor.id}/nationalId`} label="National ID Document" />
+              ) : null}
+              {!vendor.nationalIdFrontUrl && !vendor.nationalIdBackUrl && !vendor.nationalIdUrl ? (
+                <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                  <FileText className="w-3.5 h-3.5" />
+                  Not uploaded
+                </span>
+              ) : null}
+            </div>
           </div>
           <div className="space-y-1">
             <p className="font-medium text-gray-700">Tax PIN</p>
             <p className="text-gray-500">PIN: {vendor.taxPinNumber || "—"}</p>
-            <KycDocumentViewer url={vendor.taxCertificateUrl || ""} label="Tax Certificate" />
+            <div className="flex flex-col space-y-1.5 mt-1">
+              {vendor.taxCertificateUrl ? (
+                <KycDocumentViewer url={`/api/admin/vendor-documents/${vendor.id}/taxCertificate`} label="Tax Certificate" />
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                  <FileText className="w-3.5 h-3.5" />
+                  Not uploaded
+                </span>
+              )}
+            </div>
           </div>
         </div>
       )}

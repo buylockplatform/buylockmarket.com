@@ -87,6 +87,8 @@ interface VendorDetail {
   nationalIdNumber?: string | null;
   taxPinNumber?: string | null;
   nationalIdUrl?: string | null;
+  nationalIdFrontUrl?: string | null;
+  nationalIdBackUrl?: string | null;
   taxCertificateUrl?: string | null;
   locationDescription?: string | null;
   bankName?: string | null;

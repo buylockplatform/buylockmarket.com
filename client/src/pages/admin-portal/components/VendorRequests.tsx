@@ -39,6 +39,8 @@ interface VendorApplication {
   businessLongitude?: string;
   locationDescription?: string;
   nationalIdUrl?: string;
+  nationalIdFrontUrl?: string;
+  nationalIdBackUrl?: string;
   taxCertificateUrl?: string;
   verificationStatus: 'pending' | 'verified' | 'rejected';
   createdAt: string;
@@ -354,7 +356,7 @@ export default function VendorRequests() {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center flex-wrap gap-2">
-                      {(application as any).nationalIdFrontUrl && (
+                      application.nationalIdFrontUrl && (
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -365,7 +367,7 @@ export default function VendorRequests() {
                           NID Front
                         </Button>
                       )}
-                      {(application as any).nationalIdBackUrl && (
+                      application.nationalIdBackUrl && (
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -376,7 +378,7 @@ export default function VendorRequests() {
                           NID Back
                         </Button>
                       )}
-                      {!((application as any).nationalIdFrontUrl) && application.nationalIdUrl && (
+                      !(application.nationalIdFrontUrl) && application.nationalIdUrl && (
                         <Button 
                           size="sm" 
                           variant="outline"
