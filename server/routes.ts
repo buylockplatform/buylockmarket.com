@@ -6387,19 +6387,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           reviewedAt: request.reviewedAt,
         })),
         documents: [
-          {
-            type: "National ID",
-            documentType: "nationalId",
-            number: vendor.nationalIdNumber,
-            url: vendor.nationalIdUrl,
-            uploaded: !!vendor.nationalIdUrl,
-          },
+          ...(vendor.nationalIdFrontUrl
+            ? [{
+                type: "National ID Front",
+                documentType: "nationalIdFront",
+                number: vendor.nationalIdNumber,
+                url: `/api/admin/vendor-documents/${vendor.id}/nationalIdFront`,
+                uploaded: true,
+              }]
+            : []),
+          ...(vendor.nationalIdBackUrl
+            ? [{
+                type: "National ID Back",
+                documentType: "nationalIdBack",
+                number: vendor.nationalIdNumber,
+                url: `/api/admin/vendor-documents/${vendor.id}/nationalIdBack`,
+                uploaded: true,
+              }]
+            : []),
+          ...((vendor.nationalIdUrl || (!vendor.nationalIdFrontUrl && !vendor.nationalIdBackUrl))
+            ? [{
+                type: "National ID",
+                documentType: "nationalId",
+                number: vendor.nationalIdNumber,
+                url: vendor.nationalIdUrl ? `/api/admin/vendor-documents/${vendor.id}/nationalId` : null,
+                uploaded: !!vendor.nationalIdUrl,
+              }]
+            : []),
           ...(vendor.taxPinNumber || vendor.taxCertificateUrl
             ? [{
                 type: "Tax Certificate",
                 documentType: "taxCertificate",
                 number: vendor.taxPinNumber,
-                url: vendor.taxCertificateUrl,
+                url: vendor.taxCertificateUrl ? `/api/admin/vendor-documents/${vendor.id}/taxCertificate` : null,
                 uploaded: !!vendor.taxCertificateUrl,
               }]
             : []),
