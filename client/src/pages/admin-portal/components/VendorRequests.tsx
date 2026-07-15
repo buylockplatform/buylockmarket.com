@@ -356,7 +356,7 @@ export default function VendorRequests() {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center flex-wrap gap-2">
-                      application.nationalIdFrontUrl && (
+                      {application.nationalIdFrontUrl && (
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -367,7 +367,7 @@ export default function VendorRequests() {
                           NID Front
                         </Button>
                       )}
-                      application.nationalIdBackUrl && (
+                      {application.nationalIdBackUrl && (
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -378,7 +378,7 @@ export default function VendorRequests() {
                           NID Back
                         </Button>
                       )}
-                      !(application.nationalIdFrontUrl) && application.nationalIdUrl && (
+                      {!application.nationalIdFrontUrl && application.nationalIdUrl && (
                         <Button 
                           size="sm" 
                           variant="outline"
